@@ -436,20 +436,22 @@ def main():
       sys.exit(1)
     while maybe_header_line != "\n":
       maybe_header_line = sys.stdin.readline()
-      match = re.match("Offset: ([0-9]+)", maybe_header_line)
-      if match:
-        pad.set_offset(int, fooo)
-        sys.stderr.write("KFF: pad offset: %s\n" % pad.offset())
-
+      m = re.match("Offset: ([0-9]+)", maybe_header_line)
+      if m:
+        pad.set_offset(int(m.group(1)))
+        sys.stderr.write("KFF: pad offset reset: %s\n" % pad.offset())
     while 1:
       str = sys.stdin.readline()
       sys.stderr.write("KFF: str in:  '%s'" % str)
       if str == otp_end:
+        sys.stderr.write("KFF: GOT END\n")
         saw_end = 1
         break
       if len(str) > 0:
         try:
+          sys.stderr.write("KFF: about to decode: '%s'" % str)
           result = decoder.decode(str)
+          sys.stderr.write("KFF: just decoded: '%s'" % str)
         except EOFError:
           break
         if result:
@@ -457,7 +459,9 @@ def main():
           sys.stdout.write(result)
       else:
         break
+    sys.stderr.write("KFF: about to call decoder.finish()\n")
     decoder.finish()
+    sys.stderr.write("KFF: just called decoder.finish()\n")
     if not saw_end:
       sys.stderr.write("Error: malformed OTP format: no end line.\n")
       sys.exit(1)
