@@ -51,3 +51,6 @@ if cmp test-msg test-msg.decoded-1; then
 else
   echo "Error: tests failed, something went wrong."
 fi
+
+# Revert here too, in case about to commit.
+svn revert dot-otp/pads
