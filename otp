@@ -110,7 +110,7 @@ class PadDecoder:
 
 class Configuration:
   """A parsed representation of one user's ~/.otp/ configuration area.
-  A .otp/ directory contains just a `pads' file right now."""
+  A .otp/ directory contains just a 'pads' file right now."""
   def __init__(self, path=None):
     """Initialize a new configuration.  If PATH is None, try to find
   the config area based on the runtime environment.  Otherwise, PATH
@@ -119,10 +119,11 @@ class Configuration:
     if not self.config_area:
       self.config_area = "dot_otp"
     self.pads_file = os.path.join(self.config_area, "pads")
-    self.pads_dom = self.parse_pads()
+    self.pads_dom = self._parse_pads()
 
-  def parse_pads(self):
-    """A ~/.otp/pads file is an XML tree that looks like this:
+  def _parse_pads(self):
+    """Return a DOM tree for a 'pads' file (e.g., ~/.otp/pads).
+    The 'pads' file is an XML document that looks like this:
 
       <?xml version="1.0" encode="UTF-8"?>
       <!DOCTYPE TYPE_OF_DOC SYSTEM/PUBLIC "dtd-name">
@@ -145,11 +146,7 @@ class Configuration:
          </pad>
          ...
       </otp-pads>
-  
-The data structure returned is a dictionary, whose keys are the IDs,
-and whose values are sub-dictionaries, whose keys are the remaining
-element names inside a pad, where the value of the 'used' element is a
-list of tuples, each tuple of the form (OFFSET, LENGTH)."""
+      """
     return xml.dom.minidom.parse(self.pads_file)
     
   def show_pads(self):
