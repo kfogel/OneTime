@@ -3,7 +3,8 @@
 all: check
 
 run:
-	@./otp --debug --config=dot-otp -e random-data 0 < test-msg
+	@(cd tests; \
+          ../otp --debug --config=dot-otp -e random-data-1 0 < test-msg)
 
 check:
 	@check.sh
