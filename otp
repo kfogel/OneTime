@@ -9,6 +9,7 @@ import getopt
 import bz2
 import base64
 import sha
+import re
 import xml
 import xml.dom
 import xml.dom.minidom
@@ -319,6 +320,8 @@ symmetrical, because otp compresses plaintext input to save pad.
 Thus, otp needs to be told whether it is encoding or decoding.
 
 Use --offset=N option to control pad data start offset.
+
+Use --config=DIR to use DIR (instead of ~/.otp) as the config area.
 """
 
 
@@ -326,19 +329,6 @@ def main():
   # Exactly one of these two gets set to 1.
   encrypting = None
   decrypting = None
-
-  # The first line of OTP format is the header.
-  # The second through (N-1)th lines are the encoded body.
-  # The last line is the footer.
-  
-  otp_header = "-----BEGIN OTP MESSAGE-----\n"
-  #            + "Version: OTP v0.0\n"
-  #            + "Pad ID: %s\n"
-  #            + "Offset: %s\n"
-  #            + "Length: %s\n"
-  #            + "\n"
-  
-  otp_footer = "-----END OTP MESSAGE-----\n"
 
   try:
     opts, args = getopt.getopt(sys.argv[1:],
@@ -395,14 +385,34 @@ def main():
   pad_file = args[0]
   pad = Pad(pad_file)
 
+  sys.stderr.write("KFF: pad offset at init time: %s\n" % pad.offset())
+
   config = Configuration(config_area)
   config.register(pad)
 
+  sys.stderr.write("KFF: pad offset after register: %s\n" % pad.offset())
+
+  ### todo: need to be less clumsy about offset handling
+  if offset is not None:
+    pad.set_offset(offset)
+
+  sys.stderr.write("KFF: pad offset after manual set: %s\n" % pad.offset())
+
+  # The first line of OTP format is the begin line.
+  # Then comes the header: a group of lines followed by a blank line.
+  # Then comes the encoded body.
+  # The last line indicates the end, and is distinguishable from
+  #   encoded content by inspection 
+  otp_begin = "-----BEGIN OTP MESSAGE-----\n"
+  otp_header = "%s" % otp_begin                \
+               + "Version: OTP v0.0\n"         \
+               + "Pad ID: %s\n" % pad.id()     \
+               + "Offset: %s\n" % pad.offset() \
+               + "\n"
+  otp_end = "-----END OTP MESSAGE-----\n"
+
   if encrypting:
     encoder = PadEncoder(pad, config)
-    ### todo: need to be less clumsy about offset handling for encoding
-    if offset is not None:
-      pad.set_offset(offset)
     sys.stdout.write(otp_header)
     while 1:
       str = sys.stdin.read()
@@ -415,41 +425,41 @@ def main():
         if result:
           sys.stdout.write(result)
         break
-    sys.stdout.write(otp_footer)
+    sys.stdout.write(otp_end)
 
   elif decrypting:
     decoder = PadDecoder(pad, config)
-    ### todo: need to be less clumsy about offset handling for decoding
-    if offset is not None:
-      pad.set_offset(offset)
-    saw_header = None
-    saw_footer = None
+    saw_end = None
+    maybe_header_line = sys.stdin.readline()
+    if maybe_header_line != otp_begin:
+      sys.stderr.write("Error: malformed OTP format: no begin line.\n")
+      sys.exit(1)
+    while maybe_header_line != "\n":
+      maybe_header_line = sys.stdin.readline()
+      match = re.match("Offset: ([0-9]+)", maybe_header_line)
+      if match:
+        pad.set_offset(int, fooo)
+        sys.stderr.write("KFF: pad offset: %s\n" % pad.offset())
+
     while 1:
-      maybe_header = sys.stdin.readline()
-      if maybe_header == otp_header:
-        saw_header = 1
+      str = sys.stdin.readline()
+      sys.stderr.write("KFF: str in:  '%s'" % str)
+      if str == otp_end:
+        saw_end = 1
         break
-    if saw_header:
-      while 1:
-        str = sys.stdin.readline()
-        if str == otp_footer:
-          saw_footer = 1
+      if len(str) > 0:
+        try:
+          result = decoder.decode(str)
+        except EOFError:
           break
-        if len(str) > 0:
-          try:
-            result = decoder.decode(str)
-          except EOFError:
-            break
-          if result:
-            sys.stdout.write(result)
-        else:
-          break
-      decoder.finish()
-      if not saw_footer:
-        sys.stderr.write("Error: malformed OTP format: no footer line.\n")
-        sys.exit(1)
-    else:
-      sys.stderr.write("Error: no OTP header line found.\n")
+        if result:
+          sys.stderr.write("KFF: str out: '%s'" % result)
+          sys.stdout.write(result)
+      else:
+        break
+    decoder.finish()
+    if not saw_end:
+      sys.stderr.write("Error: malformed OTP format: no end line.\n")
       sys.exit(1)
 
   if encrypting or decrypting:
