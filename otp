@@ -15,12 +15,12 @@ import xml.dom.minidom
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
   Feed bytes through convert() to XOR them against the pad."""
-  def __init__(self, pad, offset):
-    """Initialize a new pad, using padfile PAD at OFFSET.
+  def __init__(self, pad, offset=None):
+    """Initialize a new pad, using padfile PAD, optionally at OFFSET.
     """
-    self.offset = offset
+    self.offset = offset  ### todo: must coordinate w/ configuration, then
     self.padfile = open(pad)
-    self._length = 0  # number of pad bytes used
+    self._length = 0  # number of pad bytes used this time
     self._id = self._get_id(self.padfile)
     self.padfile.seek(self.offset)
     
@@ -182,6 +182,7 @@ class Configuration:
             else:
               ### todo: or error on unrecognized element?
               pass
+        ### todo: consolidate used tuples first
         subdict = { }
         subdict["path"] = path
         subdict["used"] = used
@@ -198,13 +199,17 @@ class Configuration:
       fp.write("  <pad>\n")
       fp.write("    <id>%s</id>\n" % pad)
       fp.write("    <path>%s</path>\n" % self.pads[pad]["path"])
-      ### todo: consolidate used tuples first
       for tuple in self.pads[pad]["used"]:
         fp.write("    <used><offset>%d</offset>\n" % tuple[0])
         fp.write("          <length>%d</length></used>\n" % tuple[1])
       fp.write("  </pad>\n")
     fp.write("</otp-pads>\n")
     os.rename(tempfile, self.pads_file)
+
+  def consume_pad(self, pad_id, offset, length):
+    """In pad PAD_ID, record a used region of LENGTH from OFFSET."""
+    ### todo: implement
+    pass
 
   def show_pads(self):
     """Print pads configuration, presumably for debugging."""
@@ -216,11 +221,14 @@ class Configuration:
 
 def usage():
   """Return a usage string."""
-  return """Usage: otp [-e|-d] PAD_FILE PAD_OFFSET < INPUT > OUTPUT
+  return """Usage: otp [-e|-d] PAD_FILE < INPUT > OUTPUT
          
 Encoder/decoder for one-time pads.  Encoding and decoding are not
 symmetrical, because otp compresses plaintext input to save pad.
-Thus, otp needs to be told whether it is encoding or decoding."""
+Thus, otp needs to be told whether it is encoding or decoding.
+
+Use --offset=N option to control pad data start offset.
+"""
 
 
 def main():
@@ -245,6 +253,7 @@ def main():
     opts, args = getopt.getopt(sys.argv[1:],
                                'edh?vVC:',
                                [ "encrypt", "decrypt",
+                                 "offset=",
                                  "config=",
                                  "debug",
                                  "help", "version"])
@@ -252,10 +261,11 @@ def main():
     sys.stderr.write("Error: '%s'\n" % str(e))
     sys.exit(1)
 
-  encrypting = None
-  decrypting = None
+  encrypting  = None
+  decrypting  = None
+  offset      = None
   config_area = None
-  debug = None
+  debug       = None
 
   for opt, value in opts:
     if opt == '--help' or opt == '-h' or opt == '-?':
@@ -268,6 +278,8 @@ def main():
       encrypting = 1
     elif opt == '--decrypt' or opt == '-d':
       decrypting = 1
+    elif opt == '--offset':
+      offset = int(value)
     elif opt == '--config' or opt == '-C':
       config_area = value
     elif opt == '--debug':
@@ -285,16 +297,15 @@ def main():
     sys.stderr.write("Error: must pass either '-e' or '-d'.\n")
     sys.exit(1)
 
-  # Ignore opts for now, just encrypt.
-  if len(args) != 2:
+  if len(args) != 1:
     sys.stderr.write("%s\n" % usage())
     sys.exit(1)
 
   config = Configuration(config_area)
 
   pad_file = args[0]
-  pad_offset = int(args[1])
-  pad = Pad(pad_file, pad_offset)
+  ### todo: must coordinate offset w/ configuration
+  pad = Pad(pad_file, offset)
 
   if encrypting:
     encoder = PadEncoder(pad)

@@ -2,8 +2,10 @@
 
 cd tests
 
-../otp --config=dot-otp -e random-data-1 0 < test-msg > test-msg.otp
-../otp --config=dot-otp -d  random-data-1 0 < test-msg.otp > test-msg.decoded
+../otp --config=dot-otp --offset=0 -e random-data-1  \
+       < test-msg > test-msg.otp
+../otp --config=dot-otp --offset=0 -d random-data-1  \
+       < test-msg.otp > test-msg.decoded
 
 if cmp test-msg test-msg.decoded; then
   echo "All tests passed."
