@@ -2,10 +2,15 @@
 
 # Encoder/decoder for one-time pads.  See usage() for details.
 
+import os
 import sys
 import getopt
 import bz2
 import base64
+import sha
+import xml
+import xml.dom
+import xml.dom.minidom
 
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
@@ -13,10 +18,11 @@ class Pad:
   def __init__(self, pad, offset):
     """Initialize a new pad, using padfile PAD at OFFSET.
     """
-    self.orig_offset = offset
-    self.cur_offset  = offset
+    self.offset = offset
     self.padfile = open(pad)
-    self.padfile.seek(offset)
+    self._length = 0  # number of pad bytes used
+    self._id = self._get_id(self.padfile)
+    self.padfile.seek(self.offset)
     
   def convert(self, str):
     """Return a new string that is STR XORed against the pad."""
@@ -24,16 +30,41 @@ class Pad:
     result = ''
     for i in range(len(str)):
       result = result + chr(ord(str[i]) ^ ord(pad_str[i]))
-    self.cur_offset += len(str)
-    return result    
+    self._length += len(str)
+    return result
+
+  def _get_id(self, padfile):
+    """Get the ID (the SHA1 of its first kilobyte) for this pad."""
+    saved_posn = self.padfile.tell()
+    self.padfile.seek(0)
+    sha1 = sha.new()
+    str = self.padfile.read(1024)
+    sha1.update(str)
+    self.padfile.seek(saved_posn)
+    return sha1.hexdigest()
+
+  def id(self):
+    """Return the pad's ID."""
+    return self._id
+
+  def length(self):
+    """Return the number of pad bytes used so far."""
+    return self._length
 
 
 class PadEncoder:
   """Class for encoding raw data to OTP output."""
+
+  class PadEncoderNotFinished(Exception):
+    """Exception raised if the encoder is asked for information it
+    doesn't have yet, such as the final encoded length."""
+    pass
+
   def __init__(self, pad):
     """Initialize an encoder for PAD."""
     self.pad = pad
     self.compressor = bz2.BZ2Compressor()
+    self.finished = 0
 
   def _output(self, compressed_str):
     "Return encoding of COMPRESSED_STR, or None if COMPRESSED_STR is empty."
@@ -49,7 +80,15 @@ class PadEncoder:
 
   def finish(self):
     "Return last of encoding of COMPRESSED_STR, or None if none left."
+    self.finished = 1
     return self._output(self.compressor.flush())
+
+  def length(self):
+    """Return the amount of pad data used by the encoding.  Calling this
+    before finish() raises PadEncoderNotFinished."""
+    if not self.finished:
+      raise self.PadEncoderNotFinished
+    return self.pad.length()
 
 
 class PadDecoder:
@@ -69,6 +108,72 @@ class PadDecoder:
                              (base64.decodestring(str))))
 
 
+class Configuration:
+  """A parsed representation of one user's ~/.otp/ configuration area.
+  A .otp/ directory contains just a `pads' file right now."""
+  def __init__(self, path=None):
+    """Initialize a new configuration.  If PATH is None, try to find
+  the config area based on the runtime environment.  Otherwise, PATH
+  should be a path to a .otp/ directory."""
+    self.config_area = path
+    if not self.config_area:
+      self.config_area = "dot_otp"
+    self.pads_file = os.path.join(self.config_area, "pads")
+    self.pads_dom = self.parse_pads()
+
+  def parse_pads(self):
+    """A ~/.otp/pads file is an XML tree that looks like this:
+
+      <?xml version="1.0" encode="UTF-8"?>
+      <!DOCTYPE TYPE_OF_DOC SYSTEM/PUBLIC "dtd-name">
+      <otp-pads>
+         <pad>
+           <id>SHA1_HASH_OF_FIRST_KILOBYTE_OF_PAD</id>
+           <path>ABS_PATH_TO_PAD</path>
+           <used><offset>OFFSET_A</offset>
+                 <length>LENGTH_A</length></used>
+           <used><offset>OFFSET_B</offset>
+                 <length>LENGTH_B</length></used>
+           ...
+         </pad>
+         <pad>
+           <id>SHA1_HASH_OF_FIRST_KILOBYTE_OF_PAD</id>
+           <path>ABS_PATH_TO_PAD</path>
+           <used><offset>OFFSET_C</offset>
+                 <length>LENGTH_C</length></used>
+           ...
+         </pad>
+         ...
+      </otp-pads>
+  
+The data structure returned is a dictionary, whose keys are the IDs,
+and whose values are sub-dictionaries, whose keys are the remaining
+element names inside a pad, where the value of the 'used' element is a
+list of tuples, each tuple of the form (OFFSET, LENGTH)."""
+    return xml.dom.minidom.parse(self.pads_file)
+    
+  def show_pads(self):
+    """Print pads XML DOM tree, presumably for debugging."""
+    def show_node(node, indent_str="  ", indent_level=0):
+      def indent():
+        if indent_level:
+          sys.stdout.write(indent_str * indent_level)
+      if node.nodeType == xml.dom.Node.ELEMENT_NODE:
+        indent()
+        print '"%s":' % node.nodeName
+        for (name, val) in node.attributes.items():
+          indent()
+          print '    attr: "%s"' % name
+          print '    val:  "%s"' % val
+        for child in node.childNodes:
+          show_node(child, indent_str, indent_level + 1)
+      elif node.nodeType == xml.dom.Node.TEXT_NODE:
+        if node.nodeValue.strip():
+          indent()
+          print '%s cdata: "%s"' % (node.nodeName, node.nodeValue)
+    show_node(self.pads_dom.firstChild)
+
+
 def usage():
   """Return a usage string."""
   return """Usage: otp [-e|-d] PAD_FILE PAD_OFFSET < INPUT > OUTPUT
@@ -76,6 +181,7 @@ def usage():
 Encoder/decoder for one-time pads.  Encoding and decoding are not
 symmetrical, because otp compresses plaintext input to save pad.
 Thus, otp needs to be told whether it is encoding or decoding."""
+
 
 def main():
   # Exactly one of these two gets set to 1.
@@ -85,16 +191,31 @@ def main():
   # The first line of OTP format is the header.
   # The second through (N-1)th lines are the encoded body.
   # The last line is the footer.
-  otp_header = "--- OTP VERSION 1 ---\n"
-  otp_footer = "--- OTP END ---\n"
+  
+  otp_header = "-----BEGIN OTP MESSAGE-----\n"
+  #            + "Version: OTP v0.0\n"
+  #            + "Pad ID: %s\n"
+  #            + "Offset: %s\n"
+  #            + "Length: %s\n"
+  #            + "\n"
+  
+  otp_footer = "-----END OTP MESSAGE-----\n"
 
   try:
     opts, args = getopt.getopt(sys.argv[1:],
-                               'edh?vV',
-                               [ "encrypt", "decrypt", "help", "version"])
+                               'edh?vVC:',
+                               [ "encrypt", "decrypt",
+                                 "config=",
+                                 "debug",
+                                 "help", "version"])
   except getopt.GetoptError, e:
     sys.stderr.write("Error: '%s'\n" % str(e))
     sys.exit(1)
+
+  encrypting = None
+  decrypting = None
+  config_area = None
+  debug = None
 
   for opt, value in opts:
     if opt == '--help' or opt == '-h' or opt == '-?':
@@ -107,6 +228,18 @@ def main():
       encrypting = 1
     elif opt == '--decrypt' or opt == '-d':
       decrypting = 1
+    elif opt == '--config' or opt == '-C':
+      config_area = value
+    elif opt == '--debug':
+      debug = 1
+    else:
+      sys.stderr.write("Error: unrecognized option: '%s'\n" % opt)
+      sys.exit(1)
+
+  if not config_area:
+    ### todo: no, this should be user's ~/.otp/ directory, and
+    ### make Configuration set it up if it doesn't exist.
+    config_area = "."
 
   if not encrypting and not decrypting:
     sys.stderr.write("Error: must pass either '-e' or '-d'.\n")
@@ -116,6 +249,8 @@ def main():
   if len(args) != 2:
     sys.stderr.write("%s\n" % usage())
     sys.exit(1)
+
+  config = Configuration(config_area)
 
   pad_file = args[0]
   pad_offset = int(args[1])
@@ -168,6 +303,8 @@ def main():
       sys.stderr.write("Error: no OTP header line found.\n")
       sys.exit(1)
                        
+  if debug:
+    config.show_pads()
 
 if __name__ == '__main__':
   main()

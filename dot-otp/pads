@@ -1,0 +1,9 @@
+<otp-pads>
+  <pad>
+    <id>6af6d0ac17081705cec30833da3cd436a400c429</id>
+    <!-- We don't use abs path for testing, but otp doesn't really care. -->
+    <path>./random-data</path>
+    <used><offset>0</offset>
+          <length>15</length></used>
+  </pad>
+</otp-pads>

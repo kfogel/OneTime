@@ -2,8 +2,11 @@
 
 all: check
 
+run:
+	@./otp --debug --config=dot-otp -e random-data 0 < test-msg
+
 check:
 	@check.sh
 
 clean:
-	@rm -f otp.otp otp.decoded *~
+	@rm -f test-msg.otp test-msg.decoded *~
