@@ -141,7 +141,7 @@ class Configuration:
   should be a path to a .otp/ directory."""
     self.config_area = path
     if not self.config_area:
-      self.config_area = "dot_otp"
+      self.config_area = os.path.join(os.path.expanduser("~"), ".otp")
     self.pads_file = os.path.join(self.config_area, "pads")
     self.pads = self._parse_pads()
 
@@ -379,11 +379,6 @@ def main():
     else:
       sys.stderr.write("Error: unrecognized option: '%s'\n" % opt)
       sys.exit(1)
-
-  if not config_area:
-    ### todo: no, this should be user's ~/.otp/ directory, and
-    ### make Configuration set it up if it doesn't exist.
-    config_area = "."
 
   if not encrypting and not decrypting:
     sys.stderr.write("Error: must pass either '-e' or '-d'.\n")
