@@ -105,7 +105,7 @@ class PadEncoder:
     "Return last of encoding of COMPRESSED_STR, or None if none left."
     self.finished = 1
     last_bits = self._output(self.compressor.flush())
-    self.config.consume(self.pad)
+    self.config.consume(self.pad, False)
     return last_bits
 
 
@@ -129,7 +129,7 @@ class PadDecoder:
 
   def finish(self):
     """Finalize pad usage with the configuration."""
-    self.config.consume(self.pad)
+    self.config.consume(self.pad, True)
 
 
 class Configuration:
@@ -150,7 +150,7 @@ class Configuration:
     Configuration."""
     pass
 
-  def _consolidate_used_ranges(self, used):
+  def _consolidate_used_ranges(self, used, allow_reconsumption=False):
     """Return a consolidated version of USED.  USED is a list of
     tuples, indicating offsets and lengths:
 
@@ -166,19 +166,22 @@ class Configuration:
 
        [ (0, 25) ]
 
-    If the data is incoherent, such as a range that begins inside
-    another range, then raise a ConfigurationError exception."""
+    If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
+    exception if the data are incoherent, such as a range beginning
+    inside another range.  But if ALLOW_RECONSUMPTION is True, allow
+    ranges to overlap.  Typically, it will be False when encoding and
+    True when decoding, because it's legitimate to decode a message
+    multiple times, as long as no one re-uses that range for encoding."""
     new_used = [ ]
     last_offset = None
     last_length = None
     for tup in used:
       (this_offset, this_length) = tup
       if last_offset is not None:
-        if (last_offset + last_length) > this_offset:
-          raise self.ConfigurationError, \
-                "pad's used ranges are incoherent:\n   %s" % str(used)
-        elif (last_offset + last_length) == this_offset:
-          last_length += this_length
+        if last_offset + last_length > this_offset:
+          if not allow_reconsumption:
+            raise self.ConfigurationError, \
+                  "pad's used ranges are incoherent:\n   %s" % str(used)
         else:
           new_used.append((last_offset, last_length))
           last_offset = this_offset
@@ -296,11 +299,19 @@ class Configuration:
       self.pads[pad.id()] = subdict
     pad.set_offset(self._get_next_offset(self.pads[pad.id()]["used"]))
 
-  def consume(self, pad):
-    """Record that PAD has used PAD.length() bytes starting at PAD.offset()."""
+  def consume(self, pad, allow_reconsumption):
+    """Record that PAD has used PAD.length() bytes starting at PAD.offset().
+
+    If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
+    if reconsuming any part of a range that has been consumed previously.
+    But if ALLOW_RECONSUMPTION is True, allow ranges to overlap.
+    Typically, it is be False when encoding and True when decoding,
+    because it's okay to decode a message multiple times, but not
+    re-use a range for encoding."""
     used = self.pads[pad.id()]["used"]
     used.append((pad.offset(), pad.length()))
-    self.pads[pad.id()]["used"] = self._consolidate_used_ranges(used)
+    self.pads[pad.id()]["used"] = self._consolidate_used_ranges\
+                                  (used, allow_reconsumption)
     pass
 
   def show_pads(self):
@@ -385,18 +396,12 @@ def main():
   pad_file = args[0]
   pad = Pad(pad_file)
 
-  sys.stderr.write("KFF: pad offset at init time: %s\n" % pad.offset())
-
   config = Configuration(config_area)
   config.register(pad)
-
-  sys.stderr.write("KFF: pad offset after register: %s\n" % pad.offset())
 
   ### todo: need to be less clumsy about offset handling
   if offset is not None:
     pad.set_offset(offset)
-
-  sys.stderr.write("KFF: pad offset after manual set: %s\n" % pad.offset())
 
   # The first line of OTP format is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
@@ -439,29 +444,21 @@ def main():
       m = re.match("Offset: ([0-9]+)", maybe_header_line)
       if m:
         pad.set_offset(int(m.group(1)))
-        sys.stderr.write("KFF: pad offset reset: %s\n" % pad.offset())
     while 1:
       str = sys.stdin.readline()
-      sys.stderr.write("KFF: str in:  '%s'" % str)
       if str == otp_end:
-        sys.stderr.write("KFF: GOT END\n")
         saw_end = 1
         break
       if len(str) > 0:
         try:
-          sys.stderr.write("KFF: about to decode: '%s'" % str)
           result = decoder.decode(str)
-          sys.stderr.write("KFF: just decoded: '%s'" % str)
         except EOFError:
           break
         if result:
-          sys.stderr.write("KFF: str out: '%s'" % result)
           sys.stdout.write(result)
       else:
         break
-    sys.stderr.write("KFF: about to call decoder.finish()\n")
     decoder.finish()
-    sys.stderr.write("KFF: just called decoder.finish()\n")
     if not saw_end:
       sys.stderr.write("Error: malformed OTP format: no end line.\n")
       sys.exit(1)
