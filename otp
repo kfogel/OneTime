@@ -119,11 +119,20 @@ class Configuration:
     if not self.config_area:
       self.config_area = "dot_otp"
     self.pads_file = os.path.join(self.config_area, "pads")
-    self.pads_dom = self._parse_pads()
+    self.pads = self._parse_pads()
 
   def _parse_pads(self):
-    """Return a DOM tree for a 'pads' file (e.g., ~/.otp/pads).
-    The 'pads' file is an XML document that looks like this:
+    """Return a dictionary representing a 'pads' file (e.g., ~/.otp/pads).
+    The dictionary is keyed on IDs, whose values are sub-dictionaries,
+    whose keys are the remaining element names inside a pad, where the
+    value of the 'used' element is a list of tuples, each tuple of the
+    form (OFFSET, LENGTH).  So:
+
+       dict[SHA1_SUM] ==> subdict
+       subdict['path'] ==> PATH_VALUE
+       subdict['used'] ==> [(OFFSET1, LENGTH1), (OFFSET2, LENGTH2), ...]
+
+    A 'pads' file is an XML document like this:
 
       <?xml version="1.0" encode="UTF-8"?>
       <!DOCTYPE TYPE_OF_DOC SYSTEM/PUBLIC "dtd-name">
@@ -147,28 +156,62 @@ class Configuration:
          ...
       </otp-pads>
       """
-    return xml.dom.minidom.parse(self.pads_file)
+    dom = xml.dom.minidom.parse(self.pads_file)
+    dict = { }
+
+    for pad in dom.firstChild.childNodes:
+      id = None
+      path = None
+      used = [ ]
+      if pad.nodeType == xml.dom.Node.ELEMENT_NODE:
+        for pad_part in pad.childNodes:
+          if pad_part.nodeType == xml.dom.Node.ELEMENT_NODE:
+            if pad_part.nodeName == "id":
+              id = pad_part.childNodes[0].nodeValue
+            elif pad_part.nodeName == "path":
+              path = pad_part.childNodes[0].nodeValue
+            elif pad_part.nodeName == "used":
+              offset = None
+              length = None
+              for used_part in pad_part.childNodes:
+                if used_part.nodeName == "offset":
+                  offset = int(used_part.childNodes[0].nodeValue)
+                if used_part.nodeName == "length":
+                  length = int(used_part.childNodes[0].nodeValue)
+              used.append((offset, length))
+            else:
+              ### todo: or error on unrecognized element?
+              pass
+        subdict = { }
+        subdict["path"] = path
+        subdict["used"] = used
+        dict[id] = subdict
+
+    return dict
     
+  def save(self):
+    """Save the pads file."""
+    tempfile = self.pads_file + ".tmp"
+    fp = open(tempfile, 'w')
+    fp.write("<otp-pads>\n")
+    for pad in self.pads.keys():
+      fp.write("  <pad>\n")
+      fp.write("    <id>%s</id>\n" % pad)
+      fp.write("    <path>%s</path>\n" % self.pads[pad]["path"])
+      ### todo: consolidate used tuples first
+      for tuple in self.pads[pad]["used"]:
+        fp.write("    <used><offset>%d</offset>\n" % tuple[0])
+        fp.write("          <length>%d</length></used>\n" % tuple[1])
+      fp.write("  </pad>\n")
+    fp.write("</otp-pads>\n")
+    os.rename(tempfile, self.pads_file)
+
   def show_pads(self):
-    """Print pads XML DOM tree, presumably for debugging."""
-    def show_node(node, indent_str="  ", indent_level=0):
-      def indent():
-        if indent_level:
-          sys.stdout.write(indent_str * indent_level)
-      if node.nodeType == xml.dom.Node.ELEMENT_NODE:
-        indent()
-        print '"%s":' % node.nodeName
-        for (name, val) in node.attributes.items():
-          indent()
-          print '    attr: "%s"' % name
-          print '    val:  "%s"' % val
-        for child in node.childNodes:
-          show_node(child, indent_str, indent_level + 1)
-      elif node.nodeType == xml.dom.Node.TEXT_NODE:
-        if node.nodeValue.strip():
-          indent()
-          print '%s cdata: "%s"' % (node.nodeName, node.nodeValue)
-    show_node(self.pads_dom.firstChild)
+    """Print pads configuration, presumably for debugging."""
+    for pad in self.pads.keys():
+      print "Pad %s:" % pad
+      print "  path: \"%s\"" % self.pads[pad]["path"]
+      print "  used:", self.pads[pad]["used"]
 
 
 def usage():
@@ -299,7 +342,10 @@ def main():
     else:
       sys.stderr.write("Error: no OTP header line found.\n")
       sys.exit(1)
-                       
+
+  if encrypting or decrypting:
+    config.save()
+
   if debug:
     config.show_pads()
 
