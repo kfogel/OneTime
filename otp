@@ -4,6 +4,7 @@
 
 import os
 import sys
+import stat
 import getopt
 import bz2
 import base64
@@ -15,15 +16,27 @@ import xml.dom.minidom
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
   Feed bytes through convert() to XOR them against the pad."""
-  def __init__(self, pad, offset=None):
-    """Initialize a new pad, using padfile PAD, optionally at OFFSET.
-    """
-    self.offset = offset  ### todo: must coordinate w/ configuration, then
-    self.padfile = open(pad)
+  def __init__(self, pad_path):
+    """Initialize a new pad, using padfile PAD_PATH.  The pad cannot be
+  used for encoding or decoding until set_offset() is called."""
+    self.pad_path = pad_path
+    self.padfile = open(pad_path)
+    self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._length = 0  # number of pad bytes used this time
     self._id = self._get_id(self.padfile)
-    self.padfile.seek(self.offset)
+    self._offset = None
     
+  class PadBad(Exception):
+    """Exception raised if the Pad is asked to do something Bad."""
+    pass
+
+  def set_offset(self, offset):
+    """Set this pad's encoding/decoding offset to OFFSET."""
+    if offset >= self.pad_size:
+      raise PadBad
+    self._offset = offset
+    self.padfile.seek(self._offset)
+
   def convert(self, str):
     """Return a new string that is STR XORed against the pad."""
     pad_str = self.padfile.read(len(str))
@@ -47,6 +60,14 @@ class Pad:
     """Return the pad's ID."""
     return self._id
 
+  def path(self):
+    """Return the pad's path."""
+    return self.pad_pat
+
+  def offset(self):
+    """Return offset from which encoding/decoding started."""
+    return self._offset
+
   def length(self):
     """Return the number of pad bytes used so far."""
     return self._length
@@ -60,9 +81,10 @@ class PadEncoder:
     doesn't have yet, such as the final encoded length."""
     pass
 
-  def __init__(self, pad):
-    """Initialize an encoder for PAD."""
+  def __init__(self, pad, config):
+    """Initialize an encoder for PAD with Configuration CONFIG."""
     self.pad = pad
+    self.config = config
     self.compressor = bz2.BZ2Compressor()
     self.finished = 0
 
@@ -81,21 +103,17 @@ class PadEncoder:
   def finish(self):
     "Return last of encoding of COMPRESSED_STR, or None if none left."
     self.finished = 1
-    return self._output(self.compressor.flush())
-
-  def length(self):
-    """Return the amount of pad data used by the encoding.  Calling this
-    before finish() raises PadEncoderNotFinished."""
-    if not self.finished:
-      raise self.PadEncoderNotFinished
-    return self.pad.length()
+    last_bits = self._output(self.compressor.flush())
+    self.config.consume(self.pad)
+    return last_bits
 
 
 class PadDecoder:
   """todo: write this doc string"""
-  def __init__(self, pad):
-    """Initialize a decoder for PAD."""
+  def __init__(self, pad, config):
+    """Initialize a decoder for PAD with Configuration CONFIG."""
     self.pad = pad
+    self.config = config
     self.decompressor = bz2.BZ2Decompressor()
     self.unused_data = ""
 
@@ -104,8 +122,13 @@ class PadDecoder:
     or return None if no decoded data is ready yet.  Throw EOFError
     exception if called past the end of decodable data.  Store any
     unused data in self.unused_data."""
+    ### todo: we're not really doing that unused_data thing, are we?
     return self.pad.convert((self.decompressor.decompress
                              (base64.decodestring(str))))
+
+  def finish(self):
+    """Finalize pad usage with the configuration."""
+    self.config.consume(self.pad)
 
 
 class Configuration:
@@ -121,6 +144,66 @@ class Configuration:
     self.pads_file = os.path.join(self.config_area, "pads")
     self.pads = self._parse_pads()
 
+  class ConfigurationError(Exception):
+    """Exception raised if we encounter an impossible state in a
+    Configuration."""
+    pass
+
+  def _consolidate_used_ranges(self, used):
+    """Return a consolidated version of USED.  USED is a list of
+    tuples, indicating offsets and lengths:
+
+       [ (OFFSET1, LENGTH1), (OFFSET2, LENGTH2), ... ]
+
+    Consolidation means returning a list of equal or shorter length,
+    that marks exactly the same ranges as used, but expressed in the
+    most compact way possible.  For example:
+
+       [ (0, 10), (10, 20), (20, 25) ]
+
+    would become
+
+       [ (0, 25) ]
+
+    If the data is incoherent, such as a range that begins inside
+    another range, then raise a ConfigurationError exception."""
+    new_used = [ ]
+    last_offset = None
+    last_length = None
+    for tup in used:
+      (this_offset, this_length) = tup
+      if last_offset is not None:
+        if (last_offset + last_length) > this_offset:
+          raise self.ConfigurationError, \
+                "pad's used ranges are incoherent:\n   %s" % str(used)
+        elif (last_offset + last_length) == this_offset:
+          last_length += this_length
+        else:
+          new_used.append((last_offset, last_length))
+          last_offset = this_offset
+          last_length = this_length
+      else:
+        last_offset = this_offset
+        last_length = this_length
+    if last_offset is not None:
+      new_used.append((last_offset, last_length))
+    return new_used
+
+  def _get_next_offset(self, used):
+    """Get the next free offset from USED, which is assumed to be in
+    consolidated form."""
+    cur_offset = None
+    # We don't do anything fancy, just get the earliest available
+    # offset past the last used tuple.  This means that any ranges in
+    # between tuples are wasted.
+    for tup in used:
+      (this_offset, this_length) = tup
+      cur_offset = this_offset + this_length
+    if cur_offset is None:
+      return 0
+    else:
+      return cur_offset
+    
   def _parse_pads(self):
     """Return a dictionary representing a 'pads' file (e.g., ~/.otp/pads).
     The dictionary is keyed on IDs, whose values are sub-dictionaries,
@@ -182,12 +265,10 @@ class Configuration:
             else:
               ### todo: or error on unrecognized element?
               pass
-        ### todo: consolidate used tuples first
         subdict = { }
         subdict["path"] = path
-        subdict["used"] = used
+        subdict["used"] = self._consolidate_used_ranges(used)
         dict[id] = subdict
-
     return dict
     
   def save(self):
@@ -199,16 +280,26 @@ class Configuration:
       fp.write("  <pad>\n")
       fp.write("    <id>%s</id>\n" % pad)
       fp.write("    <path>%s</path>\n" % self.pads[pad]["path"])
-      for tuple in self.pads[pad]["used"]:
+      for tuple in self._consolidate_used_ranges(self.pads[pad]["used"]):
         fp.write("    <used><offset>%d</offset>\n" % tuple[0])
         fp.write("          <length>%d</length></used>\n" % tuple[1])
       fp.write("  </pad>\n")
     fp.write("</otp-pads>\n")
     os.rename(tempfile, self.pads_file)
 
-  def consume_pad(self, pad_id, offset, length):
-    """In pad PAD_ID, record a used region of LENGTH from OFFSET."""
-    ### todo: implement
+  def register(self, pad):
+    """Register PAD if it is not already registered, and set its
+    offset based on previously used regions for that pad, if any."""
+    if not self.pads.has_key(pad.id()):
+      subdict = { "path" : pad.path(), "used" : [ ] }
+      self.pads[pad.id()] = subdict
+    pad.set_offset(self._get_next_offset(self.pads[pad.id()]["used"]))
+
+  def consume(self, pad):
+    """Record that PAD has used PAD.length() bytes starting at PAD.offset()."""
+    used = self.pads[pad.id()]["used"]
+    used.append((pad.offset(), pad.length()))
+    self.pads[pad.id()]["used"] = self._consolidate_used_ranges(used)
     pass
 
   def show_pads(self):
@@ -301,14 +392,17 @@ def main():
     sys.stderr.write("%s\n" % usage())
     sys.exit(1)
 
-  config = Configuration(config_area)
-
   pad_file = args[0]
-  ### todo: must coordinate offset w/ configuration
-  pad = Pad(pad_file, offset)
+  pad = Pad(pad_file)
+
+  config = Configuration(config_area)
+  config.register(pad)
 
   if encrypting:
-    encoder = PadEncoder(pad)
+    encoder = PadEncoder(pad, config)
+    ### todo: need to be less clumsy about offset handling for encoding
+    if offset is not None:
+      pad.set_offset(offset)
     sys.stdout.write(otp_header)
     while 1:
       str = sys.stdin.read()
@@ -324,7 +418,10 @@ def main():
     sys.stdout.write(otp_footer)
 
   elif decrypting:
-    decoder = PadDecoder(pad)
+    decoder = PadDecoder(pad, config)
+    ### todo: need to be less clumsy about offset handling for decoding
+    if offset is not None:
+      pad.set_offset(offset)
     saw_header = None
     saw_footer = None
     while 1:
@@ -347,6 +444,7 @@ def main():
             sys.stdout.write(result)
         else:
           break
+      decoder.finish()
       if not saw_footer:
         sys.stderr.write("Error: malformed OTP format: no footer line.\n")
         sys.exit(1)

@@ -2,9 +2,11 @@
 
 cd tests
 
-../otp --config=dot-otp --offset=0 -e random-data-1  \
+svn revert dot-otp/pads
+
+../otp --config=dot-otp -e random-data-1  \
        < test-msg > test-msg.otp
-../otp --config=dot-otp --offset=0 -d random-data-1  \
+../otp --config=dot-otp --offset=16 -d random-data-1  \
        < test-msg.otp > test-msg.decoded
 
 if cmp test-msg test-msg.decoded; then
