@@ -1,0 +1,59 @@
+#!/usr/bin/env python
+
+# Encoder/decoder for one-time pads.  See usage() for details.
+
+import sys
+import getopt
+
+class Padder:
+  """An encoder/decoder associated with a specific pad at a specific offset.
+  Feed bytes through convert() to XOR them against the pad."""
+  def __init__(self, pad, offset):
+    """Initialize a new padder, using padfile PAD at OFFSET.
+    """
+    self.orig_offset = offset
+    self.cur_offset  = offset
+    self.padfile = open(pad)
+    self.padfile.seek(offset)
+    
+  def convert(self, str):
+    """Return a new string that is STR XORed against the pad."""
+    pad_str = self.padfile.read(len(str))
+    result = ''
+    for i in range(len(str)):
+      result = result + chr(ord(str[i]) ^ ord(pad_str[i]))
+    self.cur_offset += len(str)
+    return result    
+
+
+def usage():
+  """Return a usage string."""
+  return """Usage: otp [-e|-d] PAD_FILE PAD_OFFSET < INPUT > OUTPUT
+         
+Encoder/decoder for one-time pads.  Encoding and decoding are not
+symmetrical operations only because plaintext input is compressed
+(to save pad) before it is encoded.  Thus, otp needs to be told
+whether it is encoding or decoding.
+  """
+
+def main():
+  try:
+    opts, args = getopt.getopt(sys.argv, 'ed', [ "encrypt", "decrypt"])
+  except getopt.GetoptError, e:
+    sys.stderr.write("Error: '%s'\n" % str(e))
+    sys.exit(1)
+
+  # Ignore opts for now, just pay attention to args.
+  if len(args) < 3:
+    sys.stderr.write("%s\n" % usage())
+    sys.exit(1)
+
+  pad_file = args[1]
+  pad_offset = int(args[2])
+  pad = Padder(pad_file, pad_offset)
+  print pad.convert("AAAAAAAAAA")
+
+
+if __name__ == '__main__':
+  main()
+
