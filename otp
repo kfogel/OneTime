@@ -31,10 +31,8 @@ def usage():
   return """Usage: otp [-e|-d] PAD_FILE PAD_OFFSET < INPUT > OUTPUT
          
 Encoder/decoder for one-time pads.  Encoding and decoding are not
-symmetrical operations only because plaintext input is compressed
-(to save pad) before it is encoded.  Thus, otp needs to be told
-whether it is encoding or decoding.
-  """
+symmetrical, because otp compresses plaintext input to save pad.
+Thus, otp needs to be told whether it is encoding or decoding."""
 
 def main():
   try:
@@ -51,7 +49,13 @@ def main():
   pad_file = args[1]
   pad_offset = int(args[2])
   pad = Padder(pad_file, pad_offset)
-  print pad.convert("AAAAAAAAAA")
+
+  while 1:
+    str = sys.stdin.read()
+    if len(str) > 0:
+      sys.stdout.write(pad.convert(str))
+    else:
+      break
 
 
 if __name__ == '__main__':
