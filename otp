@@ -14,6 +14,15 @@ import xml
 import xml.dom
 import xml.dom.minidom
 
+
+# Pretend we have true booleans on older Python versions.
+try:
+  True
+except:
+  True = 1
+  False = 0
+
+
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
   Feed bytes through convert() to XOR them against the pad."""
@@ -182,6 +191,8 @@ class Configuration:
           if not allow_reconsumption:
             raise self.ConfigurationError, \
                   "pad's used ranges are incoherent:\n   %s" % str(used)
+          else:
+            last_length = (this_offset - last_offset) + this_length
         else:
           new_used.append((last_offset, last_length))
           last_offset = this_offset
@@ -337,9 +348,11 @@ Use --config=DIR to use DIR (instead of ~/.otp) as the config area.
 
 
 def main():
-  # Exactly one of these two gets set to 1.
-  encrypting = None
-  decrypting = None
+  encrypting  = False
+  decrypting  = False
+  offset      = 0
+  config_area = None
+  debug       = False
 
   try:
     opts, args = getopt.getopt(sys.argv[1:],
@@ -353,11 +366,6 @@ def main():
     sys.stderr.write("Error: '%s'\n" % str(e))
     sys.exit(1)
 
-  encrypting  = None
-  decrypting  = None
-  offset      = None
-  config_area = None
-  debug       = None
 
   for opt, value in opts:
     if opt == '--help' or opt == '-h' or opt == '-?':
@@ -367,9 +375,9 @@ def main():
       print "OTP, version 0.0."
       sys.exit(0)
     elif opt == '--encrypt' or opt == '-e':
-      encrypting = 1
+      encrypting = True
     elif opt == '--decrypt' or opt == '-d':
-      decrypting = 1
+      decrypting = True
     elif opt == '--offset':
       offset = int(value)
     elif opt == '--config' or opt == '-C':
@@ -382,6 +390,10 @@ def main():
 
   if not encrypting and not decrypting:
     sys.stderr.write("Error: must pass either '-e' or '-d'.\n")
+    sys.exit(1)
+
+  if encrypting and decrypting:
+    sys.stderr.write("Error: cannot pass both '-e' and '-d'.\n")
     sys.exit(1)
 
   if len(args) != 1:
