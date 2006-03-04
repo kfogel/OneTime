@@ -32,9 +32,9 @@ class Pad:
     self.pad_path = pad_path
     self.padfile = open(pad_path)
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
+    self._offset = 0  # where to start using pad bytes
     self._length = 0  # number of pad bytes used this time
     self._id = self._get_id(self.padfile)
-    self._offset = None
     
   class PadBad(Exception):
     """Exception raised if the Pad is asked to do something Bad."""
@@ -72,7 +72,7 @@ class Pad:
 
   def path(self):
     """Return the pad's path."""
-    return self.pad_pat
+    return self.pad_path
 
   def offset(self):
     """Return offset from which encoding/decoding started."""
@@ -82,6 +82,10 @@ class Pad:
     """Return the number of pad bytes used so far."""
     return self._length
 
+  def __str__(self):
+    """Return a string representation of this pad."""
+    return "Pad '%s' (%s):\n   Offset: %d\n   Length: %d\n" \
+           % (self.path(), self.id(), self.offset(), self.length())
 
 class PadEncoder:
   """Class for encoding raw data to OTP output."""
