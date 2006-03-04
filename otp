@@ -43,7 +43,7 @@ class Pad:
   def set_offset(self, offset):
     """Set this pad's encoding/decoding offset to OFFSET."""
     if offset >= self.pad_size:
-      raise PadBad
+      raise Pad.PadBad("offset exceeds pad size, need more pad")
     self._offset = offset
     self.padfile.seek(self._offset)
 
