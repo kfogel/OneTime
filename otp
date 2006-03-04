@@ -150,12 +150,18 @@ class Configuration:
   A .otp/ directory contains just a 'pads' file right now."""
   def __init__(self, path=None):
     """Initialize a new configuration.  If PATH is None, try to find
-  the config area based on the runtime environment.  Otherwise, PATH
-  should be a path to a .otp/ directory."""
+  or create the config area in the standard location in the user's
+  home directory; otherwise, find or create it at PATH."""
     self.config_area = path
-    if not self.config_area:
+    if self.config_area is None:
       self.config_area = os.path.join(os.path.expanduser("~"), ".otp")
     self.pads_file = os.path.join(self.config_area, "pads")
+    # Create the configuration area if necessary.
+    if not os.path.isdir(self.config_area):
+      os.mkdir(self.config_area)
+    if not os.path.isfile(self.pads_file):
+      open(self.pads_file, "w").close()
+    # Parse the pads file (if any) in the configuration area.
     self.pads = self._parse_pads()
 
   class ConfigurationError(Exception):
@@ -265,36 +271,40 @@ class Configuration:
          ...
       </otp-pads>
       """
-    dom = xml.dom.minidom.parse(self.pads_file)
     dict = { }
 
-    for pad in dom.firstChild.childNodes:
-      id = None
-      path = None
-      used = [ ]
-      if pad.nodeType == xml.dom.Node.ELEMENT_NODE:
-        for pad_part in pad.childNodes:
-          if pad_part.nodeType == xml.dom.Node.ELEMENT_NODE:
-            if pad_part.nodeName == "id":
-              id = pad_part.childNodes[0].nodeValue
-            elif pad_part.nodeName == "path":
-              path = pad_part.childNodes[0].nodeValue
-            elif pad_part.nodeName == "used":
-              offset = None
-              length = None
-              for used_part in pad_part.childNodes:
-                if used_part.nodeName == "offset":
-                  offset = int(used_part.childNodes[0].nodeValue)
-                if used_part.nodeName == "length":
-                  length = int(used_part.childNodes[0].nodeValue)
-              used.append((offset, length))
-            else:
-              ### todo: or error on unrecognized element?
-              pass
-        subdict = { }
-        subdict["path"] = path
-        subdict["used"] = self._consolidate_used_ranges(used)
-        dict[id] = subdict
+    try:
+      dom = xml.dom.minidom.parse(self.pads_file)
+
+      for pad in dom.firstChild.childNodes:
+        id = None
+        path = None
+        used = [ ]
+        if pad.nodeType == xml.dom.Node.ELEMENT_NODE:
+          for pad_part in pad.childNodes:
+            if pad_part.nodeType == xml.dom.Node.ELEMENT_NODE:
+              if pad_part.nodeName == "id":
+                id = pad_part.childNodes[0].nodeValue
+              elif pad_part.nodeName == "path":
+                path = pad_part.childNodes[0].nodeValue
+              elif pad_part.nodeName == "used":
+                offset = None
+                length = None
+                for used_part in pad_part.childNodes:
+                  if used_part.nodeName == "offset":
+                    offset = int(used_part.childNodes[0].nodeValue)
+                  if used_part.nodeName == "length":
+                    length = int(used_part.childNodes[0].nodeValue)
+                used.append((offset, length))
+              else:
+                ### todo: or error on unrecognized element?
+                pass
+          subdict = { }
+          subdict["path"] = path
+          subdict["used"] = self._consolidate_used_ranges(used)
+          dict[id] = subdict
+    except xml.parsers.expat.ExpatError:
+      pass
     return dict
     
   def save(self):
