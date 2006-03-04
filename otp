@@ -366,7 +366,7 @@ def version():
 
 def usage(outfile=sys.stdout):
   """Return a usage string."""
-  usage_str = """
+  usage_str = """\
 OTP version %s, a one-time pad program that avoids re-using pad data.
 
 Usage: otp [-e|-d] PAD_FILE < INPUT > OUTPUT
