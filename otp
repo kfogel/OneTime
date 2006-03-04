@@ -192,9 +192,16 @@ class Configuration:
       (this_offset, this_length) = tup
       if last_offset is not None:
         if last_offset + last_length >= this_offset:
-          if not allow_reconsumption:
+          # It's only reconsumption if the end of the previous range
+          # extends past the next offset.  So we error on that if
+          # we're not allowing reconsumption...
+          if (last_offset + last_length > this_offset
+              and not allow_reconsumption):
             raise self.ConfigurationError, \
                   "pad's used ranges are incoherent:\n   %s" % str(used)
+          # ...but otherwise we just extend the range from the
+          # original offset, whether it was a true overlap or a
+          # snuggle-right-up-against:
           else:
             last_length = (this_offset - last_offset) + this_length
         else:
@@ -419,7 +426,7 @@ def main():
   config.register(pad)
 
   ### todo: need to be less clumsy about offset handling
-  if offset is not None:
+  if offset > 0:
     pad.set_offset(offset)
 
   # The first line of OTP format is the begin line.
