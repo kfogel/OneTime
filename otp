@@ -354,20 +354,34 @@ class Configuration:
       print "  used:", self.pads[pad]["used"]
 
 
+def version():
+  "Return a version string."
+  rev = "$Revision$"
+  m = re.match(".*Revision: ([0-9]+)[^0-9]*", rev)
+  if m:
+    return "0.%s" % m.group(1)
+  else:
+    return "0.<need to fix the revision keyword parsing>"
+
+
 def usage(outfile=sys.stdout):
   """Return a usage string."""
   usage_str = """
+OTP version %s, a one-time pad program that avoids re-using pad data.
+
 Usage: otp [-e|-d] PAD_FILE < INPUT > OUTPUT
          
-Encoder/decoder for one-time pads.  Encoding and decoding are not
-symmetrical, because otp compresses plaintext input to save pad.
-Thus, otp needs to be told whether it is encoding or decoding.
+Encoder/decoder for one-time pads.  OTP remembers what ranges of what
+pad files have been used, and avoids re-using those ranges when
+encoding.  Because OTP compresses plaintext input to save pad,
+encoding and decoding are not symmetrical; thus, it needs to be told
+whether it is encoding or decoding (-e or -d).  More options:
 
-Use --offset=N option to control the pad data start offset.
-Use -C / --config=DIR to specify DIR (instead of ~/.otp) as the config area.
-Use -n / --no-trace to leave no record of pad usage in your config.
+   --offset=N              Control the pad data start offset
+   -n / --no-trace         Leave no record of pad usage in your config
+   -C DIR / --config=DIR   Specify DIR (instead of ~/.otp) as the config area
 
-"""
+""" % version()
   outfile.write(usage_str)
 
 
@@ -400,7 +414,7 @@ def main():
       usage()
       sys.exit(0)
     elif opt == '--version' or opt == '-v' or opt == '-V':
-      print "OTP, version 0.0."
+      print "OTP, version %s." % version()
       sys.exit(0)
     elif opt == '--encrypt' or opt == '-e':
       encrypting = True
