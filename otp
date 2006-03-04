@@ -403,11 +403,10 @@ def main():
                                  "no-trace",
                                  "debug",
                                  "help", "version"])
-  except getopt.GetoptError, e:
-    sys.stderr.write("Error: '%s'\n" % str(e))
+  except getopt.GetoptError:
+    sys.stderr.write("Error: problem processing options\n")
     usage(sys.stderr)
     sys.exit(1)
-
 
   for opt, value in opts:
     if opt == '--help' or opt == '-h' or opt == '-?':
