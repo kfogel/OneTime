@@ -162,7 +162,7 @@ class Configuration:
     if not os.path.isfile(self.pads_file):
       open(self.pads_file, "w").close()
     # Parse the pads file (if any) in the configuration area.
-    self.pads = self._parse_pads()
+    self.pad_records = self._parse_pads_file()
 
   class ConfigurationError(Exception):
     """Exception raised if we encounter an impossible state in a
@@ -237,7 +237,7 @@ class Configuration:
     else:
       return cur_offset
     
-  def _parse_pads(self):
+  def _parse_pads_file(self):
     """Return a dictionary representing this configuration's 'pads'
     file (e.g., ~/.otp/pads).  If the pads file is empty, just return
     an empty dictionary.
@@ -312,15 +312,17 @@ class Configuration:
     tempfile = self.pads_file + ".tmp"
     fp = open(tempfile, 'w')
     fp.write("<otp-pads>\n")
-    for pad in self.pads.keys():
+    for pad_id in self.pad_records.keys():
       fp.write("  <pad>\n")
-      fp.write("    <id>%s</id>\n" % pad)
-      for tuple in self._consolidate_used_ranges(self.pads[pad]["used"]):
+      fp.write("    <id>%s</id>\n" % pad_id)
+      for tuple in self._consolidate_used_ranges\
+          (self.pad_records[pad_id]["used"]):
         fp.write("    <used><offset>%d</offset>\n" % tuple[0])
         fp.write("          <length>%d</length></used>\n" % tuple[1])
-      for key in self.pads[pad].keys():
+      for key in self.pad_records[pad_id].keys():
         if key != "used":
-          fp.write("    <%s>%s</%s>\n" % (key, self.pads[pad][key], key))
+          fp.write("    <%s>%s</%s>\n" % \
+                   (key, self.pad_records[pad_id][key], key))
       fp.write("  </pad>\n")
     fp.write("</otp-pads>\n")
     os.rename(tempfile, self.pads_file)
@@ -328,9 +330,9 @@ class Configuration:
   def register(self, pad):
     """Register PAD if it is not already registered, and set its
     offset based on previously used regions for that pad, if any."""
-    if not self.pads.has_key(pad.id()):
-      self.pads[pad.id()] = { "used" : [ ] }
-    pad.set_offset(self._get_next_offset(self.pads[pad.id()]["used"]))
+    if not self.pad_records.has_key(pad.id()):
+      self.pad_records[pad.id()] = { "used" : [ ] }
+    pad.set_offset(self._get_next_offset(self.pad_records[pad.id()]["used"]))
 
   def consume(self, pad, allow_reconsumption):
     """Record that PAD has used PAD.length() bytes starting at PAD.offset().
@@ -341,17 +343,17 @@ class Configuration:
     Typically, it is be False when encoding and True when decoding,
     because it's okay to decode a message multiple times, but not to
     re-use a range for encoding."""
-    used = self.pads[pad.id()]["used"]
+    used = self.pad_records[pad.id()]["used"]
     used.append((pad.offset(), pad.length()))
-    self.pads[pad.id()]["used"] = self._consolidate_used_ranges\
-                                  (used, allow_reconsumption)
+    self.pad_records[pad.id()]["used"] = self._consolidate_used_ranges\
+                                         (used, allow_reconsumption)
     pass
 
-  def show_pads(self):
-    """Print pads configuration, presumably for debugging."""
-    for pad in self.pads.keys():
-      print "Pad %s:" % pad
-      print "  used:", self.pads[pad]["used"]
+  def show_pad_records(self):
+    """Print pad records, presumably for debugging."""
+    for pad_id in self.pad_records.keys():
+      print "Pad %s:" % pad_id
+      print "  used:", self.pad_records[pad_id]["used"]
 
 
 def version():
@@ -546,7 +548,7 @@ def main():
     config.save()
 
   if debug:
-    config.show_pads()
+    config.show_pad_records()
 
 if __name__ == '__main__':
   main()
