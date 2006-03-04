@@ -29,7 +29,7 @@ class Pad:
   def __init__(self, pad_path):
     """Initialize a new pad, using padfile PAD_PATH.  The pad cannot be
   used for encoding or decoding until set_offset() is called."""
-    self.pad_path = os.path.abspath(pad_path)
+    self.pad_path = pad_path
     self.padfile = open(self.pad_path)
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._offset = 0  # where to start using pad bytes
@@ -259,7 +259,6 @@ class Configuration:
       <otp-pads>
          <pad>
            <id>SHA1_HASH_OF_FIRST_KILOBYTE_OF_PAD</id>
-           <path>ABS_PATH_TO_PAD</path>
            <used><offset>OFFSET_A</offset>
                  <length>LENGTH_A</length></used>
            <used><offset>OFFSET_B</offset>
@@ -268,7 +267,6 @@ class Configuration:
          </pad>
          <pad>
            <id>SHA1_HASH_OF_FIRST_KILOBYTE_OF_PAD</id>
-           <path>ABS_PATH_TO_PAD</path>
            <used><offset>OFFSET_C</offset>
                  <length>LENGTH_C</length></used>
            ...
@@ -286,12 +284,11 @@ class Configuration:
         path = None
         used = [ ]
         if pad.nodeType == xml.dom.Node.ELEMENT_NODE:
+          subdict = { }
           for pad_part in pad.childNodes:
             if pad_part.nodeType == xml.dom.Node.ELEMENT_NODE:
               if pad_part.nodeName == "id":
                 id = pad_part.childNodes[0].nodeValue
-              elif pad_part.nodeName == "path":
-                path = pad_part.childNodes[0].nodeValue
               elif pad_part.nodeName == "used":
                 offset = None
                 length = None
@@ -301,12 +298,10 @@ class Configuration:
                   if used_part.nodeName == "length":
                     length = int(used_part.childNodes[0].nodeValue)
                 used.append((offset, length))
+                subdict["used"] = self._consolidate_used_ranges(used)
               else:
-                ### todo: or error on unrecognized element?
-                pass
-          subdict = { }
-          subdict["path"] = path
-          subdict["used"] = self._consolidate_used_ranges(used)
+                # Parse unknown elements transparently.
+                subdict[pad_part.nodeName] = pad_part.childNodes[0].nodeValue
           dict[id] = subdict
     except xml.parsers.expat.ExpatError:
       pass
@@ -320,10 +315,12 @@ class Configuration:
     for pad in self.pads.keys():
       fp.write("  <pad>\n")
       fp.write("    <id>%s</id>\n" % pad)
-      fp.write("    <path>%s</path>\n" % self.pads[pad]["path"])
       for tuple in self._consolidate_used_ranges(self.pads[pad]["used"]):
         fp.write("    <used><offset>%d</offset>\n" % tuple[0])
         fp.write("          <length>%d</length></used>\n" % tuple[1])
+      for key in self.pads[pad].keys():
+        if key != "used":
+          fp.write("    <%s>%s</%s>\n" % (key, self.pads[pad][key], key))
       fp.write("  </pad>\n")
     fp.write("</otp-pads>\n")
     os.rename(tempfile, self.pads_file)
@@ -332,8 +329,7 @@ class Configuration:
     """Register PAD if it is not already registered, and set its
     offset based on previously used regions for that pad, if any."""
     if not self.pads.has_key(pad.id()):
-      subdict = { "path" : pad.path(), "used" : [ ] }
-      self.pads[pad.id()] = subdict
+      self.pads[pad.id()] = { "used" : [ ] }
     pad.set_offset(self._get_next_offset(self.pads[pad.id()]["used"]))
 
   def consume(self, pad, allow_reconsumption):
@@ -355,7 +351,6 @@ class Configuration:
     """Print pads configuration, presumably for debugging."""
     for pad in self.pads.keys():
       print "Pad %s:" % pad
-      print "  path: \"%s\"" % self.pads[pad]["path"]
       print "  used:", self.pads[pad]["used"]
 
 
