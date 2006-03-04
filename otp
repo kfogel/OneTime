@@ -29,8 +29,8 @@ class Pad:
   def __init__(self, pad_path):
     """Initialize a new pad, using padfile PAD_PATH.  The pad cannot be
   used for encoding or decoding until set_offset() is called."""
-    self.pad_path = pad_path
-    self.padfile = open(pad_path)
+    self.pad_path = os.path.abspath(pad_path)
+    self.padfile = open(self.pad_path)
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._offset = 0  # where to start using pad bytes
     self._length = 0  # number of pad bytes used this time
