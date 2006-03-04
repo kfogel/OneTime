@@ -423,6 +423,25 @@ def main():
                + "\n"
   otp_end = "-----END OTP MESSAGE-----\n"
 
+  # If we gave up on streaminess, we could use pads more efficiently
+  # by using multiple ranges.  In other words, turn the single
+  # 'Offset:' header into potentially multiple 'Range:' headers:
+  #
+  #     Version: OTP v0.0
+  #     Pad ID: blahblahblah
+  #     Range: 0,15
+  #     Range: 60,100
+  #     Range: 200,300
+  #
+  # In this example, the ranges 16-60 and 160-200 were already used by
+  # this pad and were not available.  However, to use this technique,
+  # you have to know the size of the data in advance, otherwise you
+  # can't write out the header as part of the stream.  IMHO, the extra
+  # complexity isn't worth the occasional space-savings.  No, random
+  # numbers aren't dirt cheap, but they're not that expensive either.
+  # Asking users to spend some extra pad bits for the sake of code
+  # simplicity seems reasonable.
+
   if encrypting:
     encoder = PadEncoder(pad, config)
     sys.stdout.write(otp_header)
