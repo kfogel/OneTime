@@ -465,10 +465,10 @@ def main():
   # The last line indicates the end, and is distinguishable from
   #   encoded content by inspection 
   otp_begin = "-----BEGIN OTP MESSAGE-----\n"
-  otp_header = "%s" % otp_begin                \
-               + "Version: OTP v0.0\n"         \
-               + "Pad ID: %s\n" % pad.id()     \
-               + "Offset: %s\n" % pad.offset() \
+  otp_header = "%s" % otp_begin                  \
+               + "Version: OTP %s\n" % version() \
+               + "Pad ID: %s\n" % pad.id()       \
+               + "Offset: %s\n" % pad.offset()   \
                + "\n"
   otp_end = "-----END OTP MESSAGE-----\n"
 
