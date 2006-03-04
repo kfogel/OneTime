@@ -187,7 +187,7 @@ class Configuration:
     for tup in used:
       (this_offset, this_length) = tup
       if last_offset is not None:
-        if last_offset + last_length > this_offset:
+        if last_offset + last_length >= this_offset:
           if not allow_reconsumption:
             raise self.ConfigurationError, \
                   "pad's used ranges are incoherent:\n   %s" % str(used)
