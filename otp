@@ -15,7 +15,7 @@ import xml.dom
 import xml.dom.minidom
 
 
-# Pretend we have true booleans on older Python versions.
+# Set up booleans that older Pythons didn't have, if necessary.
 try:
   True
 except:
@@ -207,7 +207,7 @@ class Configuration:
                   "pad's used ranges are incoherent:\n   %s" % str(used)
           # ...but otherwise we just extend the range from the
           # original offset, whether it was a true overlap or a
-          # snuggle-right-up-against:
+          # snuggle-right-up-against kind of thing:
           else:
             last_length = (this_offset - last_offset) + this_length
         else:
@@ -227,7 +227,8 @@ class Configuration:
     cur_offset = None
     # We don't do anything fancy, just get the earliest available
     # offset past the last used tuple.  This means that any ranges in
-    # between tuples are wasted.
+    # between tuples are wasted.  See comment in main() about
+    # discontinuous ranges for why this is okay.
     for tup in used:
       (this_offset, this_length) = tup
       cur_offset = this_offset + this_length
@@ -237,15 +238,19 @@ class Configuration:
       return cur_offset
     
   def _parse_pads(self):
-    """Return a dictionary representing a 'pads' file (e.g., ~/.otp/pads).
-    The dictionary is keyed on IDs, whose values are sub-dictionaries,
-    whose keys are the remaining element names inside a pad, where the
-    value of the 'used' element is a list of tuples, each tuple of the
-    form (OFFSET, LENGTH).  So:
+    """Return a dictionary representing this configuration's 'pads'
+    file (e.g., ~/.otp/pads).  If the pads file is empty, just return
+    an empty dictionary.
 
-       dict[SHA1_SUM] ==> subdict
-       subdict['path'] ==> PATH_VALUE
+    The returned dictionary is keyed on pad IDs, with sub-dictionaries
+    as values.  Each sub-dictionary's keys are the remaining element
+    names inside a pad element, and the value of the 'used' element is
+    a list of tuples, each tuple of the form (OFFSET, LENGTH).  So:
+
+       returned_dict[SHA1_SUM] ==> subdict
        subdict['used'] ==> [(OFFSET1, LENGTH1), (OFFSET2, LENGTH2), ...]
+       subdict['some_elt_name'] ==> SOME_ELT_VALUE       <!-- if any -->
+       subdict['another_elt_name'] ==> ANOTHER_ELT_VALUE <!-- if any -->
 
     A 'pads' file is an XML document like this:
 
@@ -470,9 +475,11 @@ def main():
                + "\n"
   otp_end = "-----END OTP MESSAGE-----\n"
 
-  # If we gave up on streaminess, we could use pads more efficiently
-  # by using multiple ranges.  In other words, turn the single
-  # 'Offset:' header into potentially multiple 'Range:' headers:
+  # If we gave up on streaminess, we could use pads more efficiently,
+  # by encoding with multiple discontinuous ranges to avoid the
+  # "sparse wasted space" problem.  We'd turn the single 'Offset:'
+  # header into (potentially) multiple 'Range:' headers, that would
+  # use up any free pad space no matter where it was located:
   #
   #     Version: OTP v0.0
   #     Pad ID: blahblahblah
@@ -480,14 +487,18 @@ def main():
   #     Range: 60,100
   #     Range: 200,300
   #
-  # In this example, the ranges 16-60 and 160-200 were already used by
-  # this pad and were not available.  However, to use this technique,
-  # you have to know the size of the data in advance, otherwise you
-  # can't write out the header as part of the stream.  IMHO, the extra
-  # complexity isn't worth the occasional space-savings.  No, random
-  # numbers aren't dirt cheap, but they're not that expensive either.
-  # Asking users to spend some extra pad bits for the sake of code
-  # simplicity seems reasonable.
+  # (In this example, ranges 16-60 and 160-200 were already used in
+  # this pad and were therefore not available).
+  #
+  # However, to use this technique, you have to know the size of the
+  # data in advance, otherwise you can't write out the header as part
+  # of the stream.  And in the usual use case -- two people sharing a
+  # pad to exchange messages serially -- there is no benefit anyway,
+  # because already they're using the pad as efficiently as possible.
+  # So IMHO, the extra complexity isn't worth the occasional
+  # space-savings.  Random numbers aren't dirt cheap, but they're not
+  # terribly expensive either.  Asking users to occasionally spend
+  # extra pad bits for the sake of code simplicity seems reasonable.
 
   if encrypting:
     encoder = PadEncoder(pad, config)
