@@ -176,7 +176,7 @@ class Configuration:
        [ (0, 25) ]
 
     If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
-    exception if the data are incoherent, such as a range beginning
+    exception if the input is incoherent, such as a range beginning
     inside another range.  But if ALLOW_RECONSUMPTION is True, allow
     ranges to overlap.  Typically, it will be False when encoding and
     True when decoding, because it's legitimate to decode a message
