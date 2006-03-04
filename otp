@@ -333,18 +333,20 @@ class Configuration:
       print "  used:", self.pads[pad]["used"]
 
 
-def usage():
+def usage(outfile=sys.stdout):
   """Return a usage string."""
-  return """Usage: otp [-e|-d] PAD_FILE < INPUT > OUTPUT
+  usage_str = """
+Usage: otp [-e|-d] PAD_FILE < INPUT > OUTPUT
          
 Encoder/decoder for one-time pads.  Encoding and decoding are not
 symmetrical, because otp compresses plaintext input to save pad.
 Thus, otp needs to be told whether it is encoding or decoding.
 
-Use --offset=N option to control pad data start offset.
+Use --offset=N option to control the pad data start offset.
+Use --config=DIR to specify DIR (instead of ~/.otp) as the config area.
 
-Use --config=DIR to use DIR (instead of ~/.otp) as the config area.
 """
+  outfile.write(usage_str)
 
 
 def main():
@@ -353,6 +355,7 @@ def main():
   offset      = 0
   config_area = None
   debug       = False
+  error_exit  = False
 
   try:
     opts, args = getopt.getopt(sys.argv[1:],
@@ -364,6 +367,7 @@ def main():
                                  "help", "version"])
   except getopt.GetoptError, e:
     sys.stderr.write("Error: '%s'\n" % str(e))
+    usage(sys.stderr)
     sys.exit(1)
 
 
@@ -386,18 +390,22 @@ def main():
       debug = 1
     else:
       sys.stderr.write("Error: unrecognized option: '%s'\n" % opt)
-      sys.exit(1)
+      error_exit = True
 
   if not encrypting and not decrypting:
     sys.stderr.write("Error: must pass either '-e' or '-d'.\n")
-    sys.exit(1)
+    error_exit = True
 
   if encrypting and decrypting:
     sys.stderr.write("Error: cannot pass both '-e' and '-d'.\n")
-    sys.exit(1)
+    error_exit = True
 
   if len(args) != 1:
-    sys.stderr.write("%s\n" % usage())
+    sys.stderr.write("Error: must specify pad file as argument.\n")
+    error_exit = True
+
+  if error_exit:
+    usage(sys.stderr)
     sys.exit(1)
 
   pad_file = args[0]
@@ -497,4 +505,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-
