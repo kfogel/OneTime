@@ -148,11 +148,16 @@ class PadDecoder:
 class Configuration:
   """A parsed representation of one user's ~/.otp/ configuration area.
   A .otp/ directory contains just a 'pad-records' file right now."""
-  def __init__(self, path=None):
-    """Initialize a new configuration.  If PATH is None, try to find
-  or create the config area in the standard location in the user's
-  home directory; otherwise, find or create it at PATH."""
+  def __init__(self, path=None, do_vc=True):
+    """Initialize a new configuration.
+
+    If PATH is None, try to find or create the config area in the
+    standard location in the user's home directory; otherwise, find or
+    create it at PATH.
+
+    If DO_VC, update and commit the pad-records file when appropriate."""
     self.config_area = path
+    self.do_vc = do_vc
     if self.config_area is None:
       self.config_area = os.path.join(os.path.expanduser("~"), ".otp")
     self.pad_records_file = os.path.join(self.config_area, "pad-records")
@@ -161,12 +166,19 @@ class Configuration:
       os.mkdir(self.config_area)
     if not os.path.isfile(self.pad_records_file):
       open(self.pad_records_file, "w").close()
+    # Update the pad-records file before parsing, if possible.
+    self._maybe_update_pad_records()
     # Parse the pad-records file (if any) in the configuration area.
     self.pad_records = self._parse_pad_records_file()
 
   class ConfigurationError(Exception):
     """Exception raised if we encounter an impossible state in a
     Configuration."""
+    pass
+
+  class ConfigurationVCError(Exception):
+    """Exception raised if something went wrong with a VC operation in
+    a Configuration."""
     pass
 
   def _consolidate_used_ranges(self, used, allow_reconsumption=False):
@@ -237,6 +249,40 @@ class Configuration:
     else:
       return cur_offset
     
+  def _directory_vc(self, directory):
+    """If DIRECTORY is under version control with SVN or CVS, return
+    the string 'svn' or 'cvs' accordingly, else return False."""
+    if os.path.isdir(os.path.join(directory, '.svn')):
+      return 'svn'
+    elif os.path.isdir(os.path.join(directory, 'CVS')):
+      return 'cvs'
+    else:
+      return False
+
+  def _maybe_do_vc_operation(self, action):
+    """If the 'pad-records' file in the configuration area appears to
+    be under version control, then attempt to take ACTION on it.
+    ACTION can be 'update' or 'commit -mMSG'.  Put MSG in quotes if it
+    is longer than one word.  If ACTION fails, throw a
+    ConfigurationVCError exception."""
+    if self.do_vc:
+      vc = self._directory_vc(self.config_area)
+      if vc:
+        if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
+          raise ConfigurationVCError
+
+  def _maybe_update_pad_records(self):
+    """If the 'pad-records' file in the configuration area appears to
+    be under version control, then attempt to update it.  If the
+    update fails, throw a ConfigurationVCError exception."""
+    self._maybe_do_vc_operation('update')
+
+  def _maybe_commit_pad_records(self):
+    """If the 'pad-records' file in the configuration area appears to
+    be under version control, then attempt to commit it.  If the
+    update fails, throw a ConfigurationVCError exception."""
+    self._maybe_do_vc_operation('commit -m"Record pad usage."')
+
   def _parse_pad_records_file(self):
     """Return a dictionary representing this configuration's 'pad-records'
     file (e.g., ~/.otp/pad-records).  If the file is empty, just
@@ -308,7 +354,7 @@ class Configuration:
     return dict
     
   def save(self):
-    """Save the pad-records file."""
+    """Save the pad-records file, and maybe commit it."""
     tempfile = self.pad_records_file + ".tmp"
     fp = open(tempfile, 'w')
     fp.write("<otp-pad-records>\n")
@@ -325,7 +371,9 @@ class Configuration:
                    (key, self.pad_records[pad_id][key], key))
       fp.write("  </pad-record>\n")
     fp.write("</otp-pad-records>\n")
+    fp.close()
     os.rename(tempfile, self.pad_records_file)
+    self._maybe_commit_pad_records()
 
   def register(self, pad):
     """Register PAD if it is not already registered, and set its
