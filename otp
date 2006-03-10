@@ -348,6 +348,10 @@ class Configuration:
               else:
                 # Parse unknown elements transparently.
                 subdict[pad_part.nodeName] = pad_part.childNodes[0].nodeValue
+          if not subdict.has_key("used"):
+            # We don't require the "used" element to be present; if it's
+            # absent, it just means none of this pad has been used yet.
+            subdict["used"] = [ (0, 0) ]
           dict[id] = subdict
     except xml.parsers.expat.ExpatError:
       pass
