@@ -113,6 +113,7 @@ class Pad:
     return "Pad '%s' (%s):\n   Offset: %d\n   Length: %d\n" \
            % (self.path(), self.id(), self.offset(), self.length())
 
+
 class PadEncoder:
   """Class for encoding raw data to OTP output."""
 
