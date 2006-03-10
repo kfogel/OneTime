@@ -2,7 +2,7 @@
 
 cd tests
 
-svn revert dot-otp/pads
+svn revert dot-otp/pad-records
 
 # Print the (string) first argument, then display all pad lengths.
 # NOTE: Deactivated by default.  Change 'false' to 'true' to turn on.
@@ -10,7 +10,7 @@ function show_lengths()
 {
    if false; then
      echo ${1}
-     grep "/length" dot-otp/pads
+     grep "/length" dot-otp/pad-records
      echo ""
    fi
 }
@@ -53,4 +53,4 @@ else
 fi
 
 # Revert here too, in case about to commit.
-svn revert dot-otp/pads
+svn revert dot-otp/pad-records
