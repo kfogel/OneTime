@@ -2,16 +2,6 @@
 
 # Encoder/decoder for one-time pads.  Run 'otp --help' for usage.
 #
-# Motivation:
-# -----------
-#
-# The selection of Alberto Gonzalez as U.S. Attorney General, followed
-# by the exposure of President Bush's illegal wiretapping directive,
-# has destroyed any remaining belief I had that this government can be
-# relied on to appoint honorable people or behave honorably.  Under
-# such circumstances, using strong encryption from time to time is,
-# sadly, justifiable.
-#
 # The usual public-key encryption programs, such as GPG, are probably
 # secure for everyday purposes, but their implementations are too
 # complex for all but the most knowledgeable programmers to vet, and
