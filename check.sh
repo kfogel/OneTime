@@ -25,30 +25,30 @@ function show_lengths()
 show_lengths "Before any encoding or decoding:"
 
 # Encode
-../../otp --config=dot-otp -e ../random-data-1  \
+../../otp --config=dot-otp -e -p ../random-data-1  \
          < ../test-msg > test-msg.otp
 
 show_lengths "After encoding:"
 
 # Decode twice, to make sure the pad can reconsume safely.
-../../otp --config=dot-otp -d ../random-data-1  \
+../../otp --config=dot-otp -d -p ../random-data-1  \
          < test-msg.otp > test-msg.decoded-1
 
 show_lengths "After decoding once:"
 
-../../otp --config=dot-otp -d ../random-data-1  \
+../../otp --config=dot-otp -d -p ../random-data-1  \
          < test-msg.otp > test-msg.decoded-2
 
 show_lengths "After decoding again:"
 
 # Encode again with the same pad
-../../otp --config=dot-otp -e ../random-data-1  \
+../../otp --config=dot-otp -e -p ../random-data-1  \
          < ../test-msg > test-msg.otp
 
 show_lengths "After encoding again:"
 
 # Decode only once this time.
-../../otp --config=dot-otp -d ../random-data-1  \
+../../otp --config=dot-otp -d -p ../random-data-1  \
          < test-msg.otp > test-msg.decoded-3
 
 show_lengths "After decoding:"

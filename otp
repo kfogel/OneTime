@@ -424,7 +424,7 @@ def usage(outfile=sys.stdout):
   usage_str = """\
 OTP version %s, a one-time pad program that avoids re-using pad data.
 
-Usage: otp [-e|-d] PAD_FILE < INPUT > OUTPUT
+Usage: otp [-e|-d] -p PAD_FILE < INPUT > OUTPUT
          
 Encoder/decoder for one-time pads.  OTP remembers what ranges of what
 pad files have been used, and avoids re-using those ranges when
@@ -444,6 +444,7 @@ whether it is encoding or decoding (-e or -d).  More options:
 def main():
   encrypting  = False
   decrypting  = False
+  pad_file    = None
   offset      = 0
   config_area = None
   debug       = False
@@ -453,8 +454,9 @@ def main():
 
   try:
     opts, args = getopt.getopt(sys.argv[1:],
-                               'edh?vVnC:',
+                               'edp:h?vVnC:',
                                [ "encrypt", "decrypt",
+                                 "pad=",
                                  "offset=",
                                  "config=",
                                  "no-vc",
@@ -477,6 +479,8 @@ def main():
       encrypting = True
     elif opt == '--decrypt' or opt == '-d':
       decrypting = True
+    elif opt == '--pad' or opt == '-p':
+      pad_file = value
     elif opt == '--offset':
       offset = int(value)
     elif opt == '--config' or opt == '-C':
@@ -499,15 +503,18 @@ def main():
     sys.stderr.write("Error: cannot pass both '-e' and '-d'.\n")
     error_exit = True
 
-  if len(args) != 1:
-    sys.stderr.write("Error: must specify pad file as argument.\n")
+  if not pad_file:
+    sys.stderr.write("Error: must specify pad file with -p.\n")
+    error_exit = True
+
+  if len(args) != 0:
+    sys.stderr.write("Error: unexpected arguments: %s\n" % args)
     error_exit = True
 
   if error_exit:
     usage(sys.stderr)
     sys.exit(1)
 
-  pad_file = args[0]
   pad = Pad(pad_file)
 
   config = Configuration(config_area, no_vc)
