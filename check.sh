@@ -2,7 +2,7 @@
 
 cd tests
 
-svn revert dot-otp/pad-records
+svn revert -q dot-otp/pad-records
 
 # Print the (string) first argument, then display all pad lengths.
 # NOTE: Deactivated by default.  Change 'false' to 'true' to turn on.
@@ -53,4 +53,4 @@ else
 fi
 
 # Revert here too, in case about to commit.
-svn revert dot-otp/pad-records
+svn revert -q dot-otp/pad-records
