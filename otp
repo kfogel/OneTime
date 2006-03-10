@@ -148,16 +148,16 @@ class PadDecoder:
 class Configuration:
   """A parsed representation of one user's ~/.otp/ configuration area.
   A .otp/ directory contains just a 'pad-records' file right now."""
-  def __init__(self, path=None, do_vc=True):
+  def __init__(self, path=None, no_vc=False):
     """Initialize a new configuration.
 
     If PATH is None, try to find or create the config area in the
     standard location in the user's home directory; otherwise, find or
     create it at PATH.
 
-    If DO_VC, update and commit the pad-records file when appropriate."""
+    Unless NO_VC, update and commit the pad-records file when appropriate."""
     self.config_area = path
-    self.do_vc = do_vc
+    self.no_vc = no_vc
     if self.config_area is None:
       self.config_area = os.path.join(os.path.expanduser("~"), ".otp")
     self.pad_records_file = os.path.join(self.config_area, "pad-records")
@@ -265,11 +265,12 @@ class Configuration:
     ACTION can be 'update' or 'commit -mMSG'.  Put MSG in quotes if it
     is longer than one word.  If ACTION fails, throw a
     ConfigurationVCError exception."""
-    if self.do_vc:
-      vc = self._directory_vc(self.config_area)
-      if vc:
-        if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
-          raise ConfigurationVCError
+    if self.no_vc:
+      return
+    vc = self._directory_vc(self.config_area)
+    if vc:
+      if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
+        raise ConfigurationVCError
 
   def _maybe_update_pad_records(self):
     """If the 'pad-records' file in the configuration area appears to
@@ -433,6 +434,7 @@ whether it is encoding or decoding (-e or -d).  More options:
 
    --offset=N              Control the pad data start offset
    -n / --no-trace         Leave no record of pad usage in your config
+   --no-vc                 Ignore SVN/CVS control of the config area
    -C DIR / --config=DIR   Specify DIR (instead of ~/.otp) as the config area
 
 """ % version()
@@ -446,6 +448,7 @@ def main():
   config_area = None
   debug       = False
   error_exit  = False
+  no_vc       = False
   no_trace    = False
 
   try:
@@ -454,6 +457,7 @@ def main():
                                [ "encrypt", "decrypt",
                                  "offset=",
                                  "config=",
+                                 "no-vc",
                                  "no-trace",
                                  "debug",
                                  "help", "version"])
@@ -477,6 +481,8 @@ def main():
       offset = int(value)
     elif opt == '--config' or opt == '-C':
       config_area = value
+    elif opt == '--no-vc':
+      no_vc = True
     elif opt == '--no-trace' or opt == '-n':
       no_trace = True
     elif opt == '--debug':
@@ -504,7 +510,7 @@ def main():
   pad_file = args[0]
   pad = Pad(pad_file)
 
-  config = Configuration(config_area)
+  config = Configuration(config_area, no_vc)
   config.register(pad)
 
   ### todo: need to be less clumsy about offset handling
