@@ -1,32 +1,33 @@
 #!/usr/bin/env python
 
-# Encoder/decoder for one-time pads.  Run 'otp --help' for usage.
-#
-# The usual public-key encryption programs, such as GPG, are probably
-# secure for everyday purposes, but their implementations are too
-# complex for all but the most knowledgeable programmers to vet, and
-# anyway there are too many vulnerable steps in the supply chain
-# between GPG's authors and the end user.
-#
-# Hence this script, OTP, a simple encryption program that works with
-# one-time pads.  If you don't know what one-time pads are, you
-# probably wouldn't be able to use them securely, so this program is
-# not for you.  If you do know what they are and how to use them, OTP
-# will take care of some of the pad-management bureacracy for you.  It
-# avoids re-using pad data (except when decrypting the same encrypted
-# message twice, of course) by maintaining records of pad usage in
-# ~/.otp/pad-records.  And if you keep your ~/.otp configuration area
-# under version control with Subversion or CVS, OTP will automatically
-# update it to get the latest pad usage records before using a pad,
-# and will commit new records after using a pad.  In other words, by
-# sharing a single configuration area via version control, you and
-# your interlocutors can transparently avoid the sin of pad range
-# reuse.
-#
-# See http://en.wikipedia.org/wiki/One-time_pad for more information
-# about one-time pads in general.
-#
-# OTP is in the public domain.
+"""
+Encoder/decoder for one-time pads.  Run 'otp --help' for usage.
+
+The usual public-key encryption programs, such as GPG, are probably
+secure for everyday purposes, but their implementations are too
+complex for all but the most knowledgeable programmers to vet, and
+anyway there are too many vulnerable steps in the supply chain between
+GPG's authors and the end user.
+
+Hence this script, OTP, a simple encryption program that works with
+one-time pads.  If you don't know what one-time pads are, you probably
+wouldn't be able to use them securely, so this program is not for you.
+If you do know what they are and how to use them, OTP will take care
+of some of the pad-management bureacracy for you.  It avoids re-using
+pad data (except when decrypting the same encrypted message twice, of
+course) by maintaining records of pad usage in ~/.otp/pad-records.
+And if you keep your ~/.otp configuration area under version control
+with Subversion or CVS, OTP will automatically update it to get the
+latest pad usage records before using a pad, and will commit new
+records after using a pad.  Thus, by sharing a single configuration
+area via version control, you and your interlocutors can transparently
+avoid the sin of pad range reuse.
+
+See http://en.wikipedia.org/wiki/One-time_pad for more information
+about one-time pads in general.
+
+OTP is in the public domain.
+"""
 
 import os
 import sys
@@ -449,20 +450,26 @@ def version():
 def usage(outfile=sys.stdout):
   """Return a usage string."""
   usage_str = """\
-OTP version %s, a one-time pad program that avoids re-using pad data.
+OTP version %s, an encoder/decoder for one-time pads.
 
 Usage: otp [-e|-d] -p PAD_FILE < INPUT > OUTPUT
          
-Encoder/decoder for one-time pads.  OTP remembers what ranges of what
-pad files have been used, and avoids re-using those ranges when
-encoding.  Because OTP compresses plaintext input to save pad,
-encoding and decoding are not symmetrical; thus, it needs to be told
-whether it is encoding or decoding (-e or -d).  More options:
+OTP remembers what ranges of what pad files have been used, and avoids
+re-using those ranges when encoding.  Because OTP compresses plaintext
+input to save pad, encoding and decoding are not symmetrical; thus,
+OTP needs to be told whether it is encoding or decoding (-e or -d).
+All options:
 
+   -e                      Encrypt
+   -d                      Decrypt
+   -p PAD | --pad=PAD      Use PAD for pad data.
    --offset=N              Control the pad data start offset
-   -n / --no-trace         Leave no record of pad usage in your config
+   -n | --no-trace         Leave no record of pad usage in your config
    --no-vc                 Ignore SVN/CVS control of the config area
-   -C DIR / --config=DIR   Specify DIR (instead of ~/.otp) as the config area
+   -C DIR | --config=DIR   Specify DIR (instead of ~/.otp) as the config area
+   --intro                 Show an introduction to OTP and one-time pads
+   -v | -V | --version     Show version information
+   -? | -h | --help        Show usage
 
 """ % version()
   outfile.write(usage_str)
@@ -489,7 +496,7 @@ def main():
                                  "no-vc",
                                  "no-trace",
                                  "debug",
-                                 "help", "version"])
+                                 "intro", "help", "version"])
   except getopt.GetoptError:
     sys.stderr.write("Error: problem processing options\n")
     usage(sys.stderr)
@@ -498,6 +505,9 @@ def main():
   for opt, value in opts:
     if opt == '--help' or opt == '-h' or opt == '-?':
       usage()
+      sys.exit(0)
+    if opt == '--intro':
+      print __doc__
       sys.exit(0)
     elif opt == '--version' or opt == '-v' or opt == '-V':
       print "OTP, version %s." % version()
