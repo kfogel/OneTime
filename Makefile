@@ -11,3 +11,6 @@ check:
 
 clean:
 	@rm -f test-msg.otp test-msg.decoded *~
+
+www:
+	@true
