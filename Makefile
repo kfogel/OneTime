@@ -7,7 +7,7 @@ run:
         ../otp --debug --offset=0 --config=dot-otp -e random-data-1 < test-msg)
 
 check:
-	@check.sh
+	@./check.sh
 
 clean:
 	@rm -f test-msg.otp test-msg.decoded *~
