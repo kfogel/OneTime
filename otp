@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-__doc__ = """
-Encoder/decoder for one-time pads.  Run 'otp --help' for usage.
+__doc__ = """Encoder/decoder for one-time pads.  Run 'otp --help' for usage.
 
 The usual public-key encryption programs, such as GPG, are probably
 secure for everyday purposes, but their implementations are too
