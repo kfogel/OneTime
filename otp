@@ -507,7 +507,7 @@ def main():
       usage()
       sys.exit(0)
     if opt == '--intro':
-      print __doc__
+      print __doc__,
       sys.exit(0)
     elif opt == '--version' or opt == '-v' or opt == '-V':
       print "OTP, version %s." % version()
