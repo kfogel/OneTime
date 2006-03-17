@@ -1,0 +1,28 @@
+<html>
+<head>
+<title>OTP: An Encoder/Decoder For One-Time Pads</title>
+</head>
+
+<body text="#000000" bgcolor="#FFFFFF" link="#0000FF" vlink="#800080">
+<div id="content">
+
+<center>
+<h2>OTP: An Encoder/Decoder For One-Time Pads</h2>
+</center>
+
+<center><h3><a href="otp">Download OTPVERSION</a></h3></center>
+
+<p><a href="otp">OTP</a> is an encryption program that
+uses the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time  
+pad</a> algorithm to allow two parties to communicate securely,
+without worrying about
+<a href="http://en.wikipedia.org/wiki/Domestic_spying_program">unauthorized
+people listening in</a>.  OTP compresses plaintext input to save pad,
+has features that assist with the bureaucracy of pad management, and
+comes with built-in help.  It is written in the
+<a href="http://www.python.org/">Python</a> programming language; you
+must have a Python interpreter installed to run OTP.</p>
+
+<p>Here is the output of '<b>otp&nbsp;--intro</b>':</p>
+
+<pre><i>
