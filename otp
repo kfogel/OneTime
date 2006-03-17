@@ -509,7 +509,7 @@ def main():
       print __doc__,
       sys.exit(0)
     elif opt == '--version' or opt == '-v' or opt == '-V':
-      print "OTP, version %s." % version()
+      print "OTP version %s" % version()
       sys.exit(0)
     elif opt == '--encrypt' or opt == '-e':
       encrypting = True
