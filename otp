@@ -449,14 +449,17 @@ def version():
 def usage(outfile=sys.stdout):
   """Return a usage string."""
   usage_str = """\
-OTP version %s, an encoder/decoder for one-time pads.  Usage:
+OTP version %s, an encoder/decoder for one-time pads.  Standard usage:
+
+  otp -e -p PAD INPUT       (encrypt, write output to 'INPUT.otp')
+  otp -d -p PAD INPUT.otp   (decrypt, strip '.otp' suffix on output)
+
+Other usage modes:
 
   otp [-e|-d] -p PAD INPUT -o OUTPUT  (both INPUT and OUTPUT are files)
   otp [-e|-d] -p PAD INPUT -o -       (output goes to stdout)
   otp [-e|-d] -p PAD                  (input from stdin, output to stdout)
   otp [-e|-d] -p PAD -o OUTPUT        (input from stdin, output to OUTPUT)
-  otp [-e|-d] -p PAD INPUT            (output to 'INPUT.otp' if encrypting,
-                                      or strip '.otp' suffix if decrypting)
 
 OTP remembers what ranges of what pad files have been used, and avoids
 re-using those ranges when encoding.  Because OTP compresses plaintext
