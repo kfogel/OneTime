@@ -42,5 +42,17 @@ www:
 	@./otp --version > version.tmp
 	@sed -e "s/OTPVERSION/`cat version.tmp`/g" \
            < index.html > index.html.tmp
+	@# Make the GPG link live.
+	@mv index.html.tmp index.html
+	@sed -e 's/GPG,/<a href="http:\/\/www.gnupg.org\/">GPG<\/a>,/g' \
+           < index.html > index.html.tmp
+	@mv index.html.tmp index.html
+	@# Make the Wikipedia link live.
+	@sed -e 's/http:\/\/en.wikipedia.org\/wiki\/One-time_pad/<a href="http:\/\/en.wikipedia.org\/wiki\/One-time_pad">http:\/\/en.wikipedia.org\/wiki\/One-time_pad<\/a>/g' \
+           < index.html > index.html.tmp
+	@mv index.html.tmp index.html
+	@# Make the SVN and CVS links live.
+	@sed -e 's/Subversion or CVS,/<a href="http:\/\/subversion.tigris.org\/">Subversion<\/a> or <a href="http:\/\/www.nongnu.org\/cvs\/">CVS<\/a>,/g' \
+           < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@rm intro.tmp help.tmp version.tmp
