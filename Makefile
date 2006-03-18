@@ -48,7 +48,7 @@ www:
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@# Make the Wikipedia link live.
-	@sed -e 's/http:\/\/en.wikipedia.org\/wiki\/One-time_pad/<a href="http:\/\/en.wikipedia.org\/wiki\/One-time_pad">http:\/\/en.wikipedia.org\/wiki\/One-time_pad<\/a>/g' \
+	@sed -e 's/ http:\/\/en.wikipedia.org\/wiki\/One-time_pad / <a href="http:\/\/en.wikipedia.org\/wiki\/One-time_pad">http:\/\/en.wikipedia.org\/wiki\/One-time_pad<\/a> /g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@# Make the SVN and CVS links live.
