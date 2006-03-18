@@ -54,7 +54,48 @@ show_lengths "After encoding again:"
 show_lengths "After decoding:"
 
 if cmp ../test-msg test-msg.decoded-1; then
-  echo "All tests passed."
+  echo "Basic tests passed."
 else
-  echo "Error: tests failed, something went wrong."
+  echo "Error: basic tests failed, something went wrong."
+fi
+
+###
+# Test the various option parsing methods.
+# "e.N" is encrypted text, "d.N" is decrypted text.
+###
+
+# mode 1
+../../otp --config=dot-otp -e -p ../random-data-2 -o e.1 ../test-msg
+../../otp --config=dot-otp -d -p ../random-data-2 -o d.1 e.1
+
+# mode 2
+../../otp --config=dot-otp -e -p ../random-data-2 ../test-msg
+mv ../test-msg.otp e.2.otp
+../../otp --config=dot-otp -d -p ../random-data-2 e.2.otp
+mv e.2 d.2
+
+# mode 3
+../../otp --config=dot-otp -e -p ../random-data-2 -o - ../test-msg > e.3
+../../otp --config=dot-otp -d -p ../random-data-2 -o - e.3 > d.3
+
+# mode 4
+../../otp --config=dot-otp -e -p ../random-data-2 < ../test-msg > e.4
+../../otp --config=dot-otp -d -p ../random-data-2 < e.4 > d.4
+
+# mode 5
+../../otp --config=dot-otp -e -p ../random-data-2 -o e.5 < ../test-msg
+../../otp --config=dot-otp -d -p ../random-data-2 -o d.5 < e.5
+
+PASSED="yes"
+for n in 1 2 3 4 5; do
+  if cmp ../test-msg d.${n}; then
+    true
+  else
+    echo "Error: option parsing tests failed, something went wrong."
+    PASSED="no"
+  fi
+done
+
+if [ ${PASSED} = "yes" ]; then
+  echo "Option parsing tests passed."
 fi

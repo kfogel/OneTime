@@ -449,10 +449,15 @@ def version():
 def usage(outfile=sys.stdout):
   """Return a usage string."""
   usage_str = """\
-OTP version %s, an encoder/decoder for one-time pads.
+OTP version %s, an encoder/decoder for one-time pads.  Usage:
 
-Usage: otp [-e|-d] -p PAD_FILE < INPUT > OUTPUT
-         
+  otp [-e|-d] -p PAD INPUT -o OUTPUT  (both INPUT and OUTPUT are files)
+  otp [-e|-d] -p PAD INPUT -o -       (output goes to stdout)
+  otp [-e|-d] -p PAD                  (input from stdin, output to stdout)
+  otp [-e|-d] -p PAD -o OUTPUT        (input from stdin, output to OUTPUT)
+  otp [-e|-d] -p PAD INPUT            (output to 'INPUT.otp' if encrypting,
+                                      or strip '.otp' suffix if decrypting)
+
 OTP remembers what ranges of what pad files have been used, and avoids
 re-using those ranges when encoding.  Because OTP compresses plaintext
 input to save pad, encoding and decoding are not symmetrical; thus,
@@ -462,6 +467,7 @@ All options:
    -e                      Encrypt
    -d                      Decrypt
    -p PAD | --pad=PAD      Use PAD for pad data.
+   -o OUT | --output=OUT   Output to file OUT ("-" for stdout)
    --offset=N              Control the pad data start offset
    -n | --no-trace         Leave no record of pad usage in your config
    --no-vc                 Ignore SVN/CVS control of the config area
@@ -478,6 +484,8 @@ def main():
   encrypting  = False
   decrypting  = False
   pad_file    = None
+  input       = None
+  output      = None
   offset      = 0
   config_area = None
   debug       = False
@@ -487,9 +495,10 @@ def main():
 
   try:
     opts, args = getopt.getopt(sys.argv[1:],
-                               'edp:h?vVnC:',
+                               'edp:o:h?vVnC:',
                                [ "encrypt", "decrypt",
                                  "pad=",
+                                 "output=",
                                  "offset=",
                                  "config=",
                                  "no-vc",
@@ -517,6 +526,11 @@ def main():
       decrypting = True
     elif opt == '--pad' or opt == '-p':
       pad_file = value
+    elif opt == '--output' or opt == '-o':
+      if value == "-":
+        output = sys.stdout
+      else:
+        output = open(value, "w")
     elif opt == '--offset':
       offset = int(value)
     elif opt == '--config' or opt == '-C':
@@ -543,8 +557,27 @@ def main():
     sys.stderr.write("Error: must specify pad file with -p.\n")
     error_exit = True
 
-  if len(args) != 0:
-    sys.stderr.write("Error: unexpected arguments: %s\n" % args)
+  if len(args) == 0 or args[0] == "-":
+    input = sys.stdin
+    if output is None:
+      # If input is stdin, output defaults to stdout.
+      output = sys.stdout
+  elif len(args) == 1:
+    input = open(args[0])
+    if output is None:
+      if encrypting:
+        # If plaintext input is 'FILENAME', output defaults to 'FILENAME.otp'.
+        output = open(args[0] + ".otp", "w")
+      else:
+        # If crypttext input is 'FILENAME.otp', output defaults to 'FILENAME'.
+        if not args[0].endswith(".otp"):
+          sys.stderr.write("Error: input filename does not end with '.otp'.\n")
+          error_exit = True
+        else:
+          output = open(args[0][:-4], "w")
+      
+  elif len(args) > 1:
+    sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
     error_exit = True
 
   if error_exit:
@@ -600,34 +633,34 @@ def main():
 
   if encrypting:
     encoder = PadEncoder(pad, config)
-    sys.stdout.write(otp_header)
+    output.write(otp_header)
     while 1:
-      str = sys.stdin.read()
+      str = input.read()
       if len(str) > 0:
         result = encoder.encode(str)
         if result:
-          sys.stdout.write(result)
+          output.write(result)
       else:
         result = encoder.finish()
         if result:
-          sys.stdout.write(result)
+          output.write(result)
         break
-    sys.stdout.write(otp_end)
+    output.write(otp_end)
 
   elif decrypting:
     decoder = PadDecoder(pad, config)
     saw_end = None
-    maybe_header_line = sys.stdin.readline()
+    maybe_header_line = input.readline()
     if maybe_header_line != otp_begin:
       sys.stderr.write("Error: malformed OTP format: no begin line.\n")
       sys.exit(1)
     while maybe_header_line != "\n":
-      maybe_header_line = sys.stdin.readline()
+      maybe_header_line = input.readline()
       m = re.match("Offset: ([0-9]+)", maybe_header_line)
       if m:
         pad.set_offset(int(m.group(1)))
     while 1:
-      str = sys.stdin.readline()
+      str = input.readline()
       if str == otp_end:
         saw_end = 1
         break
@@ -637,7 +670,7 @@ def main():
         except EOFError:
           break
         if result:
-          sys.stdout.write(result)
+          output.write(result)
       else:
         break
     decoder.finish()
