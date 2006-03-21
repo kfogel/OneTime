@@ -609,30 +609,51 @@ def main():
                + "\n"
   otp_end = "-----END OTP MESSAGE-----\n"
 
-  # If we gave up on streaminess, we could use pads more efficiently,
-  # by encoding with multiple discontinuous ranges to avoid the
-  # "sparse wasted space" problem.  We'd turn the single 'Offset:'
-  # header into (potentially) multiple 'Range:' headers, that would
-  # use up any free pad space no matter where it was located:
+  # We could use pads more efficiently, by encoding with multiple
+  # discontinuous ranges to avoid the "sparse wasted space" problem.
+  # Instead of using a single 'Offset:' header at the beginning of the
+  # message, we'd embed pad range metadata into the stream as we
+  # encrypt.  That way we could use up free pad space no matter where
+  # it's located:
   #
-  #     Version: OTP v0.0
-  #     Pad ID: blahblahblah
-  #     Range: 0,15
-  #     Range: 60,100
-  #     Range: 200,300
+  #    -----BEGIN OTP MESSAGE-----
+  #    Version: OTP 1.59
+  #    Pad ID: de61f169bce003a1189b3e6ebb8ddfc0ef007ac2
+  #    
+  #    Offset 0:
+  #     fvPh7od4icPXB0M1fcARXIHRGl8MMSrbKlc6dTjiT7cu/9gGiwwoPFyI0muM73G
+  #     G6cLE9+gipcEnMIO+Ec6t1iO7KrjnHmD931nU1ko9wtVNjvUaaWjVZmjqQp5Hr9
+  #     JT6m/oYsrMN10/1NcmknSlzVrxV0RQ3bNl4zAck/9LX0XuVFz1KKvOga02LtsQG
+  #     q2RKyB63bLlbUQBeUL1OITMjhn+vblI2XItPMiPplexm8tBjPkhEffvBZSSK2RH
+  #     zDBVeHgOkm3PVD2R+kW6WmZidW+W6n0WMMCrRtyFLZzYFjoctTx5fOe9216bJOI
+  #     ndXEbwO13j43zHAd52pI3GddBaRVpkXBu2e2rzMLCGyVCvsihvpQyAXnubR62u9
+  #    Offset 114:
+  #     6Ftmk4uaNUojelW2weclXOyo9um5YBK+6cZXhOOnYVUgHvmHI/kz8WwxeTuJy0A
+  #     il96oeP/Kk0uIfaGu81qYvPyBntEDdi8iKjs0kv2rj6F4mqjQUzfljId/UeOaTG
+  #     a/W0l8ZD8eH+Wt+XH0tx57pFLZ8zzPj+KARuDK9XiRfkhrRseFIm2ylGmD3SY69
+  #     yyGUDWYm3JGc0g+9b7AAWJy83xSJEywKGvs9RwhhSDz/Qe8610dJOLXLwyHGfwB
+  #     mCXgYzi13sxYwYM1eYMg3xt/sot+w3V61ps1O7mnb+AA99k1Uxvwy4/8KZAKpAn
+  #     AFPOnoL70mDoW9r8zxzWLA39Regfd3DChA8hNYd2zM6k72047pL50cKWwqsSoGQ
+  #    Offset 570:
+  #     gVL/aCtgYuXNph908Hk/rtdj1GUSLEzlxpBDgtYrj02m5oHLl64ZXs+VBQg2wtG
+  #     qFSBj4zTQXQYrZPqYVqlAoQBGPZy110nbJWRq4clDx5LNiNeYEZAnqznXn2SO90
+  #     AX+dllPISlrlca5gcK+KCUvJFPqe/KZ9WcjCJbi94GYFJdsxutLIaUQsZpc0+Pq
+  #     UmO4VLD1ef8N6G8vrTUamDPc7+FBXZIUn0sEpJ6Al9jBRNxd56aiBkqwQe0Dboj
+  #     d2Rxc56aVy7PS9yN1tcsuu/RwCDrOR/kGJ0CYU1G/XyTifUqQrPbzMdAgV8bBOg
+  #    [...etc, etc...]
+  #    -----END OTP MESSAGE-----
   #
-  # (In this example, ranges 16-60 and 160-200 were already used in
-  # this pad and were therefore not available).
-  #
-  # However, to use this technique, you have to know the size of the
-  # data in advance, otherwise you can't write out the header as part
-  # of the stream.  And in the usual use case -- two people sharing a
-  # pad to exchange messages serially -- there is no benefit anyway,
-  # because already they're using the pad as efficiently as possible.
-  # So IMHO, the extra complexity isn't worth the occasional
+  # However, the common case is two people sharing a pad to exchange
+  # messages serially, and in that case there is no benefit to using
+  # this scheme, since they're already using the pad as efficiently as
+  # possible.  IMHO, the extra complexity isn't worth the occasional
   # space-savings.  Random numbers aren't dirt cheap, but they're not
   # terribly expensive either.  Asking users to occasionally spend
   # extra pad bits for the sake of code simplicity seems reasonable.
+  #
+  # We can always add this format in the future, though.  If the
+  # 'Offset:' line appears in the headers, then we're using the old
+  # format, if not, then we're using the new format.
 
   if encrypting:
     encoder = PadEncoder(pad, config)
