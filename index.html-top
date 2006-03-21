@@ -20,8 +20,23 @@ without worrying about
 people listening in</a>.  OTP compresses plaintext input to save pad,
 has features that assist with the bureaucracy of pad management, and
 comes with built-in help.  It is written in the
-<a href="http://www.python.org/">Python</a> programming language; you
-must have a Python interpreter installed to run OTP.</p>
+<a href="http://www.python.org/">Python</a> programming language and
+requires a Python interpreter to run.</p>
+
+<p>To use OTP reliably, you need a source of good random data.  On
+modern Unix systems, the <tt>/dev/random</tt> device is probably good
+enough (I haven't done the math myself, I'm just taking other people's
+word for it).  On non-Unix systems, you're on your own.  Note that the
+one-time pad method depends completely on the quality of the pad data;
+if the pad is not truly random, the security of your messages cannot
+be guaranteed.  Whatever your source of random data, store the data in
+a file (that's the "pad") and point to it using OTP's <tt>-p</tt>
+option when you encrypt; the recipient must use the same pad to
+decrypt, of course.  Never encrypt different plaintexts with the same
+stretch of pad data&nbsp;&mdash;&nbsp;doing so could reveal some or
+all of the used pad to eavesdroppers.  OTP's default behavior is to
+always avoid reusing pad data, unless you explicitly tell it
+otherwise.</p>
 
 <p>Here is the output of '<b>otp&nbsp;--intro</b>':</p>
 
