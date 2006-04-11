@@ -12,6 +12,18 @@
 
 <center><h3><a href="otp">Download OTPVERSION</a></h3></center>
 
+<p style="background: lightblue; font-style: italic;"><b>Disclaimer</b>:
+If you reached this web site via <a
+href="http://albertogonzalez.org/">albertogonzalez.org</a>, please
+note that <a href="http://en.wikipedia.org/wiki/Alberto_Gonzalez"
+>Alberto Gonzalez</a>, the Attorney General of the United States, does
+not own that Internet domain and has no involvement with it or with
+this web site.  Given Gonzalez's approval of President George W. Bush's
+<a href="http://en.wikipedia.org/wiki/Domestic_spying_program">blatantly
+illegal domestic spying program</a>, I simply thought it appropriate
+for <a href="http://albertogonzalez.org/">albertogonzalez.org</a> to
+point to encryption software.&nbsp;&nbsp;&nbsp;--Karl&nbsp;Fogel</p>
+
 <p><a href="otp">OTP</a> is an encryption program that
 uses the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time  
 pad</a> algorithm to allow two parties to communicate securely,
