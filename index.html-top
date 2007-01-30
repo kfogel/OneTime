@@ -18,21 +18,26 @@ href="http://albertogonzalez.org/">albertogonzalez.org</a>, please
 note that <a href="http://en.wikipedia.org/wiki/Alberto_Gonzalez"
 >Alberto Gonzalez</a>, the Attorney General of the United States, does
 not own that Internet domain and has no involvement with it or with
-this web site.  Given Gonzalez's approval of President George W. Bush's
+this web site.  Given Gonzalez's past approval of a
 <a href="http://en.wikipedia.org/wiki/Domestic_spying_program">blatantly
-illegal domestic spying program</a>, I simply thought it appropriate
-for <a href="http://albertogonzalez.org/">albertogonzalez.org</a> to
-point to encryption software.&nbsp;&nbsp;&nbsp;--<a href="http://www.red-bean.com/kfogel">Karl&nbsp;Fogel</a></p>
+illegal domestic spying program</a>, and his overall
+<a href="http://writ.lp.findlaw.com/dean/20070126.html"
+>obliviousness to the meaning of the U.S. Constitution</a>, I simply
+thought it appropriate for <a href="http://albertogonzalez.org/"
+>albertogonzalez.org</a> to offer encryption software to the
+public.&nbsp;&nbsp;&nbsp;--<a href="http://www.red-bean.com/kfogel"
+>Karl&nbsp;Fogel</a></p>
 
-<p><a href="otp">OTP</a> is an encryption program that
-uses the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time  
-pad</a> algorithm to allow two parties to communicate securely,
-without worrying about
-<a href="http://en.wikipedia.org/wiki/Domestic_spying_program">unauthorized
+<p><a href="otp">OTP</a> is an <a href="http://www.opensource.org/"
+>open source</a> encryption program that uses the <a
+href="http://en.wikipedia.org/wiki/One-time_pad">one-time pad
+algorithm</a> to allow two parties to communicate securely, without
+worrying about <a
+href="http://en.wikipedia.org/wiki/Domestic_spying_program">unauthorized
 people listening in</a>.  OTP compresses plaintext input to save pad,
 has features that assist with the bureaucracy of pad management, and
-comes with built-in help.  It is written in the
-<a href="http://www.python.org/">Python</a> programming language and
+comes with built-in help.  It is written in the <a
+href="http://www.python.org/">Python</a> programming language and
 requires a Python interpreter to run.</p>
 
 <p>To use OTP reliably, you need a source of good random data.  On
@@ -47,7 +52,7 @@ if the pad is not truly random, the security of your messages cannot
 be guaranteed.  Never encrypt different plaintexts with the same
 stretch of pad&nbsp;&mdash;&nbsp;doing so could reveal some or all of
 the used pad to eavesdroppers.  OTP's default behavior is to always
-avoid reusing pad data, unless you explicitly tell it otherwise.</p>
+avoid reusing pad data, unless you tell it otherwise.</p>
 
 <p>Here is the output of '<b>otp&nbsp;--intro</b>':</p>
 
