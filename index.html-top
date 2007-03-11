@@ -38,6 +38,9 @@ stretch of pad&nbsp;&mdash;&nbsp;doing so could reveal some or all of
 the used pad to eavesdroppers.  OTP's default behavior is to always
 avoid reusing pad data, unless you tell it otherwise.</p>
 
+<p>OTP was written by <a href="http://www.red-bean.com/kfogel">Karl
+Fogel</a> and is in the public domain.</p>
+
 <p>Here is the output of '<b>otp&nbsp;--intro</b>':</p>
 
 <pre><i>
