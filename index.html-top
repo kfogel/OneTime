@@ -6,9 +6,9 @@
 <body text="#000000" bgcolor="#FFFFFF" link="#0000FF" vlink="#800080">
 <div id="content">
 
-<center>
-<h2>OTP: An Encoder/Decoder For One-Time Pads</h2>
-</center>
+<div style="background: lightblue; font-style: italic;">
+   <h2><center>OTP: An Encoder/Decoder For One-Time Pads</center></h2>
+</div>
 
 <center><h3><a href="otp">Download OTPVERSION</a></h3></center>
 
