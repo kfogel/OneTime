@@ -473,8 +473,8 @@ All options:
    -o OUT | --output=OUT   Output to file OUT ("-" for stdout)
    --offset=N              Control the pad data start offset
    -n | --no-trace         Leave no record of pad usage in your config
-   --no-vc                 Ignore SVN/CVS control of the config area
    -C DIR | --config=DIR   Specify DIR (instead of ~/.otp) as the config area
+   --no-vc                 Ignore SVN/CVS control of the config area
    --intro                 Show an introduction to OTP and one-time pads
    -v | -V | --version     Show version information
    -? | -h | --help        Show usage
