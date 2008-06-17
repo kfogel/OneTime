@@ -582,13 +582,16 @@ def main():
         output = open(args[0] + ".onetime", "w")
       else:
         # If crypttext input is 'FILENAME.onetime', output defaults to
-        # 'FILENAME'.
-        if not args[0].endswith(".onetime"):
-          sys.stderr.write(
-            "Error: input filename does not end with '.onetime'.\n")
-          error_exit = True
-        else:
+        # 'FILENAME'.  But we also look for ".otp", for compatibility
+        # with older versions of this program.
+        if args[0].endswith(".onetime"):
           output = open(args[0][:-8], "w")
+        elif args[0].endswith(".otp"):
+          output = open(args[0][:-4], "w")
+        else:
+          sys.stderr.write(
+            "Error: input filename does not end with '.onetime' or '.otp'.\n")
+          error_exit = True
       
   elif len(args) > 1:
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
