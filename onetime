@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__doc__ = """Encoder/decoder for one-time pads.  Run 'otp --help' for usage.
+__doc__ = """Encoder/decoder for one-time pads.  Run 'onetime --help' for usage.
 
 The usual public-key encryption programs, such as GPG, are probably
 secure for everyday purposes, but their implementations are too
@@ -8,15 +8,15 @@ complex for all but the most knowledgeable programmers to vet, and
 anyway there are too many vulnerable steps in the supply chain between
 GPG's authors and the end user.
 
-Hence this script, OTP, a simple encryption program that works with
+Hence this script, OneTime, a simple encryption program that works with
 one-time pads.  If you don't know what one-time pads are, you probably
 wouldn't be able to use them securely, so this program is not for you.
-If you do know what they are and how to use them, OTP will take care
+If you do know what they are and how to use them, OneTime will take care
 of some of the pad-management bureacracy for you.  It avoids re-using
 pad data (except when decrypting the same encrypted message twice, of
-course) by maintaining records of pad usage in ~/.otp/pad-records.
-And if you keep your ~/.otp configuration area under version control
-with Subversion or CVS, OTP will automatically update it to get the
+course) by maintaining records of pad usage in ~/.onetime/pad-records.
+And if you keep your ~/.onetime configuration area under version control
+with Subversion or CVS, OneTime will automatically update it to get the
 latest pad usage records before using a pad, and will commit new
 records after using a pad.  Thus, by sharing a single configuration
 area via version control, you and your interlocutors can transparently
@@ -25,7 +25,7 @@ avoid the sin of pad range reuse.
 See http://en.wikipedia.org/wiki/One-time_pad for more information
 about one-time pads in general.
 
-OTP is in the public domain.
+OneTime is in the public domain.
 """
 
 import os
@@ -115,7 +115,7 @@ class Pad:
 
 
 class PadEncoder:
-  """Class for encoding raw data to OTP output."""
+  """Class for encoding raw data to OneTime output."""
 
   class PadEncoderNotFinished(Exception):
     """Exception raised if the encoder is asked for information it
@@ -137,7 +137,7 @@ class PadEncoder:
       return None
 
   def encode(self, str):
-    """Return all available otp-encoded data so far, including for STR,
+    """Return all available onetime-encoded data so far, including for STR,
     or return None if no encoded data is ready yet."""
     return self._output(self.compressor.compress(self.pad.convert(str)))
 
@@ -159,7 +159,7 @@ class PadDecoder:
     self.unused_data = ""
 
   def decode(self, str):
-    """Return all available otp-decoded data so far, including for STR,
+    """Return all available onetime-decoded data so far, including for STR,
     or return None if no decoded data is ready yet.  Throw EOFError
     exception if called past the end of decodable data.  Store any
     unused data in self.unused_data."""
@@ -173,8 +173,8 @@ class PadDecoder:
 
 
 class Configuration:
-  """A parsed representation of one user's ~/.otp/ configuration area.
-  A .otp/ directory contains just a 'pad-records' file right now."""
+  """A parsed representation of one user's ~/.onetime/ configuration area.
+  A .onetime/ directory contains just a 'pad-records' file right now."""
   def __init__(self, path=None, no_vc=False):
     """Initialize a new configuration.
 
@@ -186,11 +186,19 @@ class Configuration:
     self.config_area = path
     self.no_vc = no_vc
     if self.config_area is None:
-      self.config_area = os.path.join(os.path.expanduser("~"), ".otp")
+      self.config_area = os.path.join(os.path.expanduser("~"), ".onetime")
     self.pad_records_file = os.path.join(self.config_area, "pad-records")
     # Create the configuration area if necessary.
     if not os.path.isdir(self.config_area):
-      os.mkdir(self.config_area)
+      # Legacy data check: if they have a ~/.otp dir, that's probably
+      # from a previous incarnation of this program, when it was named
+      # "otp".  If so, just rename the old config area.
+      old_config_area = os.path.join(os.path.expanduser("~"), ".otp")
+      old_pad_records_file = os.path.join(old_config_area, "pad-records")
+      if os.path.isfile(old_pad_records_file):
+        os.rename(old_config_area, self.config_area)
+      else:
+        os.mkdir(self.config_area)
     if not os.path.isfile(self.pad_records_file):
       open(self.pad_records_file, "w").close()
     # Update the pad-records file before parsing, if possible.
@@ -313,7 +321,7 @@ class Configuration:
 
   def _parse_pad_records_file(self):
     """Return a dictionary representing this configuration's 'pad-records'
-    file (e.g., ~/.otp/pad-records).  If the file is empty, just
+    file (e.g., ~/.onetime/pad-records).  If the file is empty, just
     return an empty dictionary.
 
     The returned dictionary is keyed on pad IDs, with sub-dictionaries
@@ -330,7 +338,7 @@ class Configuration:
 
       <?xml version="1.0" encode="UTF-8"?>
       <!DOCTYPE TYPE_OF_DOC SYSTEM/PUBLIC "dtd-name">
-      <otp-pad-records>
+      <onetime-pad-records>
          <pad-record>
            <id>SHA1_HASH_OF_FIRST_KILOBYTE_OF_PAD</id>
            <used><offset>OFFSET_A</offset>
@@ -346,7 +354,7 @@ class Configuration:
            ...
          </pad-record>
          ...
-      </otp-pad-records>
+      </onetime-pad-records>
       """
     dict = { }
 
@@ -389,7 +397,7 @@ class Configuration:
     """Save the pad-records file, and maybe commit it."""
     tempfile = self.pad_records_file + ".tmp"
     fp = open(tempfile, 'w')
-    fp.write("<otp-pad-records>\n")
+    fp.write("<onetime-pad-records>\n")
     for pad_id in self.pad_records.keys():
       fp.write("  <pad-record>\n")
       fp.write("    <id>%s</id>\n" % pad_id)
@@ -402,7 +410,7 @@ class Configuration:
           fp.write("    <%s>%s</%s>\n" % \
                    (key, self.pad_records[pad_id][key], key))
       fp.write("  </pad-record>\n")
-    fp.write("</otp-pad-records>\n")
+    fp.write("</onetime-pad-records>\n")
     fp.close()
     os.rename(tempfile, self.pad_records_file)
     self._maybe_commit_pad_records()
@@ -449,22 +457,22 @@ def version():
 def usage(outfile=sys.stdout):
   """Return a usage string."""
   usage_str = """\
-OTP version %s, an encoder/decoder for one-time pads.  Standard usage:
+OneTime version %s, an encoder/decoder for one-time pads.  Standard usage:
 
-  otp -e -p PAD INPUT       (encrypt, write output to 'INPUT.otp')
-  otp -d -p PAD INPUT.otp   (decrypt, strip '.otp' suffix on output)
+  onetime -e -p PAD INPUT           (encrypt; write output to 'INPUT.onetime')
+  onetime -d -p PAD INPUT.onetime   (decrypt; output loses '.onetime' suffix)
 
 Other usage modes:
 
-  otp [-e|-d] -p PAD INPUT -o OUTPUT  (both INPUT and OUTPUT are files)
-  otp [-e|-d] -p PAD INPUT -o -       (output goes to stdout)
-  otp [-e|-d] -p PAD                  (input from stdin, output to stdout)
-  otp [-e|-d] -p PAD -o OUTPUT        (input from stdin, output to OUTPUT)
+  onetime [-e|-d] -p PAD INPUT -o OUTPUT  (both INPUT and OUTPUT are files)
+  onetime [-e|-d] -p PAD INPUT -o -       (output goes to stdout)
+  onetime [-e|-d] -p PAD                  (input from stdin, output to stdout)
+  onetime [-e|-d] -p PAD -o OUTPUT        (input from stdin, output to OUTPUT)
 
-OTP remembers what ranges of what pad files have been used, and avoids
-re-using those ranges when encoding.  Because OTP compresses plaintext
+OneTime remembers what ranges of what pad files have been used, and avoids
+re-using those ranges when encoding.  Because OneTime compresses plaintext
 input to save pad, encoding and decoding are not symmetrical; thus,
-OTP needs to be told whether it is encoding or decoding (-e or -d).
+OneTime needs to be told whether it is encoding or decoding (-e or -d).
 All options:
 
    -e                      Encrypt
@@ -473,9 +481,9 @@ All options:
    -o OUT | --output=OUT   Output to file OUT ("-" for stdout)
    --offset=N              Control the pad data start offset
    -n | --no-trace         Leave no record of pad usage in your config
-   -C DIR | --config=DIR   Specify DIR (instead of ~/.otp) as the config area
+   -C DIR | --config=DIR   Specify DIR (instead of ~/.onetime) as config area
    --no-vc                 Ignore SVN/CVS control of the config area
-   --intro                 Show an introduction to OTP and one-time pads
+   --intro                 Show an introduction to OneTime and one-time pads
    -v | -V | --version     Show version information
    -? | -h | --help        Show usage
 
@@ -521,7 +529,7 @@ def main():
       print __doc__,
       sys.exit(0)
     elif opt == '--version' or opt == '-v' or opt == '-V':
-      print "OTP version %s" % version()
+      print "OneTime version %s" % version()
       sys.exit(0)
     elif opt == '--encrypt' or opt == '-e':
       encrypting = True
@@ -569,15 +577,18 @@ def main():
     input = open(args[0])
     if output is None:
       if encrypting:
-        # If plaintext input is 'FILENAME', output defaults to 'FILENAME.otp'.
-        output = open(args[0] + ".otp", "w")
+        # If plaintext input is 'FILENAME', output defaults to
+        # 'FILENAME.onetime'.
+        output = open(args[0] + ".onetime", "w")
       else:
-        # If crypttext input is 'FILENAME.otp', output defaults to 'FILENAME'.
-        if not args[0].endswith(".otp"):
-          sys.stderr.write("Error: input filename does not end with '.otp'.\n")
+        # If crypttext input is 'FILENAME.onetime', output defaults to
+        # 'FILENAME'.
+        if not args[0].endswith(".onetime"):
+          sys.stderr.write(
+            "Error: input filename does not end with '.onetime'.\n")
           error_exit = True
         else:
-          output = open(args[0][:-4], "w")
+          output = open(args[0][:-8], "w")
       
   elif len(args) > 1:
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
@@ -596,18 +607,20 @@ def main():
   if offset > 0:
     pad.set_offset(offset)
 
-  # The first line of OTP format is the begin line.
+  # The first line of OneTime format is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
   # Then comes the encoded body.
   # The last line indicates the end, and is distinguishable from
   #   encoded content by inspection 
-  otp_begin = "-----BEGIN OTP MESSAGE-----\n"
-  otp_header = "%s" % otp_begin                  \
-               + "Version: OTP %s\n" % version() \
-               + "Pad ID: %s\n" % pad.id()       \
-               + "Offset: %s\n" % pad.offset()   \
+  onetime_begin = "-----BEGIN OneTime MESSAGE-----\n"
+  old_onetime_begin = "-----BEGIN OTP MESSAGE-----\n"   # compat
+  onetime_header = "%s" % onetime_begin              \
+               + "Version: OneTime %s\n" % version() \
+               + "Pad ID: %s\n" % pad.id()           \
+               + "Offset: %s\n" % pad.offset()       \
                + "\n"
-  otp_end = "-----END OTP MESSAGE-----\n"
+  onetime_end = "-----END OneTime MESSAGE-----\n"
+  old_onetime_end = "-----END OTP MESSAGE-----\n"       # compat
 
   # We could use pads more efficiently, by encoding with multiple
   # discontinuous ranges to avoid the "sparse wasted space" problem.
@@ -616,8 +629,8 @@ def main():
   # encrypt.  That way we could use up free pad space no matter where
   # it's located:
   #
-  #    -----BEGIN OTP MESSAGE-----
-  #    Version: OTP 1.59
+  #    -----BEGIN OneTime MESSAGE-----
+  #    Version: OneTime 1.59
   #    Pad ID: de61f169bce003a1189b3e6ebb8ddfc0ef007ac2
   #    
   #    Offset 0:
@@ -641,7 +654,7 @@ def main():
   #     UmO4VLD1ef8N6G8vrTUamDPc7+FBXZIUn0sEpJ6Al9jBRNxd56aiBkqwQe0Dboj
   #     d2Rxc56aVy7PS9yN1tcsuu/RwCDrOR/kGJ0CYU1G/XyTifUqQrPbzMdAgV8bBOg
   #    [...etc, etc...]
-  #    -----END OTP MESSAGE-----
+  #    -----END OneTime MESSAGE-----
   #
   # However, the common case is two people sharing a pad to exchange
   # messages serially, and in that case there is no benefit to using
@@ -657,7 +670,7 @@ def main():
 
   if encrypting:
     encoder = PadEncoder(pad, config)
-    output.write(otp_header)
+    output.write(onetime_header)
     while 1:
       str = input.read()
       if len(str) > 0:
@@ -669,14 +682,15 @@ def main():
         if result:
           output.write(result)
         break
-    output.write(otp_end)
+    output.write(onetime_end)
 
   elif decrypting:
     decoder = PadDecoder(pad, config)
     saw_end = None
     maybe_header_line = input.readline()
-    if maybe_header_line != otp_begin:
-      sys.stderr.write("Error: malformed OTP format: no begin line.\n")
+    if (maybe_header_line != onetime_begin
+        and maybe_header_line != old_onetime_begin):
+      sys.stderr.write("Error: malformed OneTime format: no begin line.\n")
       sys.exit(1)
     while maybe_header_line != "\n":
       maybe_header_line = input.readline()
@@ -685,7 +699,7 @@ def main():
         pad.set_offset(int(m.group(1)))
     while 1:
       str = input.readline()
-      if str == otp_end:
+      if (str == onetime_end or str == old_onetime_end):
         saw_end = 1
         break
       if len(str) > 0:
@@ -699,7 +713,7 @@ def main():
         break
     decoder.finish()
     if not saw_end:
-      sys.stderr.write("Error: malformed OTP format: no end line.\n")
+      sys.stderr.write("Error: malformed OneTime format: no end line.\n")
       sys.exit(1)
 
   if (encrypting or decrypting) and not no_trace:

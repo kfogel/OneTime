@@ -2,13 +2,13 @@
 
 cd tests
 
-# Because OTP itself is sensitive to version control, we create
+# Because OneTime itself is sensitive to version control, we create
 # a fresh test directory every time.  For now, we don't test the
 # version control functionality, just encoding and decoding.
 rm -rf test-tmp
 mkdir test-tmp
-cp -a dot-otp test-tmp
-rm -rf test-tmp/dot-otp/.svn
+cp -a dot-onetime test-tmp
+rm -rf test-tmp/dot-onetime/.svn
 cd test-tmp
 
 # Print the (string) first argument, then display all pad lengths.
@@ -17,7 +17,7 @@ function show_lengths()
 {
    if false; then
      echo ${1}
-     grep "/length" dot-otp/pad-records
+     grep "/length" dot-onetime/pad-records
      echo ""
    fi
 }
@@ -25,31 +25,31 @@ function show_lengths()
 show_lengths "Before any encoding or decoding:"
 
 # Encode
-../../otp --config=dot-otp -e -p ../random-data-1  \
-         < ../test-msg > test-msg.otp
+../../onetime --config=dot-onetime -e -p ../random-data-1  \
+         < ../test-msg > test-msg.onetime
 
 show_lengths "After encoding:"
 
 # Decode twice, to make sure the pad can reconsume safely.
-../../otp --config=dot-otp -d -p ../random-data-1  \
-         < test-msg.otp > test-msg.decoded-1
+../../onetime --config=dot-onetime -d -p ../random-data-1  \
+         < test-msg.onetime > test-msg.decoded-1
 
 show_lengths "After decoding once:"
 
-../../otp --config=dot-otp -d -p ../random-data-1  \
-         < test-msg.otp > test-msg.decoded-2
+../../onetime --config=dot-onetime -d -p ../random-data-1  \
+         < test-msg.onetime > test-msg.decoded-2
 
 show_lengths "After decoding again:"
 
 # Encode again with the same pad
-../../otp --config=dot-otp -e -p ../random-data-1  \
-         < ../test-msg > test-msg.otp
+../../onetime --config=dot-onetime -e -p ../random-data-1  \
+         < ../test-msg > test-msg.onetime
 
 show_lengths "After encoding again:"
 
 # Decode only once this time.
-../../otp --config=dot-otp -d -p ../random-data-1  \
-         < test-msg.otp > test-msg.decoded-3
+../../onetime --config=dot-onetime -d -p ../random-data-1  \
+         < test-msg.onetime > test-msg.decoded-3
 
 show_lengths "After decoding:"
 
@@ -65,26 +65,26 @@ fi
 ###
 
 # mode 1
-../../otp --config=dot-otp -e -p ../random-data-2 -o e.1 ../test-msg
-../../otp --config=dot-otp -d -p ../random-data-2 -o d.1 e.1
+../../onetime --config=dot-onetime -e -p ../random-data-2 -o e.1 ../test-msg
+../../onetime --config=dot-onetime -d -p ../random-data-2 -o d.1 e.1
 
 # mode 2
-../../otp --config=dot-otp -e -p ../random-data-2 ../test-msg
-mv ../test-msg.otp e.2.otp
-../../otp --config=dot-otp -d -p ../random-data-2 e.2.otp
+../../onetime --config=dot-onetime -e -p ../random-data-2 ../test-msg
+mv ../test-msg.onetime e.2.onetime
+../../onetime --config=dot-onetime -d -p ../random-data-2 e.2.onetime
 mv e.2 d.2
 
 # mode 3
-../../otp --config=dot-otp -e -p ../random-data-2 -o - ../test-msg > e.3
-../../otp --config=dot-otp -d -p ../random-data-2 -o - e.3 > d.3
+../../onetime --config=dot-onetime -e -p ../random-data-2 -o - ../test-msg > e.3
+../../onetime --config=dot-onetime -d -p ../random-data-2 -o - e.3 > d.3
 
 # mode 4
-../../otp --config=dot-otp -e -p ../random-data-2 < ../test-msg > e.4
-../../otp --config=dot-otp -d -p ../random-data-2 < e.4 > d.4
+../../onetime --config=dot-onetime -e -p ../random-data-2 < ../test-msg > e.4
+../../onetime --config=dot-onetime -d -p ../random-data-2 < e.4 > d.4
 
 # mode 5
-../../otp --config=dot-otp -e -p ../random-data-2 -o e.5 < ../test-msg
-../../otp --config=dot-otp -d -p ../random-data-2 -o d.5 < e.5
+../../onetime --config=dot-onetime -e -p ../random-data-2 -o e.5 < ../test-msg
+../../onetime --config=dot-onetime -d -p ../random-data-2 -o d.5 < e.5
 
 PASSED="yes"
 for n in 1 2 3 4 5; do

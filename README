@@ -1,2 +1,2 @@
-OTP is an encoder/decoder for one-time pads.  Run './otp --intro' for
-an introduction, or './otp --help' for usage, 
+OneTime is an encoder/decoder for one-time pads.  Run './onetime --intro'
+for an introduction, or './onetime --help' for usage, 
