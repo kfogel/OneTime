@@ -9,6 +9,12 @@ run:
 check:
 	@./check.sh
 
+install:
+	@cp -v onetime /usr/bin/
+
+uninstall:
+	@rm -v /usr/bin/onetime
+
 clean:
 	@rm -f test-msg.onetime test-msg.decoded *~
 
