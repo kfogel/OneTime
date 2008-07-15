@@ -113,5 +113,5 @@ fi
 ###  All tests finished.  Remove the test area.                          ###
 ############################################################################
 
-cd ..
+cd ../..
 rm -rf tests/test-tmp
