@@ -107,3 +107,11 @@ if cmp ../test-msg test-msg.decoded-1; then
 else
   echo "Error: functionality tests failed, something went wrong."
 fi
+
+
+############################################################################
+###  All tests finished.  Remove the test area.                          ###
+############################################################################
+
+cd ..
+rm -rf tests/test-tmp
