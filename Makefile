@@ -2,21 +2,20 @@
 
 all: check
 
-run:
-	@(cd tests; \
-        ../onetime --debug --offset=0 --config=dot-onetime -e random-data-1 < test-msg)
-
+test: check
 check:
 	@./check.sh
 
 install:
 	@cp -v onetime /usr/bin/
+	@chmod a+x /usr/bin/onetime
 
 uninstall:
 	@rm -v /usr/bin/onetime
 
+distclean: clean
 clean:
-	@rm -f test-msg.onetime test-msg.decoded *~
+	@rm -f index.html test-msg.* *~
 
 www:
 	@./onetime --intro > intro.tmp
