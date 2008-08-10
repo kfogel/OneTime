@@ -6,9 +6,8 @@ test: check
 check:
 	@./check.sh
 
-
-	@cp -v onetime $(DESTDIR)/usr/bin/
-	@chmod a+x $(DESTDIR)/usr/bin/onetime
+install:
+	@install -m755 onetime $(DESTDIR)/usr/bin/
 
 uninstall:
 	@rm -v $(DESTDIR)/usr/bin/onetime
