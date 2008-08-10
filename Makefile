@@ -6,12 +6,12 @@ test: check
 check:
 	@./check.sh
 
-install:
-	@cp -v onetime /usr/bin/
-	@chmod a+x /usr/bin/onetime
+
+	@cp -v onetime $(DESTDIR)/usr/bin/
+	@chmod a+x $(DESTDIR)/usr/bin/onetime
 
 uninstall:
-	@rm -v /usr/bin/onetime
+	@rm -v $(DESTDIR)/usr/bin/onetime
 
 distclean: clean
 clean:
