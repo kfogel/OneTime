@@ -67,3 +67,6 @@ www: dist
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@rm intro.tmp help.tmp version.tmp
+
+dpkg:
+	@echo "Debian packaging rule not implemented yet."

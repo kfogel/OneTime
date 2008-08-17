@@ -1,0 +1,9 @@
+This directory holds debian packaging information.
+
+The 'debian/' subdir here corresponds to the subdir of the same name
+in the onetime-X.YZ packaging tree.
+
+The 'output/' directory is where Debian package files go after rebuild
+(e.g., onetime_1.73-1_i386.deb, onetime_1.73-1_i386.changes,
+onetime_1.73-1.dsc, onetime_1.73.orig.tar.gz, onetime_1.73-1.diff.gz,
+and anything else).
