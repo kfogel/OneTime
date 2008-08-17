@@ -7,3 +7,6 @@ The 'output/' directory is where Debian package files go after rebuild
 (e.g., onetime_1.73-1_i386.deb, onetime_1.73-1_i386.changes,
 onetime_1.73-1.dsc, onetime_1.73.orig.tar.gz, onetime_1.73-1.diff.gz,
 and anything else).
+
+The 'links.html' file is a collection of links about Debian packaging,
+useful to a novice packager.
