@@ -8,7 +8,7 @@ version=3
 
 # Uncomment to examine a Webpage
 # <Webpage URL> <string match>
-#http://www.example.com/downloads.php onetime-(.*)\.tar\.gz
+http://www.red-bean.com/onetime/onetime-(.*)\.tar\.gz
 
 # Uncomment to examine a Webserver directory
 #http://www.example.com/pub/onetime-(.*)\.tar\.gz

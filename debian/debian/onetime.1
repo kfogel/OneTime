@@ -2,7 +2,7 @@
 .\" First parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" other parameters are allowed: see man(7), man(1)
-.TH ONETIME SECTION "July 14, 2008"
+.TH ONETIME 1 "9 August, 2008"
 .\" Please adjust this date whenever revising the manpage.
 .\"
 .\" Some roff macros, for reference:
@@ -15,45 +15,43 @@
 .\" .br        insert line break
 .\" .sp <n>    insert n+1 empty lines
 .\" for manpage-specific macros, see man(7)
-.SH NAME
-onetime \- program to do something
+.SH ONETIME
+onetime \- command-line encryption program using the "one-time pad" method
 .SH SYNOPSIS
 .B onetime
 .RI [ options ] " files" ...
-.br
-.B bar
-.RI [ options ] " files" ...
+.nf
+.sp 1
 .SH DESCRIPTION
-This manual page documents briefly the
-.B onetime
-and
-.B bar
-commands.
+.sp 1
 .PP
 .\" TeX users may be more comfortable with the \fB<whatever>\fP and
 .\" \fI<whatever>\fP escape sequences to invode bold face and italics,
 .\" respectively.
-\fBonetime\fP is a program that...
+\fBonetime\fP is a command-line "one-time pad" encryption program.
 .SH OPTIONS
-These programs follow the usual GNU command line syntax, with long
-options starting with two dashes (`-').
-A summary of options is included below.
-For a complete description, see the Info files.
+It follows the usual GNU command line syntax, with long options
+starting with two dashes (`-').  For a complete description of its
+options and usage, run it with the
 .TP
-.B \-h, \-\-help
-Show summary of options.
+.B \-h
+or
+.B \-\-help
+option.
+.sp 1
+If you're new to one-time pads, you may also wish to run it with the
+.B \-\-intro
+option, to see an introduction with references to further sources.
+.sp 1
 .TP
-.B \-v, \-\-version
-Show version of program.
-.SH SEE ALSO
-.BR bar (1),
-.BR baz (1).
-.br
-The programs are documented fully by
-.IR "The Rise and Fall of a Fooish Bar" ,
-available via the Info system.
+Run it with
+.B \-v
+or
+.B \-\-version
+to see the program version.
+.sp 1
 .SH AUTHOR
-onetime was written by <upstream author>.
+onetime was written by Karl Fogel and is in the public domain.
 .PP
 This manual page was written by Karl Fogel <kfogel@red-bean.com>,
 for the Debian project (but may be used by others).

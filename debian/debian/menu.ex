@@ -1,2 +1,2 @@
-?package(onetime):needs="X11|text|vc|wm" section="Applications/see-menu-manual"\
+?package(onetime):needs="text" section="Applications/Normal applications"\
   title="onetime" command="/usr/bin/onetime"

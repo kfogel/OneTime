@@ -1,21 +1,19 @@
 This package was debianized by Karl Fogel <kfogel@red-bean.com> on
 Mon, 14 Jul 2008 22:59:59 -0400.
 
-It was downloaded from <url://example.com>
+It was downloaded from <http://www.red-bean.com/onetime/>
 
 Upstream Author(s):
 
-    <put author's name and email here>
-    <likewise for another author>
+    Karl Fogel <kfogel@red-bean.com>
 
 Copyright:
 
-    <Copyright (C) YYYY Name OfAuthor>
-    <likewise for another author>
+    No copyright -- public domain.
 
 License:
 
-    <Put the license of the package here indented by 4 spaces>
+    Public Domain
 
 The Debian packaging is (C) 2008, Karl Fogel <kfogel@red-bean.com> and
 is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
