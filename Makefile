@@ -101,3 +101,7 @@ deb: dist
          then                                                                 \
          mv onetime_`onetime --version | cut -f 3 -d " "`-1.tar.gz            \
             debian/output; fi
+	@echo "Done.  Package files placed in debian/output/:"
+	@echo ""
+	@ls -l debian/output/
+	@echo ""
