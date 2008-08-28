@@ -3,7 +3,7 @@ Mon, 14 Jul 2008 22:59:59 -0400.
 
 It was downloaded from <http://www.red-bean.com/onetime/>
 
-Upstream Author(s):
+Upstream Author:
 
     Karl Fogel <kfogel@red-bean.com>
 
@@ -17,6 +17,3 @@ License:
 
 The Debian packaging is (C) 2008, Karl Fogel <kfogel@red-bean.com> and
 is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
-
-# Please also look if there are files or directories which have a
-# different copyright/license attached and list them here.

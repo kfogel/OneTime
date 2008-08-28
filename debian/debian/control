@@ -1,15 +1,15 @@
 Source: onetime
-Section: security
+Section: misc
 Priority: extra
 Maintainer: Karl Fogel <kfogel@red-bean.com>
 Build-Depends: debhelper (>= 7), docbook2x
-Standards-Version: 3.7.3
+Standards-Version: 3.8.0
 
 Homepage: http://www.red-bean.com/onetime/
 Package: onetime
 Architecture: any
 Depends: python
-Description: Command-line encryption using the "one-time pad" method.
+Description: command-line encryption using the "one-time pad" method
  OneTime is an encoder/decoder that uses the one-time pad algorithm.
  .
  The usual public-key encryption programs, such as GPG, are probably
