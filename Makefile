@@ -17,12 +17,12 @@ clean:
 	@rm -rf index.html test-msg.* *~ onetime-*.* onetime-*.tar.gz
 
 dist:
-	@rm -rf onetime-`onetime --version | cut -f 3 -d " "`
-	@rm -f onetime-`onetime --version | cut -f 3 -d " "`.tar.gz
-	@svn export -q . onetime-`onetime --version | cut -f 3 -d " "`
-	@rm -rf onetime-`onetime --version | cut -f 3 -d " "`/debian
-	@tar zcvf onetime-`onetime --version | cut -f 3 -d " "`.tar.gz \
-                  onetime-`onetime --version | cut -f 3 -d " "`
+	@rm -rf ./onetime-`onetime --version | cut -f 3 -d " "`
+	@rm -f ./onetime-`onetime --version | cut -f 3 -d " "`.tar.gz
+	@svn export -q . ./onetime-`onetime --version | cut -f 3 -d " "`
+	@rm -rf ./onetime-`onetime --version | cut -f 3 -d " "`/debian
+	@tar zcvf ./onetime-`onetime --version | cut -f 3 -d " "`.tar.gz \
+                  ./onetime-`onetime --version | cut -f 3 -d " "`
 
 www: dist
 	@./onetime --intro > intro.tmp
