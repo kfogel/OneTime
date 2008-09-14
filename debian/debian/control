@@ -4,10 +4,10 @@ Priority: extra
 Maintainer: Karl Fogel <kfogel@red-bean.com>
 Build-Depends: debhelper (>= 5)
 Standards-Version: 3.8.0
-
 Homepage: http://www.red-bean.com/onetime/
 Vcs-Svn: http://svn.red-bean.com/repos/onetime/trunk/
 Vcs-Browser: http://svn.red-bean.com/viewcvs/onetime/trunk/
+
 Package: onetime
 Architecture: any
 Depends: python
