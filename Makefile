@@ -51,7 +51,7 @@ www: dist
              index.html-bottom  \
            > index.html
 	@# Substitute in the latest version number.
-	@./onetime --version > version.tmp
+	@./onetime --version | cut -f 3 -d " " > version.tmp
 	@sed -e "s/ONETIMEVERSION/`cat version.tmp`/g" \
            < index.html > index.html.tmp
 	@# Make the GPG link live.
