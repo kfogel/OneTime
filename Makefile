@@ -70,44 +70,4 @@ www: dist
 	@rm intro.tmp help.tmp version.tmp
 
 deb: dist
-	@tar zxvf onetime-`onetime --version | cut -f 3 -d " "`.tar.gz
-	@cp -a debian/debian onetime-`onetime --version | cut -f 3 -d " "`/
-	@rm -rf onetime-`onetime --version | cut -f 3 -d " "`/debian/.svn
-	@(cd onetime-`onetime --version | cut -f 3 -d " "`/; \
-          dpkg-buildpackage -rfakeroot)
-	@rm -rf debian/output/*
-	@if                                                                   \
-         [ -f onetime_`onetime --version | cut -f 3 -d " "`-1.diff.gz ];      \
-         then                                                                 \
-         mv onetime_`onetime --version | cut -f 3 -d " "`-1.diff.gz           \
-            debian/output; fi
-	@if                                                                   \
-         [ -f onetime_`onetime --version | cut -f 3 -d " "`-1.dsc ];          \
-         then                                                                 \
-         mv onetime_`onetime --version | cut -f 3 -d " "`-1.dsc               \
-            debian/output; fi
-	@if                                                                   \
-         [ -f onetime_`onetime --version | cut -f 3 -d " "`-1_i386.changes ]; \
-         then                                                                 \
-         mv onetime_`onetime --version | cut -f 3 -d " "`-1_i386.changes      \
-            debian/output; fi
-	@if                                                                   \
-         [ -f onetime_`onetime --version | cut -f 3 -d " "`-1_i386.deb ];     \
-         then                                                                 \
-         mv onetime_`onetime --version | cut -f 3 -d " "`-1_i386.deb          \
-            debian/output; fi
-	@if                                                                   \
-         [ -f onetime_`onetime --version | cut -f 3 -d " "`-1.tar.gz ];       \
-         then                                                                 \
-         mv onetime_`onetime --version | cut -f 3 -d " "`-1.tar.gz            \
-            debian/output; fi
-	@if                                                                   \
-         [ -f onetime-`onetime --version | cut -f 3 -d " "`.tar.gz ];         \
-         then                                                                 \
-         mv onetime-`onetime --version | cut -f 3 -d " "`.tar.gz              \
-  debian/output/onetime_`onetime --version | cut -f 3 -d " "`-1.orig.tar.gz; fi
-	@echo ""
-	@echo "Done.  Package files placed in debian/output/:"
-	@echo ""
-	@ls -l debian/output/
-	@echo ""
+	(cd debian; ./make-deb.sh)
