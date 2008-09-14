@@ -42,3 +42,5 @@ echo "Done.  Package files placed in debian/output/:"
 echo ""
 ls -l output/
 echo ""
+lintian -i output/onetime_${VER}-1_i386.changes
+echo ""
