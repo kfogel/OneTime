@@ -2,7 +2,7 @@ Source: onetime
 Section: misc
 Priority: extra
 Maintainer: Karl Fogel <kfogel@red-bean.com>
-Build-Depends: debhelper (>= 7)
+Build-Depends: debhelper (>= 5)
 Standards-Version: 3.8.0
 
 Homepage: http://www.red-bean.com/onetime/
@@ -12,8 +12,18 @@ Depends: python
 Description: command-line encryption using the "one-time pad" method
  OneTime is an encoder/decoder that uses the one-time pad algorithm.
  .
+ OneTime is a simple encryption program that takes care of some of
+ the pad-management bureaucracy for you. It avoids re-using pad
+ data (except when decrypting the same encrypted message twice, of
+ course) by maintaining records of pad usage.
+ .
+ If you keep your ~/.onetime configuration area under version control
+ with Subversion or CVS, OneTime will automatically update it to get the
+ latest pad usage records before using a pad, and will commit new
+ records after using a pad.  Thus, by sharing a single configuration
+ area via version control, you and your interlocutors can transparently
+ avoid the sin of pad range reuse.
+ .
  See http://en.wikipedia.org/wiki/One-time_pad for more information
  about one-time pads in general; run 'onetime --help' for a detailed
  usage message about OneTime itself.
- .
- OneTime is in the public domain.
