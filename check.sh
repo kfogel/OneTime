@@ -62,7 +62,7 @@ fi
 
 # Print the (string) first argument, then display all pad lengths.
 # NOTE: Deactivated by default.  Change 'false' to 'true' to turn on.
-function show_lengths()
+show_lengths()
 {
    if false; then
      echo ${1}
