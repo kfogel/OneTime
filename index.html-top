@@ -10,19 +10,8 @@
    <h2><center>OneTime: An Encoder/Decoder For One-Time Pads</center></h2>
 </div>
 
-<center><h3><a href="onetime-ONETIMEVERSION.tar.gz"
-               >Download OneTime version ONETIMEVERSION</a></h3></center>
-
-<center><p>(Or, just download the <a href="onetime"
-               >standalone script</a>,
-            if you don't need the README and other files.)</p></center>
-
-<p style="font-size: 90%; color: red; background: yellow; margin-left:
-5%; margin-right: 5%;">Note: "OneTime" was formerly called "OTP".  I
-changed the name to avoid collision with some existing software
-packages.  The only change is that you should run 'onetime' where you
-used to run 'otp'; the program will automatically detect and migrate
-legacy data as needed.</p>
+<center><h3><a href="get.html"
+        >Download OneTime version ONETIMEVERSION</a></h3></center>
 
 <p><a href="onetime">OneTime</a> is an <a href="http://www.opensource.org/"
 >open source</a> encryption program that uses the <a

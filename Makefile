@@ -23,6 +23,8 @@ dist:
 	@rm -rf ./onetime-`./onetime --version | cut -f 3 -d " "`/debian
 	@tar zcvf ./onetime-`./onetime --version | cut -f 3 -d " "`.tar.gz \
                   ./onetime-`./onetime --version | cut -f 3 -d " "`
+	@zip -qr ./onetime-`./onetime --version | cut -f 3 -d " "`.zip \
+                 ./onetime-`./onetime --version | cut -f 3 -d " "`
 
 www: dist
 	@./onetime --intro > intro.tmp
@@ -54,8 +56,11 @@ www: dist
 	@./onetime --version | cut -f 3 -d " " > version.tmp
 	@sed -e "s/ONETIMEVERSION/`cat version.tmp`/g" \
            < index.html > index.html.tmp
-	@# Make the GPG link live.
 	@mv index.html.tmp index.html
+	@sed -e "s/ONETIMEVERSION/`cat version.tmp`/g" \
+           < get.html-tmpl > get.html.tmp
+	@mv get.html.tmp get.html
+	@# Make the GPG link live.
 	@sed -e 's/GPG,/<a href="http:\/\/www.gnupg.org\/">GPG<\/a>,/g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html

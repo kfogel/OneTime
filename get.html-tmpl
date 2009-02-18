@@ -1,0 +1,43 @@
+<html>
+<head>
+<title>Getting OneTime</title>
+</head>
+
+<body text="#000000" bgcolor="#FFFFFF" link="#0000FF" vlink="#800080">
+<div id="content">
+
+<div style="background: lightblue; font-style: italic;">
+   <h2><center>Getting OneTime</center></h2>
+</div>
+
+<p>Various ways to get OneTime:</p>
+
+<ul>
+
+<li><p>Download the full package as a .tar.gz file: <a href="onetime-ONETIMEVERSION.tar.gz"
+    >onetime-ONETIMEVERSION.tar.gz</a>.<br/>
+    (This is the recommended way for non-Windows.)</p></li>
+
+<li><p>Download the full package as a zip file: <a href="onetime-ONETIMEVERSION.zip"
+    >onetime-ONETIMEVERSION.zip</a>.<br/>
+    (This is the recommended way for Windows.)</p></li>
+
+<li><p>You could just download the <a href="onetime" >standalone
+    script</a> directly, if you don't want the README, the test suite,
+    or other incidental files.</p></li>
+
+<li><p>OneTime is packaged in <a href="http://debian.org/">Debian
+    GNU/Linux</a> now.  So if you run the "testing" distribution of
+    Debian or higher, do
+    <tt>'sudo&nbsp;apt-get&nbsp;update&nbsp;&amp;&amp;&nbsp;sudo&nbsp;apt-get&nbsp;install&nbsp;onetime'</tt>
+    (or the equivalent in your preferred package management
+    interface).</p></li>
+
+</ul>
+
+<hr/>
+
+<center><p>Back to the <a href="index.html" >OneTime home page</a>.</p></center>
+
+</body>
+</html>
