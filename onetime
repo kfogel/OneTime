@@ -25,7 +25,7 @@ avoid the sin of pad range reuse.
 See http://en.wikipedia.org/wiki/One-time_pad for more information
 about one-time pads in general.
 
-OneTime is in the public domain.
+OneTime is written by Karl Fogel and is in the public domain.
 """
 
 import os
