@@ -34,7 +34,7 @@ import stat
 import getopt
 import bz2
 import base64
-import sha
+import hashlib
 import re
 import xml
 import xml.dom
@@ -86,7 +86,7 @@ class Pad:
     """Get the ID (the SHA1 of its first kilobyte) for this pad."""
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
-    sha1 = sha.new()
+    sha1 = hashlib.sha1()
     str = self.padfile.read(1024)
     sha1.update(str)
     self.padfile.seek(saved_posn)
