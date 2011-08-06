@@ -2,7 +2,7 @@
 
 __doc__ = """Encoder/decoder for one-time pads.  Run 'onetime --help' for usage.
 
-The usual public-key encryption programs, such as GPG, are probably
+The usual public-key encryption programs, such as GnuPG, are probably
 secure for everyday purposes, but their implementations are too
 complex for all but the most knowledgeable programmers to vet, and
 anyway there are too many vulnerable steps in the supply chain between
@@ -11,6 +11,7 @@ GPG's authors and the end user.
 Hence this script, OneTime, a simple encryption program that works with
 one-time pads.  If you don't know what one-time pads are, you probably
 wouldn't be able to use them securely, so this program is not for you.
+
 If you do know what they are and how to use them, OneTime will take care
 of some of the pad-management bureacracy for you.  It avoids re-using
 pad data (except when decrypting the same encrypted message twice, of
@@ -19,7 +20,7 @@ And if you keep your ~/.onetime configuration area under version control
 with Subversion or CVS, OneTime will automatically update it to get the
 latest pad usage records before using a pad, and will commit new
 records after using a pad.  Thus, by sharing a single configuration
-area via version control, you and your interlocutors can transparently
+area via version control, you and your interlocutors can more easily
 avoid the sin of pad range reuse.
 
 See http://en.wikipedia.org/wiki/One-time_pad for more information
