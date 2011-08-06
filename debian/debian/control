@@ -3,14 +3,14 @@ Section: misc
 Priority: extra
 Maintainer: Karl Fogel <kfogel@red-bean.com>
 Build-Depends: debhelper (>= 5), python
-Standards-Version: 3.8.0
+Standards-Version: 3.9.2
 Homepage: http://www.red-bean.com/onetime/
 Vcs-Svn: http://svn.red-bean.com/repos/onetime/trunk/
 Vcs-Browser: http://svn.red-bean.com/viewcvs/onetime/trunk/
 
 Package: onetime
 Architecture: any
-Depends: python
+Depends: python, ${misc:Depends}
 Description: command-line encryption using the "one-time pad" method
  OneTime is an encoder/decoder that uses the one-time pad algorithm.
  .

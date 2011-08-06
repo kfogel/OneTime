@@ -1,3 +1,20 @@
+onetime (1.111-1) unstable; urgency=low
+
+  * New upstream release.
+    - uses 'hashlib' module instead of 'sha1' to avoid deprecation warning
+    - various Makefile improvements that don't really affect users
+    - remove bashism in check.sh, as per Debian NMU change
+
+ -- Karl Fogel <kfogel@red-bean.com>  Sat, 06 Aug 2011 01:27:00 -0400
+
+onetime (1.73-1.1) unstable; urgency=low
+
+   * Non-maintainer upload.
+   * Fix bashism in check.sh and add missing build-dep on python. Patch
+     from Michael Bienia. (Closes: #515002)
+
+ -- Stefano Zacchiroli <zack@debian.org>  Fri, 02 Oct 2009 17:19:47 +0200
+
 onetime (1.73-1) unstable; urgency=low
 
   * Initial release (Closes: #490240)
