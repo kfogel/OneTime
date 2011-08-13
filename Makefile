@@ -77,3 +77,4 @@ www: dist
 debian: deb
 deb: dist
 	(cd debian; ./make-deb.sh)
+	@rm -rf onetime-1.*

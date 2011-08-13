@@ -37,6 +37,9 @@ if [ -f onetime_${VER}.orig.tar.gz ]; then
   mv onetime_${VER}.orig.tar.gz output;
 fi
 
+# Clean up.
+rm -rf onetime-1.* onetime_1.*
+
 echo ""
 echo "Done.  Package files placed in debian/output/:"
 echo ""
