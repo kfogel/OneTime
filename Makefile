@@ -74,5 +74,6 @@ www: dist
 	@mv index.html.tmp index.html
 	@rm intro.tmp help.tmp version.tmp
 
+debian: deb
 deb: dist
 	(cd debian; ./make-deb.sh)
