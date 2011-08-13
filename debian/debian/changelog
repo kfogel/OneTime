@@ -1,3 +1,10 @@
+onetime (1.115-1) unstable; urgency=low
+
+  * New upstream release.
+    - documentation improvements in run-time help message
+
+ -- Karl Fogel <kfogel@red-bean.com>  Sat, 13 Aug 2011 11:42:00 -0400
+
 onetime (1.111-1) unstable; urgency=low
 
   * New upstream release.
