@@ -1,13 +1,13 @@
 <html>
 <head>
-<title>OneTime: An Encoder/Decoder For One-Time Pads</title>
+<title>OneTime: An Encoder/Decoder Using The "One-Time Pad" Method</title>
 </head>
 
 <body text="#000000" bgcolor="#FFFFFF" link="#0000FF" vlink="#800080">
 <div id="content">
 
 <div style="background: lightblue; font-style: italic;">
-   <h2><center>OneTime: An Encoder/Decoder For One-Time Pads</center></h2>
+   <h2><center>OneTime: An Encoder/Decoder Using The "One-Time Pad" Method</center></h2>
 </div>
 
 <center><h3><a href="get.html"
@@ -25,6 +25,10 @@ to save pad, has features that assist with the bureaucracy of pad
 management, and comes with built-in help.  It is written in the <a
 href="http://www.python.org/">Python</a> programming language and
 requires a Python interpreter to run.</p>
+
+<p>In Debian GNU/Linux or Ubuntu, you can just use the package manager
+to install the <a href="http://packages.debian.org/sid/onetime"
+>onetime</a> package.</p>
 
 <p>To use OneTime reliably, you need a source of good random data.  On
 modern Unix systems, the <tt>/dev/random</tt> device is probably good
