@@ -27,8 +27,8 @@ href="http://www.python.org/">Python</a> programming language and
 requires a Python interpreter to run.</p>
 
 <p>In Debian GNU/Linux or Ubuntu, you can just use the package manager
-to install the <a href="http://packages.debian.org/sid/onetime"
->onetime</a> package.</p>
+to install the "<a href="http://packages.debian.org/sid/onetime"
+>onetime</a>" package.</p>
 
 <p>To use OneTime reliably, you need a source of good random data.  On
 modern Unix systems, the <tt>/dev/random</tt> device is probably good
