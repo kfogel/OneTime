@@ -67,6 +67,7 @@ fi
 ###  Functionality tests.                                                ###
 ############################################################################
 
+########################################################################
 ## Regression test for "Decryption wrongly shrinks pad usage."
 #
 # User sent in a report:
@@ -126,9 +127,92 @@ if ! cmp long-msg-1 ../long-msg; then
   exit 1
 fi
 
+########################################################################
+## Test reconsumption, via repeated encoding and decoding.
+
+reset_config
+
+# Print the (string) first argument, then display all pad lengths.
+# NOTE: Deactivated by default.  Change 'false' to 'true' to turn on.
+maybe_show_lengths()
+{
+   if false; then
+     echo ${1}
+     grep "/length" dot-onetime/pad-records
+     echo ""
+   fi
+}
+
+# Encode
+../../onetime --config=dot-onetime -e -p ../random-data-1  \
+         < ../short-msg > short-msg.onetime
+maybe_show_lengths "After encoding:"
+# Decode twice, to make sure the pad can reconsume safely.
+../../onetime --config=dot-onetime -d -p ../random-data-1  \
+         < short-msg.onetime > short-msg.decoded-1
+maybe_show_lengths "After decoding once:"
+if ! cmp ../short-msg short-msg.decoded-1; then
+  echo "ERROR: short-msg.decoded-1 does not match short-msg input."
+  exit 1
+fi
+../../onetime --config=dot-onetime -d -p ../random-data-1  \
+         < short-msg.onetime > short-msg.decoded-2
+maybe_show_lengths "After decoding again:"
+if ! cmp ../short-msg short-msg.decoded-2; then
+  echo "ERROR: short-msg.decoded-2 does not match short-msg input."
+  exit 1
+fi
+# Encode again with the same pad
+../../onetime --config=dot-onetime -e -p ../random-data-1  \
+         < ../short-msg > short-msg.onetime
+maybe_show_lengths "After encoding again:"
+# Decode only once this time.
+../../onetime --config=dot-onetime -d -p ../random-data-1  \
+         < short-msg.onetime > short-msg.decoded-3
+maybe_show_lengths "After decoding:"
+if ! cmp ../short-msg short-msg.decoded-3; then
+  echo "ERROR: short-msg.decoded-3 does not match short-msg input."
+  exit 1
+fi
+
+# Now do the entire thing again with the other pad.
+# Encode
+../../onetime --config=dot-onetime -e -p ../random-data-2  \
+         < ../short-msg > short-msg.onetime
+maybe_show_lengths "After encoding:"
+# Decode twice, to make sure the pad can reconsume safely.
+../../onetime --config=dot-onetime -d -p ../random-data-2  \
+         < short-msg.onetime > short-msg.decoded-1
+maybe_show_lengths "After decoding once:"
+if ! cmp ../short-msg short-msg.decoded-1; then
+  echo "ERROR: short-msg.decoded-1 (pad random-data-2) does not match short-msg input."
+  exit 1
+fi
+../../onetime --config=dot-onetime -d -p ../random-data-2  \
+         < short-msg.onetime > short-msg.decoded-2
+maybe_show_lengths "After decoding again:"
+if ! cmp ../short-msg short-msg.decoded-2; then
+  echo "ERROR: short-msg.decoded-2 (pad random-data-2) does not match short-msg input."
+  exit 1
+fi
+# Encode again with the same pad
+../../onetime --config=dot-onetime -e -p ../random-data-2  \
+         < ../short-msg > short-msg.onetime
+maybe_show_lengths "After encoding again:"
+# Decode only once this time.
+../../onetime --config=dot-onetime -d -p ../random-data-2  \
+         < short-msg.onetime > short-msg.decoded-3
+maybe_show_lengths "After decoding:"
+if ! cmp ../short-msg short-msg.decoded-3; then
+  echo "ERROR: short-msg.decoded-3 (pad random-data-2) does not match short-msg input."
+  exit 1
+fi
+
+echo "Functionality tests passed."
+
 ############################################################################
 ###  All tests finished.  Remove the test area.                          ###
 ############################################################################
 
 cd ../..
-# rm -rf tests/test-tmp
+rm -rf tests/test-tmp
