@@ -259,7 +259,18 @@ class Configuration:
           # original offset, whether it was a true overlap or a
           # snuggle-right-up-against kind of thing:
           else:
-            last_length = (this_offset - last_offset) + this_length
+            # All the possible cases are:
+            #
+            #   1) first tuple entirely precedes second
+            #   2) second tuple begins inside first but ends after it
+            #   3) second tuple begins and ends inside first
+            #   4) second tuple begins *before* first and ends in it
+            #   5) second tuple begins and ends before first
+            #
+            # However, due to the conditional above, we must be in (2)
+            # or (3), and we only need to adjust last_length if (2).
+            if (this_offset + this_length) > (last_offset + last_length):
+              last_length = (this_offset - last_offset) + this_length
         else:
           new_used.append((last_offset, last_length))
           last_offset = this_offset
