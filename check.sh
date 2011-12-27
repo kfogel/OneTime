@@ -121,6 +121,11 @@ if ! grep -q "<length>136728</length>" dot-onetime/pad-records; then
   exit 1
 fi
 
+if ! cmp long-msg-1 ../long-msg; then
+  echo "ERROR: Decryption failed to produce correct plaintext."
+  exit 1
+fi
+
 ############################################################################
 ###  All tests finished.  Remove the test area.                          ###
 ############################################################################
