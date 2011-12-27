@@ -20,11 +20,11 @@ href="http://en.wikipedia.org/wiki/One-time_pad">one-time pad
 algorithm</a> to allow two parties to communicate securely, without
 worrying about <a
 href="http://en.wikipedia.org/wiki/NSA_electronic_surveillance_program"
->unauthorized people listening in</a>.  OneTime compresses plaintext input
-to save pad, has features that assist with the bureaucracy of pad
-management, and comes with built-in help.  It is written in the <a
-href="http://www.python.org/">Python</a> programming language and
-requires a Python interpreter to run.</p>
+>unauthorized people listening in</a>.  OneTime has features that
+assist with the bureaucracy of pad management, and comes with built-in
+help.  It is written in the <a href="http://www.python.org/"
+>Python</a> programming language and requires a Python interpreter to
+run.</p>
 
 <p>In Debian GNU/Linux or Ubuntu, you can just use the package manager
 to install the "<a href="http://packages.debian.org/sid/onetime"
