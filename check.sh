@@ -2,14 +2,19 @@
 
 cd tests
 
-# Because OneTime itself is sensitive to version control, we create
-# a fresh test directory every time.  For now, we don't test the
-# version control functionality, just encoding and decoding.
 rm -rf test-tmp
 mkdir test-tmp
-cp -a dot-onetime test-tmp
-rm -rf test-tmp/dot-onetime/.svn
 cd test-tmp
+
+# Because OneTime itself is sensitive to version control, we create
+# a fresh test directory every time.  For now, we're not testing the
+# version control functionality, just the encoding and decoding.
+reset_config()
+{
+   rm -rf dot-onetime
+   cp -a ../dot-onetime ./dot-onetime
+   rm -rf dot-onetime/.svn
+}
 
 ############################################################################
 ###  Option-parsing tests.                                               ###
@@ -20,31 +25,33 @@ cd test-tmp
 # encrypted text and "d.N" is decrypted text.
 ###
 
+reset_config
+
 # mode 1
-../../onetime --config=dot-onetime -e -p ../random-data-2 -o e.1 ../test-msg
-../../onetime --config=dot-onetime -d -p ../random-data-2 -o d.1 e.1
+../../onetime -C dot-onetime -e -p ../random-data-2 -o e.1 ../short-msg
+../../onetime -C dot-onetime -d -p ../random-data-2 -o d.1 e.1
 
 # mode 2
-../../onetime --config=dot-onetime -e -p ../random-data-2 ../test-msg
-mv ../test-msg.onetime e.2.onetime
-../../onetime --config=dot-onetime -d -p ../random-data-2 e.2.onetime
+../../onetime -C dot-onetime -e -p ../random-data-2 ../short-msg
+mv ../short-msg.onetime e.2.onetime
+../../onetime -C dot-onetime -d -p ../random-data-2 e.2.onetime
 mv e.2 d.2
 
 # mode 3
-../../onetime --config=dot-onetime -e -p ../random-data-2 -o - ../test-msg > e.3
-../../onetime --config=dot-onetime -d -p ../random-data-2 -o - e.3 > d.3
+../../onetime -C dot-onetime -e -p ../random-data-2 -o - ../short-msg > e.3
+../../onetime -C dot-onetime -d -p ../random-data-2 -o - e.3 > d.3
 
 # mode 4
-../../onetime --config=dot-onetime -e -p ../random-data-2 < ../test-msg > e.4
-../../onetime --config=dot-onetime -d -p ../random-data-2 < e.4 > d.4
+../../onetime -C dot-onetime -e -p ../random-data-2 < ../short-msg > e.4
+../../onetime -C dot-onetime -d -p ../random-data-2 < e.4 > d.4
 
 # mode 5
-../../onetime --config=dot-onetime -e -p ../random-data-2 -o e.5 < ../test-msg
-../../onetime --config=dot-onetime -d -p ../random-data-2 -o d.5 < e.5
+../../onetime -C dot-onetime -e -p ../random-data-2 -o e.5 < ../short-msg
+../../onetime -C dot-onetime -d -p ../random-data-2 -o d.5 < e.5
 
 PASSED="yes"
 for n in 1 2 3 4 5; do
-  if cmp ../test-msg d.${n}; then
+  if cmp ../short-msg d.${n}; then
     true
   else
     echo "Error: option-parsing tests failed, something went wrong."
@@ -60,58 +67,63 @@ fi
 ###  Functionality tests.                                                ###
 ############################################################################
 
-# Print the (string) first argument, then display all pad lengths.
-# NOTE: Deactivated by default.  Change 'false' to 'true' to turn on.
-show_lengths()
-{
-   if false; then
-     echo ${1}
-     grep "/length" dot-onetime/pad-records
-     echo ""
-   fi
-}
+## Regression test for "Decryption wrongly shrinks pad usage."
+#
+# User sent in a report:
+#
+#   $ onetime.py -e -p onetimepad.dat test1.txt
+#     ==> pad-records says used length now 27340
+#   $ onetime.py -e -p onetimepad.dat test2.txt
+#     ==> pad-records says used length now 54680
+#   $ onetime.py -e -p onetimepad.dat test3.txt
+#     ==> pad-records says used length now 82020
+#
+#   (Now watch what happens on decryption...)
+#
+#   $ onetime.py -d -p onetimepad.dat test1.txt.onetime
+#     ==> pad-records says length reverted to 27340!
 
-show_lengths "Before any encoding or decoding:"
+reset_config
 
-# Encode
-../../onetime --config=dot-onetime -e -p ../random-data-1  \
-         < ../test-msg > test-msg.onetime
-
-show_lengths "After encoding:"
-
-# Decode twice, to make sure the pad can reconsume safely.
-../../onetime --config=dot-onetime -d -p ../random-data-1  \
-         < test-msg.onetime > test-msg.decoded-1
-
-show_lengths "After decoding once:"
-
-../../onetime --config=dot-onetime -d -p ../random-data-1  \
-         < test-msg.onetime > test-msg.decoded-2
-
-show_lengths "After decoding again:"
-
-# Encode again with the same pad
-../../onetime --config=dot-onetime -e -p ../random-data-1  \
-         < ../test-msg > test-msg.onetime
-
-show_lengths "After encoding again:"
-
-# Decode only once this time.
-../../onetime --config=dot-onetime -d -p ../random-data-1  \
-         < test-msg.onetime > test-msg.decoded-3
-
-show_lengths "After decoding:"
-
-if cmp ../test-msg test-msg.decoded-1; then
-  echo "Functionality tests passed."
-else
-  echo "Error: functionality tests failed, something went wrong."
+../../onetime -C dot-onetime -e -p ../random-data-1 \
+              -o long-msg-1.onetime ../long-msg
+if ! grep -q "<length>45646</length>" dot-onetime/pad-records; then
+  echo "ERROR: Pad usage length incorrect after encryption iteration 1."
+  cat dot-onetime/pad-records
+  exit 1
 fi
 
+../../onetime -C dot-onetime -e -p ../random-data-1 \
+              -o long-msg-2.onetime ../long-msg
+if ! grep -q "<length>91187</length>" dot-onetime/pad-records; then
+  echo "ERROR: Pad usage length incorrect after encryption iteration 2."
+  cat dot-onetime/pad-records
+  exit 1
+fi
+
+../../onetime -C dot-onetime -e -p ../random-data-1 \
+              -o long-msg-3.onetime ../long-msg
+if ! grep -q "<length>136728</length>" dot-onetime/pad-records; then
+  echo "ERROR: Pad usage length incorrect after encryption iteration 3."
+  cat dot-onetime/pad-records
+  exit 1
+fi
+
+../../onetime -C dot-onetime -d -p ../random-data-1 \
+              -o long-msg-1 long-msg-1.onetime
+if ! grep -q "<length>136728</length>" dot-onetime/pad-records; then
+  cat dot-onetime/pad-records
+  if grep -q "<length>45646</length>" dot-onetime/pad-records; then
+    echo "ERROR: 'Decryption wrongly shrinks pad usage' bug is back."
+  else
+    echo "ERROR: Usage length wrong after decryption 1, but don't know why."
+  fi
+  exit 1
+fi
 
 ############################################################################
 ###  All tests finished.  Remove the test area.                          ###
 ############################################################################
 
 cd ../..
-rm -rf tests/test-tmp
+# rm -rf tests/test-tmp

@@ -1,0 +1,21 @@
+Listing OneTime bugs here until set up a real bug tracker.
+
+* Decryption wrongly shrinks pad usage.
+
+  Serious bug, sent in by a user.
+
+* onetime -d -p PAD INPUT -o OUTPUT(=?) failed on option parsing?
+
+  Test this usage scenario.
+
+* Off-by-one-error when when adding the next encrypted length each time?
+
+  Try encrypting long-msg multiple times, watch the used range climb
+  by "length(long-msg) - 1" each time.
+
+* We're not compressing plaintext, we're compressing crypttext.
+
+  So usage() is wrong, but also, that means we're not saving pad as we
+  could be.
+
+* Failed decryption should create no output file, not create 0-byte file.
