@@ -484,9 +484,8 @@ Other usage modes:
   onetime [-e|-d] -p PAD -o OUTPUT        (input from stdin, output to OUTPUT)
 
 OneTime remembers what ranges of what pad files have been used, and avoids
-re-using those ranges when encoding.  Because OneTime compresses plaintext
-input to save pad, encoding and decoding are not symmetrical; thus,
-OneTime needs to be told whether it is encoding or decoding (-e or -d).
+re-using those ranges when encoding.
+
 All options:
 
    -e                      Encrypt

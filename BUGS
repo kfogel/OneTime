@@ -1,9 +1,5 @@
 Listing OneTime bugs here until set up a real bug tracker.
 
-* Decryption wrongly shrinks pad usage.
-
-  Serious bug, sent in by a user.
-
 * onetime -d -p PAD INPUT -o OUTPUT(=?) failed on option parsing?
 
   Test this usage scenario.
