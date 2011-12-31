@@ -51,6 +51,25 @@ except:
   True = 1
   False = 0
 
+# The current format version.
+#
+# Format 1 was the format from the first release of OneTime through
+# the very end of 2011.  It did not include the "Format: " header in
+# output, and had a bug (a rather embarrassing bug) whereby text was
+# encrypted and then then compressed, instead of the other way around.
+#
+# Format 2, introduced 2012-01-01, does include the "Format: " header
+# in the human-readable portion of the output.  
+#
+# TODO: At the moment it does not compress at all.  If we're going to
+# compress -- which we probably should, since Python's bz2 compressor
+# apparently only compresses when it will be effective -- we need to
+# insert an "inner header" of random length insied the beginning of
+# the cryptotext, so that in the case where a careless user is using a
+# pseudorandom pad, we don't provide a known-plaintext attack on that
+# weak pad by enabling the attacker to deduce some of the pad data by
+# knowing what the beginning of bz2 compressed data looks like.
+Format = 2
 
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
@@ -120,46 +139,41 @@ class Pad:
 class PadEncoder:
   """Class for encoding raw data to OneTime output."""
 
-  class PadEncoderNotFinished(Exception):
-    """Exception raised if the encoder is asked for information it
-    doesn't have yet, such as the final encoded length."""
-    pass
-
   def __init__(self, pad, config):
     """Initialize an encoder for PAD with Configuration CONFIG."""
     self.pad = pad
     self.config = config
-    self.compressor = bz2.BZ2Compressor()
-    self.finished = 0
-
-  def _output(self, compressed_str):
-    "Return encoding of COMPRESSED_STR, or None if COMPRESSED_STR is empty."
-    if compressed_str:
-      return base64.encodestring(compressed_str)
-    else:
-      return None
 
   def encode(self, string):
     """Return all available onetime-encoded data so far, including for STRING,
     or return None if no encoded data is ready yet."""
-    return self._output(self.compressor.compress(self.pad.convert(string)))
-
-  def finish(self):
-    "Return last of encoding of COMPRESSED_STR, or None if none left."
-    self.finished = 1
-    last_bits = self._output(self.compressor.flush())
+    out = base64.encodestring(self.pad.convert(string))
     self.config.consume(self.pad, False)
-    return last_bits
+    return out
 
 
 class PadDecoder:
-  """todo: write this doc string"""
-  def __init__(self, pad, config):
-    """Initialize a decoder for PAD with Configuration CONFIG."""
+  """Class for decoding OneTime output back to plaintext."""
+
+  class FormatException(Exception):
+    """Exception raised if we don't recognize input's format version."""
+    pass
+
+  def __init__(self, pad, config, input_format):
+    """Initialize a decoder for PAD with Configuration CONFIG.
+    INPUT_FORMAT indicates the OneTime format version of the incoming
+    data, i.e., the value given in the crypttext's 'Format: ' header."""
     self.pad = pad
     self.config = config
-    self.decompressor = bz2.BZ2Decompressor()
     self.unused_data = ""
+    self.input_format = input_format
+    self.decompressor = None
+
+    if self.input_format == 1:
+      self.decompressor = bz2.BZ2Decompressor()
+    elif self.input_format > 2:
+      raise self.FormatException(
+        "unrecognized format version: %d" % self.input_format)
 
   def decode(self, string):
     """Return all available onetime-decoded data so far, including for STRING,
@@ -167,10 +181,14 @@ class PadDecoder:
     exception if called past the end of decodable data.  Store any
     unused data in self.unused_data."""
     ### todo: we're not really doing that unused_data thing, are we?
-    return self.pad.convert((self.decompressor.decompress
-                             (base64.decodestring(string))))
+    if self.input_format == 1:
+      decompressor = bz2.BZ2Decompressor()
+      return self.pad.convert((self.decompressor.decompress
+                               (base64.decodestring(string))))
+    else:  # must be 2
+      return self.pad.convert(base64.decodestring(string))
 
-  def finish(self):
+  def finalize(self):
     """Finalize pad usage with the configuration."""
     self.config.consume(self.pad, True)
 
@@ -630,10 +648,13 @@ def main():
   #   encoded content by inspection 
   onetime_begin = "-----BEGIN OneTime MESSAGE-----\n"
   old_onetime_begin = "-----BEGIN OTP MESSAGE-----\n"   # compat
-  onetime_header = "%s" % onetime_begin              \
-               + "Version: OneTime %s\n" % version() \
-               + "Pad ID: %s\n" % pad.id()           \
-               + "Offset: %s\n" % pad.offset()       \
+  onetime_header = "%s" % onetime_begin                        \
+               + "Version: OneTime %s\n" % version()           \
+               + "Format: %d  " % Format                       \
+               + "   <<< NOTE: OneTime 1.x and older "         \
+               +              "cannot read this format. >>>\n" \
+               + "Pad ID: %s\n" % pad.id()                     \
+               + "Offset: %s\n" % pad.offset()                 \
                + "\n"
   onetime_end = "-----END OneTime MESSAGE-----\n"
   old_onetime_end = "-----END OTP MESSAGE-----\n"       # compat
@@ -646,7 +667,8 @@ def main():
   # it's located:
   #
   #    -----BEGIN OneTime MESSAGE-----
-  #    Version: OneTime 1.59
+  #    Version: OneTime 2.135
+  #    Format: 2
   #    Pad ID: de61f169bce003a1189b3e6ebb8ddfc0ef007ac2
   #    
   #    Offset 0:
@@ -694,14 +716,11 @@ def main():
         if result:
           output.write(result)
       else:
-        result = encoder.finish()
-        if result:
-          output.write(result)
         break
     output.write(onetime_end)
 
   elif decrypting:
-    decoder = PadDecoder(pad, config)
+    decoder = None # Will set to a decoder when we know the incoming format.
     saw_end = None
     maybe_header_line = input.readline()
     if (maybe_header_line != onetime_begin
@@ -713,6 +732,16 @@ def main():
       m = re.match("Offset: ([0-9]+)", maybe_header_line)
       if m:
         pad.set_offset(int(m.group(1)))
+        continue
+      m = re.match("Format: ([0-9]+) ", maybe_header_line)
+      if m:
+        decoder = PadDecoder(pad, config, int(m.group(1)))
+        continue
+
+    if decoder is None:
+      # If we saw no format, it must be the old format 1.
+      decoder = PadDecoder(pad, config, 1)
+
     while 1:
       string = input.readline()
       if (string == onetime_end or string == old_onetime_end):
@@ -727,7 +756,7 @@ def main():
           output.write(result)
       else:
         break
-    decoder.finish()
+    decoder.finalize()
     if not saw_end:
       sys.stderr.write("Error: malformed OneTime format: no end line.\n")
       sys.exit(1)
