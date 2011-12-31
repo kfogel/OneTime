@@ -481,9 +481,9 @@ def version():
   rev = "$Revision$"
   m = re.match(".*Revision: ([0-9]+)[^0-9]*", rev)
   if m:
-    return "1.%s" % m.group(1)
+    return "2.%s" % m.group(1)
   else:
-    return "1.<need to fix the revision keyword parsing>"
+    return "2.<need to fix the revision keyword parsing>"
 
 
 def usage(outfile=sys.stdout):
