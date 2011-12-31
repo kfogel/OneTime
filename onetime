@@ -42,6 +42,7 @@ import re
 import xml
 import xml.dom
 import xml.dom.minidom
+import ConfigParser
 
 
 # Set up booleans that older Pythons didn't have, if necessary.
@@ -196,18 +197,35 @@ class PadDecoder:
 class Configuration:
   """A parsed representation of one user's ~/.onetime/ configuration area.
   A .onetime/ directory contains just a 'pad-records' file right now."""
-  def __init__(self, path=None, no_vc=False):
+
+  class ConfigurationError(Exception):
+    """Exception raised if we encounter an impossible state in a
+    Configuration."""
+    pass
+
+  class ConfigurationVCError(Exception):
+    """Exception raised if something went wrong with a VC operation in
+    a Configuration."""
+    pass
+
+  def __init__(self, path=None, use_vc=None):
     """Initialize a new configuration.
 
     If PATH is None, try to find or create the config area in the
     standard location in the user's home directory; otherwise, find or
     create it at PATH.
 
-    Unless NO_VC, update and commit the pad-records file when appropriate."""
+    Iff USE_VC is true, update and commit the pad-records file when
+    appropriate no matter what the permanent config file says."""
+
+    # We use Python's ConfigParser to read permanent configuration
+    # information from a ~/.onetime/config file.
     self.config_area = path
-    self.no_vc = no_vc
+    self.use_vc = use_vc
     if self.config_area is None:
       self.config_area = os.path.join(os.path.expanduser("~"), ".onetime")
+    self.perm_config_file = os.path.join(self.config_area, "config")
+    self.perm_config = ConfigParser.ConfigParser()
     self.pad_records_file = os.path.join(self.config_area, "pad-records")
     # Create the configuration area if necessary.
     if not os.path.isdir(self.config_area):
@@ -220,22 +238,72 @@ class Configuration:
         os.rename(old_config_area, self.config_area)
       else:
         os.mkdir(self.config_area)
+
+    # Set up perm config defaults.  Passing the 'defaults' parameter
+    # to instance initialization doesn't work the way I expect it to,
+    # or maybe I just don't understand how it's supposed to work --
+    # how do you set a default value for an option in a particular
+    # section?  So we just set up the per-section defaults manually.
+    self.perm_config.add_section("general")
+    self.perm_config.set("general", "use-vc", False)
+
+    # Now inhale the user's actual permanent config, if any.
+    if os.path.isfile(self.perm_config_file):
+      self.perm_config.read(self.perm_config_file)
+      # Now handle whatever configuration options are present, except
+      # when an explicitly-passed option overrides them.
+      if self.use_vc is None:
+        # No explicit --use-vc request, so see what config says.
+        cfg_use_vc = self.perm_config.get("general", "use-vc")
+        if cfg_use_vc is None \
+              or cfg_use_vc == False \
+              or (isinstance(cfg_use_vc, str)
+                  and cfg_use_vc.lower() == "false"):
+          self.use_vc = False
+        elif cfg_use_vc == True \
+              or (isinstance(cfg_use_vc, str)
+                  and cfg_use_vc.lower() == "true"):
+          self.use_vc = True
+        else:
+          raise self.ConfigurationError, \
+              "unrecognized value for use-vc: %s" % str(cfg_use_vc)
+    else:
+      perm_config_init = """\
+### Configure various run-time behaviors for OneTime.
+###
+### (See http://www.red-bean.com/onetime/ for an introduction.)
+
+### The commented-out examples below demonstrate how to use this file.
+
+### Section for general customizations.
+[general]
+# If you keep your ~/.onetime configuration area under version control
+# with Subversion or CVS, OneTime can automatically update it to get
+# the latest pad usage records before using a pad and commit new
+# records after using a pad.  This helps you and your interlocutors
+# more securely share a pad, by having everyone's pad ranges update
+# together.  Note the pad itself is not stored in version control,
+# just the information about which pad ranges have been used.
+#
+# However, even if your ~/.onetime area is under version control,
+# OneTime will not use it by default.  If you want to change that, set
+# the value to "true" below (and make sure ~/.onetime/pad-records is
+# under version control, of course).  You can still pass the --no-vc
+# option when you want OneTime to ignore available version control;
+# or when set to "false" below, you can pass --use-vc to override.
+use-vc = false
+"""
+      c = open(self.perm_config_file, "w")
+      c.write(perm_config_init)
+      c.close()
+
+    # Create the pad-records file if necessary.
     if not os.path.isfile(self.pad_records_file):
       open(self.pad_records_file, "w").close()
     # Update the pad-records file before parsing, if possible.
     self._maybe_update_pad_records()
     # Parse the pad-records file (if any) in the configuration area.
     self.pad_records = self._parse_pad_records_file()
-
-  class ConfigurationError(Exception):
-    """Exception raised if we encounter an impossible state in a
-    Configuration."""
-    pass
-
-  class ConfigurationVCError(Exception):
-    """Exception raised if something went wrong with a VC operation in
-    a Configuration."""
-    pass
 
   def _consolidate_used_ranges(self, used, allow_reconsumption=False):
     """Return a consolidated version of USED.  USED is a list of
@@ -332,12 +400,11 @@ class Configuration:
     ACTION can be 'update' or 'commit -mMSG'.  Put MSG in quotes if it
     is longer than one word.  If ACTION fails, throw a
     ConfigurationVCError exception."""
-    if self.no_vc:
-      return
-    vc = self._directory_vc(self.config_area)
-    if vc:
-      if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
-        raise ConfigurationVCError
+    if self.use_vc:
+      vc = self._directory_vc(self.config_area)
+      if vc:
+        if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
+          raise ConfigurationVCError
 
   def _maybe_update_pad_records(self):
     """If the 'pad-records' file in the configuration area appears to
@@ -496,8 +563,8 @@ OneTime version %s, an encoder/decoder for one-time pads.  Standard usage:
 
 Other usage modes:
 
-  onetime [-e|-d] -p PAD INPUT -o OUTPUT  (both INPUT and OUTPUT are files)
-  onetime [-e|-d] -p PAD INPUT -o -       (output goes to stdout)
+  onetime [-e|-d] -p PAD -o OUTPUT INPUT  (both INPUT and OUTPUT are files)
+  onetime [-e|-d] -p PAD -o - INPUT       (output goes to stdout)
   onetime [-e|-d] -p PAD                  (input from stdin, output to stdout)
   onetime [-e|-d] -p PAD -o OUTPUT        (input from stdin, output to OUTPUT)
 
@@ -513,6 +580,7 @@ All options:
    --offset=N              Control the pad data start offset
    -n | --no-trace         Leave no record of pad usage in your config
    -C DIR | --config=DIR   Specify DIR (instead of ~/.onetime) as config area
+   --use-vc                Take advantage of SVN/CVS control of the config area
    --no-vc                 Ignore SVN/CVS control of the config area
    --intro                 Show an introduction to OneTime and one-time pads
    -v | -V | --version     Show version information
@@ -532,7 +600,8 @@ def main():
   config_area = None
   debug       = False
   error_exit  = False
-  no_vc       = False
+  no_vc       = None
+  use_vc      = None
   no_trace    = False
 
   try:
@@ -544,6 +613,7 @@ def main():
                                  "offset=",
                                  "config=",
                                  "no-vc",
+                                 "use-vc",
                                  "no-trace",
                                  "debug",
                                  "intro", "help", "version"])
@@ -579,6 +649,8 @@ def main():
       config_area = value
     elif opt == '--no-vc':
       no_vc = True
+    elif opt == '--use-vc':
+      use_vc = True
     elif opt == '--no-trace' or opt == '-n':
       no_trace = True
     elif opt == '--debug':
@@ -594,6 +666,12 @@ def main():
   if encrypting and decrypting:
     sys.stderr.write("Error: cannot pass both '-e' and '-d'.\n")
     error_exit = True
+
+  if no_vc is not None and use_vc is not None:
+    sys.stderr.write("Error: cannot pass both '--no-vc' and '--use-vc'.\n")
+    error_exit = True
+  elif no_vc is True:
+    use_vc = False
 
   if not pad_file:
     sys.stderr.write("Error: must specify pad file with -p.\n")
@@ -634,7 +712,7 @@ def main():
 
   pad = Pad(pad_file)
 
-  config = Configuration(config_area, no_vc)
+  config = Configuration(config_area, use_vc)
   config.register(pad)
 
   ### todo: need to be less clumsy about offset handling
