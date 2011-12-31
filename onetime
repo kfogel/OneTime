@@ -64,7 +64,7 @@ except:
 # TODO: At the moment it does not compress at all.  If we're going to
 # compress -- which we probably should, since Python's bz2 compressor
 # apparently only compresses when it will be effective -- we need to
-# insert an "inner header" of random length insied the beginning of
+# insert an "inner header" of random length inside the beginning of
 # the cryptotext, so that in the case where a careless user is using a
 # pseudorandom pad, we don't provide a known-plaintext attack on that
 # weak pad by enabling the attacker to deduce some of the pad data by
