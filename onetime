@@ -76,13 +76,13 @@ class Pad:
     self._offset = offset
     self.padfile.seek(self._offset)
 
-  def convert(self, str):
-    """Return a new string that is STR XORed against the pad."""
-    pad_str = self.padfile.read(len(str))
+  def convert(self, string):
+    """Return a new string that is STRING XORed against the pad."""
+    pad_str = self.padfile.read(len(string))
     result = ''
-    for i in range(len(str)):
-      result = result + chr(ord(str[i]) ^ ord(pad_str[i]))
-    self._length += len(str)
+    for i in range(len(string)):
+      result = result + chr(ord(string[i]) ^ ord(pad_str[i]))
+    self._length += len(string)
     return result
 
   def _get_id(self, padfile):
@@ -90,8 +90,8 @@ class Pad:
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
     sha1 = hashlib.sha1()
-    str = self.padfile.read(1024)
-    sha1.update(str)
+    string = self.padfile.read(1024)
+    sha1.update(string)
     self.padfile.seek(saved_posn)
     return sha1.hexdigest()
 
@@ -139,10 +139,10 @@ class PadEncoder:
     else:
       return None
 
-  def encode(self, str):
-    """Return all available onetime-encoded data so far, including for STR,
+  def encode(self, string):
+    """Return all available onetime-encoded data so far, including for STRING,
     or return None if no encoded data is ready yet."""
-    return self._output(self.compressor.compress(self.pad.convert(str)))
+    return self._output(self.compressor.compress(self.pad.convert(string)))
 
   def finish(self):
     "Return last of encoding of COMPRESSED_STR, or None if none left."
@@ -161,14 +161,14 @@ class PadDecoder:
     self.decompressor = bz2.BZ2Decompressor()
     self.unused_data = ""
 
-  def decode(self, str):
-    """Return all available onetime-decoded data so far, including for STR,
+  def decode(self, string):
+    """Return all available onetime-decoded data so far, including for STRING,
     or return None if no decoded data is ready yet.  Throw EOFError
     exception if called past the end of decodable data.  Store any
     unused data in self.unused_data."""
     ### todo: we're not really doing that unused_data thing, are we?
     return self.pad.convert((self.decompressor.decompress
-                             (base64.decodestring(str))))
+                             (base64.decodestring(string))))
 
   def finish(self):
     """Finalize pad usage with the configuration."""
@@ -688,9 +688,9 @@ def main():
     encoder = PadEncoder(pad, config)
     output.write(onetime_header)
     while 1:
-      str = input.read()
-      if len(str) > 0:
-        result = encoder.encode(str)
+      string = input.read()
+      if len(string) > 0:
+        result = encoder.encode(string)
         if result:
           output.write(result)
       else:
@@ -714,13 +714,13 @@ def main():
       if m:
         pad.set_offset(int(m.group(1)))
     while 1:
-      str = input.readline()
-      if (str == onetime_end or str == old_onetime_end):
+      string = input.readline()
+      if (string == onetime_end or string == old_onetime_end):
         saw_end = 1
         break
-      if len(str) > 0:
+      if len(string) > 0:
         try:
-          result = decoder.decode(str)
+          result = decoder.decode(string)
         except EOFError:
           break
         if result:
