@@ -15,6 +15,3 @@ Listing OneTime bugs here until set up a real bug tracker.
   could be.
 
 * Failed decryption should create no output file, not create 0-byte file.
-
-* We should probably store pad basenames.  People are going to edit
-  their pad-record files; we might as well make it easy for them.

@@ -582,6 +582,7 @@ All options:
    -C DIR | --config=DIR   Specify DIR (instead of ~/.onetime) as config area
    --use-vc                Take advantage of SVN/CVS control of the config area
    --no-vc                 Ignore SVN/CVS control of the config area
+   --show-pad-id           Print pad ID; used with -p only
    --intro                 Show an introduction to OneTime and one-time pads
    -v | -V | --version     Show version information
    -? | -h | --help        Show usage
@@ -602,6 +603,7 @@ def main():
   error_exit  = False
   no_vc       = None
   use_vc      = None
+  show_pad_id = False
   no_trace    = False
 
   try:
@@ -614,6 +616,7 @@ def main():
                                  "config=",
                                  "no-vc",
                                  "use-vc",
+                                 "show-pad-id",
                                  "no-trace",
                                  "debug",
                                  "intro", "help", "version"])
@@ -651,6 +654,8 @@ def main():
       no_vc = True
     elif opt == '--use-vc':
       use_vc = True
+    elif opt == '--show-pad-id':
+      show_pad_id = True
     elif opt == '--no-trace' or opt == '-n':
       no_trace = True
     elif opt == '--debug':
@@ -659,7 +664,11 @@ def main():
       sys.stderr.write("Error: unrecognized option: '%s'\n" % opt)
       error_exit = True
 
-  if not encrypting and not decrypting:
+  if show_pad_id:
+    if encrypting or decrypting:
+      sys.stderr.write("Error: cannot use --show-pad-id with -e or -d.\n")
+      error_exit = True
+  elif not encrypting and not decrypting:
     sys.stderr.write("Error: must pass either '-e' or '-d'.\n")
     error_exit = True
 
@@ -714,6 +723,10 @@ def main():
 
   config = Configuration(config_area, use_vc)
   config.register(pad)
+
+  if show_pad_id:
+    print pad.id()
+    sys.exit(0)
 
   ### todo: need to be less clumsy about offset handling
   if offset > 0:
