@@ -43,7 +43,6 @@ import xml
 import xml.dom
 import xml.dom.minidom
 import ConfigParser
-import random
 
 
 # Set up booleans that older Pythons didn't have, if necessary.
@@ -797,41 +796,6 @@ def main():
   # We can always add this format in the future, though.  If the
   # 'Offset:' line appears in the headers, then we're using the old
   # format, if not, then we're using the new format.
-
-  # There are also "inner headers" inside the crypttext.  We place
-  # them there because having them in the clear header might, in some
-  # circumstances (such as a weak pad), reveal things about the
-  # plainttext.  Also, inserting a header block before the real
-  # encrypted input gives us greater future extensibility: even though
-  # the case for such headers right now is only moderately strong, we
-  # may think of more compelling inner headers later, so having the
-  # code expect them starting now is good planning.
-  #
-  # One inner header is a decoy: both the header name and value are
-  # nonsense, but the name does not contain ":" or " " and neither
-  # contains any newlines.
-  #
-  # Another inner header is a compression indicator: the name is
-  # "Compression" and the value is either empty (no compression) or a
-  # compression type (e.g., "bzip2").
-  #
-  # These are the only inner headers defined so far.  All inner
-  # headers are optional, and they can come in any order.
-  #
-  # A single blank line separates the inner headers from the real
-  # crypttext.
-  random.seed() # TODO: initialize based on input or on pad
-  inner_header_salt_name = u''.join(str(unichr(random.choice(range(65535)))) for x in range(128))
-  inner_header_salt_name.translate(None, ": \n")
-  inner_header_salt_value = u''.join(str(unichr(random.choice(range(65535)))) for x in range(128))
-  inner_header_salt_value.translate(None, "\n")
-  sys.stdout.write(inner_header_salt_name)
-  sys.stdout.write(": ")
-  sys.stdout.write(inner_header_salt_value)
-  sys.stdout.write("\n")
-  sys.exit(0)
-  inner_header_compression_name = "Compression"
-  inner_header_compression_value = "bzip2"
 
   if encrypting:
     encoder = PadEncoder(pad, config)
