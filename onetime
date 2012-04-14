@@ -60,16 +60,8 @@ except:
 # encrypted and then then compressed, instead of the other way around.
 #
 # Format 2, introduced 2012-01-01, does include the "Format: " header
-# in the human-readable portion of the output.  
-#
-# TODO: At the moment it does not compress at all.  If we're going to
-# compress -- which we probably should, since Python's bz2 compressor
-# apparently only compresses when it will be effective -- we need to
-# insert an "inner header" of random length inside the beginning of
-# the cryptotext, so that in the case where a careless user is using a
-# pseudorandom pad, we don't provide a known-plaintext attack on that
-# weak pad by enabling the attacker to deduce some of the pad data by
-# knowing what the beginning of bz2 compressed data looks like.
+# in the human-readable portion of the output, and gets the
+# compression/encryption order right.
 Format = 2
 
 class Pad:
@@ -97,7 +89,10 @@ class Pad:
     self.padfile.seek(self._offset)
 
   def convert(self, string):
-    """Return a new string that is STRING XORed against the pad."""
+    """If STRING is not empty or None, return it as XORed against the pad;
+else return the empty string.  Note STRING may be empty on intermediate
+calls simply because a compressor has not yet had enough incoming data to
+work with, not necessarily because input is ended yet."""
     pad_str = self.padfile.read(len(string))
     result = ''
     for i in range(len(string)):
@@ -144,13 +139,27 @@ class PadEncoder:
     """Initialize an encoder for PAD with Configuration CONFIG."""
     self.pad = pad
     self.config = config
+    self.compressor = bz2.BZ2Compressor()
+
+  def _output(self, string):
+    "Return encoding of STRING, or the empty string if STRING is empty."
+    if string:
+      return base64.b64encode(string)
+    else:
+      return ''
 
   def encode(self, string):
-    """Return all available onetime-encoded data so far, including for STRING,
-    or return None if no encoded data is ready yet."""
-    out = base64.encodestring(self.pad.convert(string))
+    """Return onetime-encoded data for STRING, or the empty string if none.
+    Consume pad as needed."""
+    out = self._output(self.pad.convert(self.compressor.compress(string)))
     self.config.consume(self.pad, False)
     return out
+
+  def finish(self):
+    "Return last remaining bits of crypttext, or None if none left."
+    last_bits = self._output(self.pad.convert(self.compressor.flush()))
+    self.config.consume(self.pad, False)
+    return last_bits
 
 
 class PadDecoder:
@@ -168,11 +177,10 @@ class PadDecoder:
     self.config = config
     self.unused_data = ""
     self.input_format = input_format
-    self.decompressor = None
+    self.inner_headers_done = False
+    self.decompressor = bz2.BZ2Decompressor()
 
-    if self.input_format == 1:
-      self.decompressor = bz2.BZ2Decompressor()
-    elif self.input_format > 2:
+    if self.input_format > 2:
       raise self.FormatException(
         "unrecognized format version: %d" % self.input_format)
 
@@ -185,9 +193,10 @@ class PadDecoder:
     if self.input_format == 1:
       decompressor = bz2.BZ2Decompressor()
       return self.pad.convert((self.decompressor.decompress
-                               (base64.decodestring(string))))
+                               (base64.b64decode(string))))
     else:  # must be 2
-      return self.pad.convert(base64.decodestring(string))
+      return self.decompressor.decompress(self.pad.convert
+                                          (base64.b64decode(string)))
 
   def finalize(self):
     """Finalize pad usage with the configuration."""
@@ -595,7 +604,7 @@ def main():
   encrypting  = False
   decrypting  = False
   pad_file    = None
-  input       = None
+  incoming    = None
   output      = None
   offset      = 0
   config_area = None
@@ -687,12 +696,12 @@ def main():
     error_exit = True
 
   if len(args) == 0 or args[0] == "-":
-    input = sys.stdin
+    incoming = sys.stdin
     if output is None:
-      # If input is stdin, output defaults to stdout.
+      # If incoming is stdin, output defaults to stdout.
       output = sys.stdout
   elif len(args) == 1:
-    input = open(args[0])
+    incoming = open(args[0])
     if output is None:
       if encrypting:
         # If plaintext input is 'FILENAME', output defaults to
@@ -732,7 +741,7 @@ def main():
   if offset > 0:
     pad.set_offset(offset)
 
-  # The first line of OneTime format is the begin line.
+  # The first line of OneTime format 2 is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
   # Then comes the encoded body.
   # The last line indicates the end, and is distinguishable from
@@ -797,36 +806,71 @@ def main():
   # 'Offset:' line appears in the headers, then we're using the old
   # format, if not, then we're using the new format.
 
+  # There are also "inner headers" inside the crypttext.  We place
+  # them there because having them in the clear header might, in some
+  # circumstances, reveal something about the plainttext.  For
+  # example, if the compression method used on the plaintext has been
+  # selected for maximum effectiveness on that type of plaintext, then
+  # revealing the compression method reveals something about the
+  # plaintext.
+  #
+  # Also, inserting a header block in the enrcypted portion before the
+  # real encrypted input gives us greater future extensibility.  Even
+  # though the case for such headers right now is only moderately
+  # strong, we may think of more compelling inner headers later, so
+  # having the code expect them starting now is good planning.
+  #
+  # One inner header is a compression indicator: its header name is
+  # "Compression" and the value is either empty (no compression) or a
+  # compression type (e.g., "bzip2").
+  #
+  # This is the only inner header defined so far.  All inner headers
+  # are optional, and they can come in any order.
+  #
+  # A single blank line separates the inner headers from the real
+  # crypttext.
+  inner_header_compression_name = "Compression"
+  inner_header_compression_value = "bzip2"
+  inner_header_compression = "%s: %s" % (inner_header_compression_name,
+                                         inner_header_compression_value)
   if encrypting:
     encoder = PadEncoder(pad, config)
     output.write(onetime_header)
+    output.write(encoder.encode(inner_header_compression))
+    output.write(encoder.encode("\n"))  # compression header terminator
+    output.write(encoder.encode("\n"))  # all inner headers terminator
     while 1:
-      string = input.read()
+      string = incoming.read()
       if len(string) > 0:
         result = encoder.encode(string)
         if result:
           output.write(result)
       else:
+        result = encoder.finish()
+        if result:
+          output.write(result)
         break
+    output.write("\n")
     output.write(onetime_end)
 
   elif decrypting:
     decoder = None # Will set to a decoder when we know the incoming format.
     saw_end = None
-    maybe_header_line = input.readline()
+    maybe_header_line = incoming.readline()
     if (maybe_header_line != onetime_begin
         and maybe_header_line != old_onetime_begin):
       sys.stderr.write("Error: malformed OneTime format: no begin line.\n")
       sys.exit(1)
     while maybe_header_line != "\n":
-      maybe_header_line = input.readline()
+      maybe_header_line = incoming.readline()
       m = re.match("Offset: ([0-9]+)", maybe_header_line)
       if m:
         pad.set_offset(int(m.group(1)))
         continue
       m = re.match("Format: ([0-9]+) ", maybe_header_line)
       if m:
-        decoder = PadDecoder(pad, config, int(m.group(1)))
+        format_number = int(m.group(1))
+        decoder = PadDecoder(pad, config, format_number)
         continue
 
     if decoder is None:
@@ -834,7 +878,7 @@ def main():
       decoder = PadDecoder(pad, config, 1)
 
     while 1:
-      string = input.readline()
+      string = incoming.readline()
       if (string == onetime_end or string == old_onetime_end):
         saw_end = 1
         break
