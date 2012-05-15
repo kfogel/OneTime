@@ -8,6 +8,7 @@ check:
 
 # For a quick sanity check while developing, just run this.
 quickcheck:
+	@echo "### Encrypt and decrypt the README file, as a quick test: ###"
 	@./onetime -e -n -p tests/random-data-1 -o - README \
           | ./onetime -d -n -p tests/random-data-1 -o -
 

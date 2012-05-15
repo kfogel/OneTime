@@ -132,14 +132,36 @@ work with, not necessarily because input is ended yet."""
            % (self.path(), self.id(), self.offset(), self.length())
 
 
+class FakeCompressorDecompressor:
+  """Pass-through placeholder for when not compressing/decompressing."""
+  unused_data = ""
+  def compress(self, incoming):
+    return incoming
+  def flush(self):
+    return ""
+  def decompress(self, incoming):
+    return incoming
+
 class PadEncoder:
   """Class for encoding raw data to OneTime output."""
 
-  def __init__(self, pad, config):
-    """Initialize an encoder for PAD with Configuration CONFIG."""
+  class UnknownCompressionException(Exception):
+    """Exception raised when an unknown compression method is requested."""
+    pass
+
+  def __init__(self, pad, config, compression=None):
+    """Initialize an encoder for PAD with Configuration CONFIG.
+    If COMPRESSION is not None, it is a string naming the compression
+    method to be used on the plaintext before encrypting; currently
+    only "bzip2" is accepted."""
     self.pad = pad
     self.config = config
-    self.compressor = bz2.BZ2Compressor()
+    self.compression_method = compression
+    # Even if compression is requested, we don't set self.compressor
+    # to a real compressor until after the inner headers are written;
+    # see start().
+    self.compressor = FakeCompressorDecompressor()
+    self.compressor = bz2.BZ2Compressor() # TODO: tmp, during dev only
 
   def _output(self, string):
     "Return encoding of STRING, or the empty string if STRING is empty."
@@ -148,17 +170,64 @@ class PadEncoder:
     else:
       return ''
 
+  def start(self):
+    # There are also "inner headers" inside the crypttext.  We place
+    # them there because having them in the clear header might, in some
+    # circumstances, reveal something about the plainttext.  For
+    # example, if the compression method used on the plaintext has been
+    # selected for maximum effectiveness on that type of plaintext, then
+    # revealing the compression method reveals something about the
+    # plaintext.
+    #
+    # Also, inserting a header block in the encrypted portion before the
+    # real encrypted input gives us greater future extensibility.  Even
+    # though the case for such headers right now is only moderately
+    # strong, we may think of more compelling inner headers later, so
+    # having the code expect them starting now is good planning.
+    #
+    # One inner header is a compression indicator: its header name is
+    # "Compression" and the value is either empty (no compression) or a
+    # compression type (e.g., "bzip2").
+    #
+    # This is the only inner header defined so far.  All inner headers
+    # are optional, and they can come in any order.  A single blank
+    # line separates the inner headers from the real crypttext.  Inner
+    # headers are never compressed, of course; they are only encrypted.
+    inner_headers = ""
+    if self.compression_method is not None:
+      inner_headers += "%s: %s\n" % ("Compression", self.compression_method)
+      sys.stderr.write("KFF: inner_headers first: '%s'\n" % inner_headers)
+      sys.stderr.write("KFF: self.compressor:     '%s'\n" % self.compressor)
+      sys.stderr.flush()
+    inner_headers = self.encode(inner_headers + "\n")
+    sys.stderr.write("KFF: inner_headers full : '%s'\n" % inner_headers)
+    sys.stderr.flush()
+    # Now that we've encoded all the inner headers without compression,
+    # it's okay to turn on compression (if any) for subsequent encoding.
+    if self.compression_method == "bzip2":
+      self.compressor = bz2.BZ2Compressor()
+    elif self.compression_method is not None:
+      raise self.UnknownCompressionException(
+        "unrecognized compression method: %s" % self.compression_method)
+    return inner_headers
+
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
     out = self._output(self.pad.convert(self.compressor.compress(string)))
     self.config.consume(self.pad, False)
+    sys.stderr.write("KFF: in encode(): self.compressor: '%s'\n" \
+                       % self.compressor)
+    sys.stderr.write("KFF: out: '%s'\n" % out)
+    sys.stderr.flush()
     return out
 
   def finish(self):
     "Return last remaining bits of crypttext, or None if none left."
     last_bits = self._output(self.pad.convert(self.compressor.flush()))
     self.config.consume(self.pad, False)
+    sys.stderr.write("KFF: last_bits: '%s'\n" % last_bits)
+    sys.stderr.flush()
     return last_bits
 
 
@@ -178,7 +247,8 @@ class PadDecoder:
     self.unused_data = ""
     self.input_format = input_format
     self.inner_headers_done = False
-    self.decompressor = bz2.BZ2Decompressor()
+    self.decompressor = FakeCompressorDecompressor()
+    self.decompressor = bz2.BZ2Decompressor() # TODO: tmp, during dev only
 
     if self.input_format > 2:
       raise self.FormatException(
@@ -189,14 +259,25 @@ class PadDecoder:
     or return None if no decoded data is ready yet.  Throw EOFError
     exception if called past the end of decodable data.  Store any
     unused data in self.unused_data."""
-    ### todo: we're not really doing that unused_data thing, are we?
+    ret = ""
     if self.input_format == 1:
-      decompressor = bz2.BZ2Decompressor()
-      return self.pad.convert((self.decompressor.decompress
-                               (base64.b64decode(string))))
+      # TODO: should detect format and set this up in self.init().
+      self.decompressor = bz2.BZ2Decompressor() 
+      sys.stderr.write("KFF: in decode(): self.decompressor: '%s'\n" \
+                         % self.decompressor)
+      sys.stderr.flush()
+      ret = self.pad.convert((decompressor.decompress
+                              (base64.b64decode(string))))
     else:  # must be 2
-      return self.decompressor.decompress(self.pad.convert
-                                          (base64.b64decode(string)))
+      sys.stderr.write("KFF: in decode(): self.decompressor: '%s'\n" \
+                         % self.decompressor)
+      sys.stderr.flush()
+      ret = self.decompressor.decompress(self.pad.convert
+                                         (base64.b64decode(string)))
+    self.unused_data += self.decompressor.unused_data
+    sys.stderr.write("KFF: unused_data so far: '%s'\n" % self.unused_data)
+    sys.stderr.flush()
+    return ret
 
   def finalize(self):
     """Finalize pad usage with the configuration."""
@@ -806,39 +887,10 @@ def main():
   # 'Offset:' line appears in the headers, then we're using the old
   # format, if not, then we're using the new format.
 
-  # There are also "inner headers" inside the crypttext.  We place
-  # them there because having them in the clear header might, in some
-  # circumstances, reveal something about the plainttext.  For
-  # example, if the compression method used on the plaintext has been
-  # selected for maximum effectiveness on that type of plaintext, then
-  # revealing the compression method reveals something about the
-  # plaintext.
-  #
-  # Also, inserting a header block in the enrcypted portion before the
-  # real encrypted input gives us greater future extensibility.  Even
-  # though the case for such headers right now is only moderately
-  # strong, we may think of more compelling inner headers later, so
-  # having the code expect them starting now is good planning.
-  #
-  # One inner header is a compression indicator: its header name is
-  # "Compression" and the value is either empty (no compression) or a
-  # compression type (e.g., "bzip2").
-  #
-  # This is the only inner header defined so far.  All inner headers
-  # are optional, and they can come in any order.
-  #
-  # A single blank line separates the inner headers from the real
-  # crypttext.
-  inner_header_compression_name = "Compression"
-  inner_header_compression_value = "bzip2"
-  inner_header_compression = "%s: %s" % (inner_header_compression_name,
-                                         inner_header_compression_value)
   if encrypting:
-    encoder = PadEncoder(pad, config)
     output.write(onetime_header)
-    output.write(encoder.encode(inner_header_compression))
-    output.write(encoder.encode("\n"))  # compression header terminator
-    output.write(encoder.encode("\n"))  # all inner headers terminator
+    encoder = PadEncoder(pad, config, compression="bzip2")
+    output.write(encoder.start())
     while 1:
       string = incoming.read()
       if len(string) > 0:
