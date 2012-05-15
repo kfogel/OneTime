@@ -196,11 +196,14 @@ class PadEncoder:
     inner_headers = ""
     if self.compression_method is not None:
       inner_headers += "%s: %s\n" % ("Compression", self.compression_method)
-      sys.stderr.write("KFF: inner_headers first: '%s'\n" % inner_headers)
-      sys.stderr.write("KFF: self.compressor:     '%s'\n" % self.compressor)
+      sys.stderr.write("KFF: E.start(): inner_headers first: '%s'\n" \
+                         % inner_headers)
+      sys.stderr.write("KFF: E.start(): self.compressor:     '%s'\n" \
+                         % self.compressor)
       sys.stderr.flush()
     inner_headers = self.encode(inner_headers + "\n")
-    sys.stderr.write("KFF: inner_headers full : '%s'\n" % inner_headers)
+    sys.stderr.write("KFF: E.start(): inner_headers full : '%s'\n" \
+                       % inner_headers)
     sys.stderr.flush()
     # Now that we've encoded all the inner headers without compression,
     # it's okay to turn on compression (if any) for subsequent encoding.
@@ -214,11 +217,12 @@ class PadEncoder:
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
+    sys.stderr.write("KFF: in E.encode(): input string: '%s'\n" % string)
+    sys.stderr.write("KFF: in E.encode(): self.compressor: '%s'\n" \
+                       % self.compressor)
     out = self._output(self.pad.convert(self.compressor.compress(string)))
     self.config.consume(self.pad, False)
-    sys.stderr.write("KFF: in encode(): self.compressor: '%s'\n" \
-                       % self.compressor)
-    sys.stderr.write("KFF: out: '%s'\n" % out)
+    sys.stderr.write("KFF: in E.encode(): out: '%s'\n" % out)
     sys.stderr.flush()
     return out
 
@@ -226,7 +230,7 @@ class PadEncoder:
     "Return last remaining bits of crypttext, or None if none left."
     last_bits = self._output(self.pad.convert(self.compressor.flush()))
     self.config.consume(self.pad, False)
-    sys.stderr.write("KFF: last_bits: '%s'\n" % last_bits)
+    sys.stderr.write("KFF: E.finish(): last_bits: '%s'\n" % last_bits)
     sys.stderr.flush()
     return last_bits
 
@@ -263,25 +267,29 @@ class PadDecoder:
     if self.input_format == 1:
       # TODO: should detect format and set this up in self.init().
       self.decompressor = bz2.BZ2Decompressor() 
-      sys.stderr.write("KFF: in decode(): self.decompressor: '%s'\n" \
+      sys.stderr.write("KFF: in D.decode(): self.decompressor: '%s'\n" \
                          % self.decompressor)
       sys.stderr.flush()
       ret = self.pad.convert((decompressor.decompress
                               (base64.b64decode(string))))
     else:  # must be 2
-      sys.stderr.write("KFF: in decode(): self.decompressor: '%s'\n" \
+      sys.stderr.write("KFF: in D.decode(): self.decompressor: '%s'\n" \
                          % self.decompressor)
       sys.stderr.flush()
       ret = self.decompressor.decompress(self.pad.convert
                                          (base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
-    sys.stderr.write("KFF: unused_data so far: '%s'\n" % self.unused_data)
+    sys.stderr.write("KFF: in D.decode(): unused_data so far: '%s'\n" \
+                       % self.unused_data)
     sys.stderr.flush()
     return ret
 
   def finalize(self):
     """Finalize pad usage with the configuration."""
     self.config.consume(self.pad, True)
+    sys.stderr.write("KFF: in D.finalize(): unused_data: '%s'\n" \
+                       % self.unused_data)
+    sys.stderr.flush()
 
 
 class Configuration:
