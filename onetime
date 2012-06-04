@@ -84,9 +84,9 @@ class Pad:
       sys.stderr.write("Error: not enough pad data available\n")
       sys.exit(1)
     result = ''
-    for i in range(len(string)):
+    for i in range(string_len):
       result = result + chr(ord(string[i]) ^ ord(pad_str[i]))
-    self._length += len(string)
+    self._length += string_len
     return result
 
   def _get_id(self, padfile):
