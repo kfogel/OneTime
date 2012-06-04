@@ -65,14 +65,14 @@ class Pad:
     self._length = 0  # number of pad bytes used this time
     self._id = self._get_id(self.padfile)
     
-  class PadBad(Exception):
-    """Exception raised if the Pad is asked to do something Bad."""
+  class PadShort(Exception):
+    """Exception raised if Pad doesn't have enough data for this encryption."""
     pass
 
   def set_offset(self, offset):
     """Set this pad's encoding/decoding offset to OFFSET."""
     if offset >= self.pad_size:
-      raise Pad.PadBad("offset exceeds pad size, need more pad")
+      raise Pad.PadShort("offset exceeds pad size, need more pad")
     self._offset = offset
     self.padfile.seek(self._offset)
 
@@ -81,8 +81,7 @@ class Pad:
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
-      sys.stderr.write("Error: not enough pad data available\n")
-      sys.exit(1)
+      raise Pad.PadShort("not enough pad data available to finish encryption")
     result = ''
     for i in range(string_len):
       result = result + chr(ord(string[i]) ^ ord(pad_str[i]))
