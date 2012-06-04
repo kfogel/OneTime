@@ -78,7 +78,11 @@ class Pad:
 
   def convert(self, string):
     """Return a new string that is STRING XORed against the pad."""
-    pad_str = self.padfile.read(len(string))
+    string_len = len(string)
+    pad_str = self.padfile.read(string_len)
+    if len(pad_str) < string_len:
+      sys.stderr.write("Error: not enough pad data available\n")
+      sys.exit(1)
     result = ''
     for i in range(len(string)):
       result = result + chr(ord(string[i]) ^ ord(pad_str[i]))
