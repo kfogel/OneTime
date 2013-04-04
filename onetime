@@ -5,23 +5,25 @@ __doc__ = """Encoder/decoder for one-time pads.  Run 'onetime --help' for usage.
 The usual public-key encryption programs, such as GnuPG, are probably
 secure for everyday purposes, but their implementations are too
 complex for all but the most knowledgeable programmers to vet, and
-anyway there are too many vulnerable steps in the supply chain between
-GPG's authors and the end user.
+in some cases there may be vulnerable steps in the supply chain
+between GnuPG's authors and the end user.  When bootstrapping trust,
+it helps to start with something you can trust by inspection.
 
-Hence this script, OneTime, a simple encryption program that works with
-one-time pads.  If you don't know what one-time pads are, you probably
-wouldn't be able to use them securely, so this program is not for you.
+Hence this script, OneTime, a simple encryption program that works
+with one-time pads.  If you don't know what one-time pads are, this
+program may not be right for you.  If you do know what they are and
+how to use them, this program can make using them more convenient.
 
-If you do know what they are and how to use them, OneTime will take care
-of some of the pad-management bureacracy for you.  It avoids re-using
-pad data -- except when decrypting the same encrypted message twice, of
-course -- by maintaining records of pad usage in ~/.onetime/pad-records.
-And if you keep your ~/.onetime configuration area under version control
-with Subversion or CVS, OneTime will automatically update it to get the
-latest pad usage records before using a pad, and will commit new records
-after using a pad.  Thus, by sharing a single configuration area via
-version control, you and your interlocutors can more easily avoid the
-sin of pad range reuse.  (The pads themselves are not stored in the
+OneTime takes care of some of the pad-management bureacracy for you.
+It avoids re-using pad data -- except when decrypting the same
+encrypted message twice, of course -- by maintaining records of pad
+usage in ~/.onetime/pad-records.  And if you keep your ~/.onetime
+configuration area under version control with Subversion or CVS,
+OneTime will automatically update it to get the latest pad usage
+records before using a pad, and will commit new records after using a
+pad.  Thus, by sharing a single configuration area via version
+control, you and your interlocutors can more easily avoid the sin of
+pad range reuse.  (The pads themselves are not stored in the
 configuration area, just records about pad usage.)
 
 See http://en.wikipedia.org/wiki/One-time_pad for more information
@@ -55,11 +57,11 @@ except:
 # The current format version.
 #
 # Format 1 was the format from the first release of OneTime through
-# the very end of 2011.  It did not include the "Format: " header in
+# the very end of 2011.  It did not include the "Format:" header in
 # output, and had a bug (a rather embarrassing bug) whereby text was
 # encrypted and then then compressed, instead of the other way around.
 #
-# Format 2, introduced 2012-01-01, does include the "Format: " header
+# Format 2, introduced 2012-01-01, does include the "Format:" header
 # in the human-readable portion of the output, and gets the
 # compression/encryption order right.
 Format = 2
@@ -134,17 +136,6 @@ work with, not necessarily because input is ended yet."""
     return "Pad '%s' (%s):\n   Offset: %d\n   Length: %d\n" \
            % (self.path(), self.id(), self.offset(), self.length())
 
-
-class FakeCompressorDecompressor:
-  """Pass-through placeholder for when not compressing/decompressing."""
-  unused_data = ""
-  def compress(self, incoming):
-    return incoming
-  def flush(self):
-    return ""
-  def decompress(self, incoming):
-    return incoming
-
 class PadEncoder:
   """Class for encoding raw data to OneTime output."""
 
@@ -152,19 +143,20 @@ class PadEncoder:
     """Exception raised when an unknown compression method is requested."""
     pass
 
-  def __init__(self, pad, config, compression=None):
-    """Initialize an encoder for PAD with Configuration CONFIG.
-    If COMPRESSION is not None, it is a string naming the compression
-    method to be used on the plaintext before encrypting; currently
-    only "bzip2" is accepted."""
+  def __init__(self, pad, config):
+    """Initialize an encoder for PAD with Configuration CONFIG."""
     self.pad = pad
     self.config = config
-    self.compression_method = compression
-    # Even if compression was requested, we don't set self.compressor
-    # to a real compressor until after the inner headers are written;
-    # see start().
-    self.compressor = FakeCompressorDecompressor()
-    self.compressor = bz2.BZ2Compressor() # TODO: tmp, during dev only
+    # We use bz2 compression unconditionally.  If we offered a choice,
+    # we'd have to name that choice somewhere for use in decryption.
+    # But if we were to list the choice in the open headers, then we
+    # would reveal something about the plaintext.  On the other hand,
+    # if we were to name it in "inner headers" that are also masked by
+    # the pad, that would complexify the code a great deal (we know
+    # because we tried -- see the 2.x branch history) and that would
+    # defeat part of the point of this program: to be so simple as to
+    # be trivially auditable.  So just use bz2.  The worst case is ok.
+    self.compressor = bz2.BZ2Compressor()
 
   def _output(self, string):
     "Return encoding of STRING, or the empty string if STRING is empty."
@@ -172,43 +164,6 @@ class PadEncoder:
       return base64.b64encode(string)
     else:
       return ''
-
-  def start(self):
-    # There are also "inner headers" inside the crypttext.  We place
-    # them there because having them in the clear header might, in some
-    # circumstances, reveal something about the plainttext.  For
-    # example, if the compression method used on the plaintext has been
-    # selected for maximum effectiveness on that type of plaintext, then
-    # revealing the compression method reveals something about the
-    # plaintext.
-    #
-    # Also, inserting a header block in the encrypted portion before the
-    # real encrypted input gives us greater future extensibility.  Even
-    # though the case for such headers right now is only moderately
-    # strong, we may think of more compelling inner headers later, so
-    # having the code expect them starting now is good planning.
-    #
-    # One inner header is a compression indicator: its header name is
-    # "Compression" and the value is either empty (no compression) or a
-    # compression type (e.g., "bzip2").
-    #
-    # This is the only inner header defined so far.  All inner headers
-    # are optional, and they can come in any order.  A single blank
-    # line separates the inner headers from the real crypttext.  Inner
-    # headers are never compressed, of course; they are only encrypted.
-    inner_headers = ""
-    if self.compression_method is not None:
-      inner_headers += "%s: %s\n" % ("Compression", self.compression_method)
-    inner_headers = self.encode(inner_headers + "\n")
-    # Now that we've encoded all the inner headers without compression,
-    # it's okay to turn on compression (if any) for subsequent encoding.
-    if self.compression_method == "bzip2":
-      pass # TODO fooo fix this up once everything is done.
-      # self.compressor = bz2.BZ2Compressor()
-    elif self.compression_method is not None:
-      raise self.UnknownCompressionException(
-        "unrecognized compression method: %s" % self.compression_method)
-    return inner_headers
 
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
@@ -239,9 +194,7 @@ class PadDecoder:
     self.config = config
     self.unused_data = ""
     self.input_format = input_format
-    self.inner_headers_done = False
-    self.decompressor = FakeCompressorDecompressor()
-    self.decompressor = bz2.BZ2Decompressor() # TODO: tmp, during dev only
+    self.decompressor = bz2.BZ2Decompressor()
 
     if self.input_format > 2:
       raise self.FormatException(
@@ -254,11 +207,12 @@ class PadDecoder:
     unused data in self.unused_data."""
     ret = ""
     if self.input_format == 1:
-      # TODO: should detect format and set this up in self.init().
-      self.decompressor = bz2.BZ2Decompressor() 
+      # Format 1 got the compression/encryption order wrong.  Look,
+      # this is embarrassing.  I'm only telling you about it because
+      # we still need to support that mis-ordering for compatibility.
       ret = self.pad.convert((decompressor.decompress
                               (base64.b64decode(string))))
-    else:  # must be 2
+    else: # must be format 2
       ret = self.decompressor.decompress(self.pad.convert
                                          (base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
@@ -271,7 +225,14 @@ class PadDecoder:
 
 class Configuration:
   """A parsed representation of one user's ~/.onetime/ configuration area.
-  A .onetime/ directory contains just a 'pad-records' file right now."""
+  A .onetime/ directory contains just a 'pad-records' file right now.
+
+  Even in cases where we're operating without touching permanent
+  storage, a Configuration instance is still created and updated
+  internally.  This is partly because the Configuration does some
+  consistency checks on incoming/outgoing data, and partly because it
+  would be useful if we're ever providing an API.
+  """
 
   class ConfigurationError(Exception):
     """Exception raised if we encounter an impossible state in a
@@ -290,6 +251,10 @@ class Configuration:
     standard location in the user's home directory; otherwise, find or
     create it at PATH.
 
+    If PATH is \"-\", instantiate a Configuration object but do not
+    connect it to any activity on disk; it will neither read from nor
+    write to permanent storage. 
+
     Iff USE_VC is true, update and commit the pad-records file when
     appropriate no matter what the permanent config file says."""
 
@@ -303,7 +268,7 @@ class Configuration:
     self.perm_config = ConfigParser.ConfigParser()
     self.pad_records_file = os.path.join(self.config_area, "pad-records")
     # Create the configuration area if necessary.
-    if not os.path.isdir(self.config_area):
+    if self.config_area != '-' and not os.path.isdir(self.config_area):
       # Legacy data check: if they have a ~/.otp dir, that's probably
       # from a previous incarnation of this program, when it was named
       # "otp".  If so, just rename the old config area.
@@ -322,28 +287,29 @@ class Configuration:
     self.perm_config.add_section("general")
     self.perm_config.set("general", "use-vc", False)
 
-    # Now inhale the user's actual permanent config, if any.
-    if os.path.isfile(self.perm_config_file):
-      self.perm_config.read(self.perm_config_file)
-      # Now handle whatever configuration options are present, except
-      # when an explicitly-passed option overrides them.
-      if self.use_vc is None:
-        # No explicit --use-vc request, so see what config says.
-        cfg_use_vc = self.perm_config.get("general", "use-vc")
-        if cfg_use_vc is None \
-              or cfg_use_vc == False \
-              or (isinstance(cfg_use_vc, str)
-                  and cfg_use_vc.lower() == "false"):
-          self.use_vc = False
-        elif cfg_use_vc == True \
-              or (isinstance(cfg_use_vc, str)
-                  and cfg_use_vc.lower() == "true"):
-          self.use_vc = True
-        else:
-          raise self.ConfigurationError, \
-              "unrecognized value for use-vc: %s" % str(cfg_use_vc)
-    else:
-      perm_config_init = """\
+    if not self.config_area == '-':
+      # Now inhale the user's actual permanent config, if any.
+      if os.path.isfile(self.perm_config_file):
+        self.perm_config.read(self.perm_config_file)
+        # Now handle whatever configuration options are present, except
+        # when an explicitly-passed option overrides them.
+        if self.use_vc is None:
+          # No explicit --use-vc request, so see what config says.
+          cfg_use_vc = self.perm_config.get("general", "use-vc")
+          if cfg_use_vc is None \
+                or cfg_use_vc == False \
+                or (isinstance(cfg_use_vc, str)
+                    and cfg_use_vc.lower() == "false"):
+            self.use_vc = False
+          elif cfg_use_vc == True \
+                or (isinstance(cfg_use_vc, str)
+                    and cfg_use_vc.lower() == "true"):
+            self.use_vc = True
+          else:
+            raise self.ConfigurationError, \
+                "unrecognized value for use-vc: %s" % str(cfg_use_vc)
+      else:
+        perm_config_init = """\
 ### Configure various run-time behaviors for OneTime.
 ###
 ### (See http://www.red-bean.com/onetime/ for an introduction.)
@@ -368,18 +334,19 @@ class Configuration:
 # or when set to "false" below, you can pass --use-vc to override.
 use-vc = false
 """
-      c = open(self.perm_config_file, "w")
-      c.write(perm_config_init)
-      c.close()
+        c = open(self.perm_config_file, "w")
+        c.write(perm_config_init)
+        c.close()
 
     # Create the pad-records file if necessary.
-    if not os.path.isfile(self.pad_records_file):
+    if self.config_area != '-' and not os.path.isfile(self.pad_records_file):
       open(self.pad_records_file, "w").close()
     # Update the pad-records file before parsing, if possible.
-    self._maybe_update_pad_records()
+    if self.config_area != '-':
+      self._maybe_update_pad_records()
     # Parse the pad-records file (if any) in the configuration area.
     self.pad_records = self._parse_pad_records_file()
-
+    
   def _consolidate_used_ranges(self, used, allow_reconsumption=False):
     """Return a consolidated version of USED.  USED is a list of
     tuples, indicating offsets and lengths:
@@ -405,6 +372,7 @@ use-vc = false
     new_used = [ ]
     last_offset = None
     last_length = None
+
     for tup in used:
       (this_offset, this_length) = tup
       if last_offset is not None:
@@ -462,6 +430,8 @@ use-vc = false
   def _directory_vc(self, directory):
     """If DIRECTORY is under version control with SVN or CVS, return
     the string 'svn' or 'cvs' accordingly, else return False."""
+    if self.config_area == '-':
+      return False
     if os.path.isdir(os.path.join(directory, '.svn')):
       return 'svn'
     elif os.path.isdir(os.path.join(directory, 'CVS')):
@@ -475,7 +445,7 @@ use-vc = false
     ACTION can be 'update' or 'commit -mMSG'.  Put MSG in quotes if it
     is longer than one word.  If ACTION fails, throw a
     ConfigurationVCError exception."""
-    if self.use_vc:
+    if self.config_area != '-' and self.use_vc:
       vc = self._directory_vc(self.config_area)
       if vc:
         if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
@@ -532,6 +502,9 @@ use-vc = false
       """
     dict = { }
 
+    if self.config_area == '-':
+      return dict
+
     try:
       dom = xml.dom.minidom.parse(self.pad_records_file)
 
@@ -569,6 +542,8 @@ use-vc = false
     
   def save(self):
     """Save the pad-records file, and maybe commit it."""
+    if self.config_area == '-':
+      return
     tempfile = self.pad_records_file + ".tmp"
     fp = open(tempfile, 'w')
     fp.write("<onetime-pad-records>\n")
@@ -654,7 +629,8 @@ All options:
    -o OUT | --output=OUT   Output to file OUT ("-" for stdout)
    --offset=N              Control the pad data start offset
    -n | --no-trace         Leave no record of pad usage in your config
-   -C DIR | --config=DIR   Specify DIR (instead of ~/.onetime) as config area
+   -C DIR | --config=DIR   Specify DIR (instead of ~/.onetime) as config area;
+                           '-' for DIR means use no config area (implies -n)
    --use-vc                Take advantage of SVN/CVS control of the config area
    --no-vc                 Ignore SVN/CVS control of the config area
    --show-pad-id           Print pad ID; used with -p only
@@ -874,8 +850,7 @@ def main():
 
   if encrypting:
     output.write(onetime_header)
-    encoder = PadEncoder(pad, config, compression="bzip2")
-    output.write(encoder.start())
+    encoder = PadEncoder(pad, config)
     while 1:
       string = incoming.read()
       if len(string) > 0:

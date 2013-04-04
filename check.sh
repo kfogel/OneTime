@@ -88,7 +88,7 @@ reset_config
 
 ../../onetime -C dot-onetime -e -p ../random-data-1 \
               -o long-msg-1.onetime ../long-msg
-if ! grep -q "<length>45646</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>12154</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 1."
   cat dot-onetime/pad-records
   exit 1
@@ -96,7 +96,7 @@ fi
 
 ../../onetime -C dot-onetime -e -p ../random-data-1 \
               -o long-msg-2.onetime ../long-msg
-if ! grep -q "<length>91187</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>24203</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 2."
   cat dot-onetime/pad-records
   exit 1
@@ -104,7 +104,7 @@ fi
 
 ../../onetime -C dot-onetime -e -p ../random-data-1 \
               -o long-msg-3.onetime ../long-msg
-if ! grep -q "<length>136728</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 3."
   cat dot-onetime/pad-records
   exit 1
@@ -112,9 +112,9 @@ fi
 
 ../../onetime -C dot-onetime -d -p ../random-data-1 \
               -o long-msg-1 long-msg-1.onetime
-if ! grep -q "<length>136728</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
-  if grep -q "<length>45646</length>" dot-onetime/pad-records; then
+  if grep -q "<length>12154</length>" dot-onetime/pad-records; then
     echo "ERROR: 'Decryption wrongly shrinks pad usage' bug is back."
   else
     echo "ERROR: Usage length wrong after decryption 1, but don't know why."

@@ -1,7 +1,5 @@
 ToDo list for OneTime.  (We should probably get a real bug tracker.)
 
-* Investigate Python bz2 compression.
-
 * "onetime -d -p PAD INPUT -o OUTPUT" should work
 
   Putting input argument before last option should work.  Why doesn't it?
