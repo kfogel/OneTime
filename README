@@ -3,4 +3,8 @@ for an introduction, or './onetime --help' for usage.
 
 See http://www.red-bean.com/onetime/ for more information.
 
-Note: the 'debian' subdir here is for Debian packaging; see debian/README.
+(Note: development is currently aimed at releasing version 2.0, which
+will fix some issues with the 1.x series.  While the 2.x line will be
+backwards-compatible with 1.x, development of 2.x is done on a branch
+so that the necessary compatibility shims can all be completed safely.
+See http://svn.red-bean.com/repos/onetime/branches/2.x/ for more.)
