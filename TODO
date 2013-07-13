@@ -1,5 +1,9 @@
 ToDo list for OneTime.  (We should probably get a real bug tracker.)
 
+* There seem to be two styles of 'raise' call in the code.  Consistify.
+
+* Likewise with "\\\n(" vs "(\n" in function calls.  Latter is preferred.
+
 * "onetime -d -p PAD INPUT -o OUTPUT" should work
 
   Putting input argument before last option should work.  Why doesn't it?

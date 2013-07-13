@@ -608,11 +608,32 @@ use-vc = false
   def register(self, pad):
     """Register PAD if it is not already registered, and set its
     offset based on previously used regions for that pad, if any."""
-    # TODO: Need to look for old v1 ID here too and DTRT.  If both are
-    # present, raise an error, because that should never be possible.
+    # TODO: Okay, this code handles old v1 IDs here now, but it really
+    # needs a regression test.
+    next_offset = None
+    # This is a little complicated only because we need; to look for
+    # old v1-style pad IDs and upgrade them if present.
     if not self.pad_records.has_key(pad.id()):
-      self.pad_records[pad.id()] = { "used" : [ ] }
-    pad.set_offset(self._get_next_offset(self.pad_records[pad.id()]["used"]))
+      if self.pad_records.has_key(pad.id(version=1)):
+        # Upgrade...
+        self.pad_records[pad.id()] = self.pad_records[pad.id(version=1)]
+        del self.pad_records[pad.id(version=1)]
+        # ...then record:
+        next_offset = self._get_next_offset(self.pad_records[pad.id()]["used"])
+      else:
+        self.pad_records[pad.id()] = { "used" : [ ] }
+    else:
+      if self.pad_records.has_key(pad.id(version=1)):
+        raise Configuration.ConfigurationError(
+          "Pad has both v2 and v1 IDs present in pad-records file:\n" \
+          "  v2: %s\n"                                                \
+          "  v1: %s\n"                                                \
+          "This is supposed to be impossible.  Please resolve."       \
+          % (pad.id(), pad.id(version=2)))
+      else:
+        next_offset = self._get_next_offset(
+          self.pad_records[pad.id()]["used"])
+    pad.set_offset(next_offset)
 
   def record_consumed(self, pad, allow_reconsumption):
     """Record that PAD has used PAD.length() bytes starting at PAD.offset().
@@ -638,7 +659,7 @@ use-vc = false
 
 def version():
   "Return a version string."
-  rev = "$Revision: 156 $"
+  rev = "$Revision: 157 $"
   m = re.match(".*Revision: ([0-9]+)[^0-9]*", rev)
   if m:
     return "2.%s" % m.group(1)
