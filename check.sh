@@ -28,30 +28,30 @@ reset_config()
 reset_config
 
 # mode 1
-../../onetime -C dot-onetime -e -p ../random-data-2 -o e.1 ../short-msg
-../../onetime -C dot-onetime -d -p ../random-data-2 -o d.1 e.1
+../../onetime -C dot-onetime -e -p ../test-pad-2 -o e.1 ../test-plaintext-a
+../../onetime -C dot-onetime -d -p ../test-pad-2 -o d.1 e.1
 
 # mode 2
-../../onetime -C dot-onetime -e -p ../random-data-2 ../short-msg
-mv ../short-msg.onetime e.2.onetime
-../../onetime -C dot-onetime -d -p ../random-data-2 e.2.onetime
+../../onetime -C dot-onetime -e -p ../test-pad-2 ../test-plaintext-a
+mv ../test-plaintext-a.onetime e.2.onetime
+../../onetime -C dot-onetime -d -p ../test-pad-2 e.2.onetime
 mv e.2 d.2
 
 # mode 3
-../../onetime -C dot-onetime -e -p ../random-data-2 -o - ../short-msg > e.3
-../../onetime -C dot-onetime -d -p ../random-data-2 -o - e.3 > d.3
+../../onetime -C dot-onetime -e -p ../test-pad-2 -o - ../test-plaintext-a > e.3
+../../onetime -C dot-onetime -d -p ../test-pad-2 -o - e.3 > d.3
 
 # mode 4
-../../onetime -C dot-onetime -e -p ../random-data-2 < ../short-msg > e.4
-../../onetime -C dot-onetime -d -p ../random-data-2 < e.4 > d.4
+../../onetime -C dot-onetime -e -p ../test-pad-2 < ../test-plaintext-a > e.4
+../../onetime -C dot-onetime -d -p ../test-pad-2 < e.4 > d.4
 
 # mode 5
-../../onetime -C dot-onetime -e -p ../random-data-2 -o e.5 < ../short-msg
-../../onetime -C dot-onetime -d -p ../random-data-2 -o d.5 < e.5
+../../onetime -C dot-onetime -e -p ../test-pad-2 -o e.5 < ../test-plaintext-a
+../../onetime -C dot-onetime -d -p ../test-pad-2 -o d.5 < e.5
 
 PASSED="yes"
 for n in 1 2 3 4 5; do
-  if cmp ../short-msg d.${n}; then
+  if cmp ../test-plaintext-a d.${n}; then
     true
   else
     echo "Error: option-parsing tests failed, something went wrong."
@@ -86,32 +86,32 @@ fi
 
 reset_config
 
-../../onetime -C dot-onetime -e -p ../random-data-1 \
-              -o long-msg-1.onetime ../long-msg
+../../onetime -C dot-onetime -e -p ../test-pad-1 \
+              -o test-ciphertext-b-1.onetime ../test-plaintext-b
 if ! grep -q "<length>12154</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 1."
   cat dot-onetime/pad-records
   exit 1
 fi
 
-../../onetime -C dot-onetime -e -p ../random-data-1 \
-              -o long-msg-2.onetime ../long-msg
+../../onetime -C dot-onetime -e -p ../test-pad-1 \
+              -o test-ciphertext-b-2.onetime ../test-plaintext-b
 if ! grep -q "<length>24203</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 2."
   cat dot-onetime/pad-records
   exit 1
 fi
 
-../../onetime -C dot-onetime -e -p ../random-data-1 \
-              -o long-msg-3.onetime ../long-msg
+../../onetime -C dot-onetime -e -p ../test-pad-1 \
+              -o test-ciphertext-b-3.onetime ../test-plaintext-b
 if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 3."
   cat dot-onetime/pad-records
   exit 1
 fi
 
-../../onetime -C dot-onetime -d -p ../random-data-1 \
-              -o long-msg-1 long-msg-1.onetime
+../../onetime -C dot-onetime -d -p ../test-pad-1 \
+              -o test-plaintext-b-1 test-ciphertext-b-1.onetime
 if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
   if grep -q "<length>12154</length>" dot-onetime/pad-records; then
@@ -122,7 +122,7 @@ if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
   exit 1
 fi
 
-if ! cmp long-msg-1 ../long-msg; then
+if ! cmp test-plaintext-b-1 ../test-plaintext-b; then
   echo "ERROR: Decryption failed to produce correct plaintext."
   exit 1
 fi
@@ -144,75 +144,74 @@ maybe_show_lengths()
 }
 
 # Encode
-../../onetime --config=dot-onetime -e -p ../random-data-1  \
-         < ../short-msg > short-msg.onetime
+../../onetime --config=dot-onetime -e -p ../test-pad-1  \
+         < ../test-plaintext-a > test-ciphertext-a.onetime
 maybe_show_lengths "After encoding:"
 # Decode twice, to make sure the pad can reconsume safely.
-../../onetime --config=dot-onetime -d -p ../random-data-1  \
-         < short-msg.onetime > short-msg.decoded-1
+../../onetime --config=dot-onetime -d -p ../test-pad-1  \
+         < test-ciphertext-a.onetime > test-plaintext-a.decoded-1
 maybe_show_lengths "After decoding once:"
-if ! cmp ../short-msg short-msg.decoded-1; then
-  echo "ERROR: short-msg.decoded-1 does not match short-msg input."
+if ! cmp ../test-plaintext-a test-plaintext-a.decoded-1; then
+  echo "ERROR: test-plaintext-a.decoded-1 does not match test-plaintext-a input."
   exit 1
 fi
-../../onetime --config=dot-onetime -d -p ../random-data-1  \
-         < short-msg.onetime > short-msg.decoded-2
+../../onetime --config=dot-onetime -d -p ../test-pad-1  \
+         < test-ciphertext-a.onetime > test-plaintext-a.decoded-2
 maybe_show_lengths "After decoding again:"
-if ! cmp ../short-msg short-msg.decoded-2; then
-  echo "ERROR: short-msg.decoded-2 does not match short-msg input."
+if ! cmp ../test-plaintext-a test-plaintext-a.decoded-2; then
+  echo "ERROR: test-plaintext-a.decoded-2 does not match test-plaintext-a input."
   exit 1
 fi
 # Encode again with the same pad
-../../onetime --config=dot-onetime -e -p ../random-data-1  \
-         < ../short-msg > short-msg.onetime
+../../onetime --config=dot-onetime -e -p ../test-pad-1  \
+         < ../test-plaintext-a > test-ciphertext-a.onetime
 maybe_show_lengths "After encoding again:"
 # Decode only once this time.
-../../onetime --config=dot-onetime -d -p ../random-data-1  \
-         < short-msg.onetime > short-msg.decoded-3
+../../onetime --config=dot-onetime -d -p ../test-pad-1  \
+         < test-ciphertext-a.onetime > test-plaintext-a.decoded-3
 maybe_show_lengths "After decoding:"
-if ! cmp ../short-msg short-msg.decoded-3; then
-  echo "ERROR: short-msg.decoded-3 does not match short-msg input."
+if ! cmp ../test-plaintext-a test-plaintext-a.decoded-3; then
+  echo "ERROR: test-plaintext-a.decoded-3 does not match test-plaintext-a input."
   exit 1
 fi
 
 # Now do the entire thing again with the other pad.
 # Encode
-../../onetime --config=dot-onetime -e -p ../random-data-2  \
-         < ../short-msg > short-msg.onetime
+../../onetime --config=dot-onetime -e -p ../test-pad-2  \
+         < ../test-plaintext-a > test-ciphertext-a.onetime
 maybe_show_lengths "After encoding:"
 # Decode twice, to make sure the pad can reconsume safely.
-../../onetime --config=dot-onetime -d -p ../random-data-2  \
-         < short-msg.onetime > short-msg.decoded-1
+../../onetime --config=dot-onetime -d -p ../test-pad-2  \
+         < test-ciphertext-a.onetime > test-plaintext-a.decoded-1
 maybe_show_lengths "After decoding once:"
-if ! cmp ../short-msg short-msg.decoded-1; then
-  echo "ERROR: short-msg.decoded-1 (pad random-data-2) does not match short-msg input."
+if ! cmp ../test-plaintext-a test-plaintext-a.decoded-1; then
+  echo "ERROR: test-plaintext-a.decoded-1 (pad test-pad-2) does not match test-plaintext-a input."
   exit 1
 fi
-../../onetime --config=dot-onetime -d -p ../random-data-2  \
-         < short-msg.onetime > short-msg.decoded-2
+../../onetime --config=dot-onetime -d -p ../test-pad-2  \
+         < test-ciphertext-a.onetime > test-plaintext-a.decoded-2
 maybe_show_lengths "After decoding again:"
-if ! cmp ../short-msg short-msg.decoded-2; then
-  echo "ERROR: short-msg.decoded-2 (pad random-data-2) does not match short-msg input."
+if ! cmp ../test-plaintext-a test-plaintext-a.decoded-2; then
+  echo "ERROR: test-plaintext-a.decoded-2 (pad test-pad-2) does not match test-plaintext-a input."
   exit 1
 fi
 # Encode again with the same pad
-../../onetime --config=dot-onetime -e -p ../random-data-2  \
-         < ../short-msg > short-msg.onetime
+../../onetime --config=dot-onetime -e -p ../test-pad-2  \
+         < ../test-plaintext-a > test-ciphertext-a.onetime
 maybe_show_lengths "After encoding again:"
 # Decode only once this time.
-../../onetime --config=dot-onetime -d -p ../random-data-2  \
-         < short-msg.onetime > short-msg.decoded-3
+../../onetime --config=dot-onetime -d -p ../test-pad-2  \
+         < test-ciphertext-a.onetime > test-plaintext-a.decoded-3
 maybe_show_lengths "After decoding:"
-if ! cmp ../short-msg short-msg.decoded-3; then
-  echo "ERROR: short-msg.decoded-3 (pad random-data-2) does not match short-msg input."
+if ! cmp ../test-plaintext-a test-plaintext-a.decoded-3; then
+  echo "ERROR: test-plaintext-a.decoded-3 (pad test-pad-2) does not match test-plaintext-a input."
   exit 1
 fi
 
 echo "Functionality tests passed."
 
 ############################################################################
-###  All tests finished.  Remove the test area.                          ###
+###  All tests finished.  Leave the test area in place for inspection.   ###
 ############################################################################
 
 cd ../..
-rm -rf tests/test-tmp

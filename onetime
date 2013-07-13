@@ -58,7 +58,7 @@ except:
 #
 # Format 1 was the format from the first release of OneTime through
 # the very end of 2011.  It did not include the "Format:" header in
-# output, and had a bug (a rather embarrassing bug) whereby text was
+# output, and had a (rather embarrassing) bug whereby plaintext was
 # encrypted and then then compressed, instead of the other way around.
 #
 # Format 2, introduced 2012-01-01, does include the "Format:" header
@@ -77,10 +77,15 @@ class Pad:
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._offset = 0  # where to start using pad bytes
     self._length = 0  # number of pad bytes used this time
-    self._id = self._get_id(self.padfile)
+    self._id = None
+    self._v1_id = None
     
   class PadShort(Exception):
     """Exception raised if Pad doesn't have enough data for this encryption."""
+    pass
+
+  class FormatVersion(Exception):
+    """Exception raised if an unknown format version is specified."""
     pass
 
   def set_offset(self, offset):
@@ -105,8 +110,28 @@ work with, not necessarily because input is ended yet."""
     self._length += string_len
     return result
 
-  def _get_id(self, padfile):
-    """Get the ID (the SHA1 of its first kilobyte) for this pad."""
+  def _get_id(self):
+    """Get the ID (the SHA1 of its first 32 bytes) for this pad.
+    Note that those 32 bytes are never used for encryption, though
+    the code that enforces that is elswhere.
+    (And why 32, given that a SHA1 hash only holds 20 bytes anyway?
+    No reason, except the usual religious bias toward powers of 2.)"""
+    saved_posn = self.padfile.tell()
+    self.padfile.seek(0)
+    sha1 = hashlib.sha1()
+    string = self.padfile.read(32)
+    sha1.update(string)
+    self.padfile.seek(saved_posn)
+    return sha1.hexdigest()
+
+  def _get_v1_id(self):
+    """Get the OneTime Version 1 ID for this pad.
+    In OneTime format version 1, Pad IDs were based on the first 1024
+    (octet) bytes of the pad.  This was needlessly spendy, or rather,
+    it would have been needlessly spendy if version 1 of the program
+    had been paranoid enough to not use any of those bytes for
+    encryption.  Version 2 fixed this, reducing the number of bytes
+    used on ID but also making they are not used for encryption."""
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
     sha1 = hashlib.sha1()
@@ -115,9 +140,19 @@ work with, not necessarily because input is ended yet."""
     self.padfile.seek(saved_posn)
     return sha1.hexdigest()
 
-  def id(self):
-    """Return the pad's ID."""
-    return self._id
+  def id(self, version=2):
+    """Return the pad's ID.
+    If version is specified, return the ID according to that format version."""
+    if version == 2:
+      if self._id is None:
+        self._id = self._get_id()
+      return self._id
+    elif version == 1:
+      if self._v1_id is None:
+        self._v1_id = self._get_v1_id()
+      return self._v1_id
+    else:
+      raise Pad.FormatVersion("unknown format version %d for ID" % version)
 
   def path(self):
     """Return the pad's path."""
@@ -169,13 +204,13 @@ class PadEncoder:
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
     out = self._output(self.pad.convert(self.compressor.compress(string)))
-    self.config.consume(self.pad, False)
+    self.config.record_consumed(self.pad, False)
     return out
 
   def finish(self):
     "Return last remaining bits of crypttext, or None if none left."
     last_bits = self._output(self.pad.convert(self.compressor.flush()))
-    self.config.consume(self.pad, False)
+    self.config.record_consumed(self.pad, False)
     return last_bits
 
 
@@ -196,6 +231,10 @@ class PadDecoder:
     self.input_format = input_format
     self.decompressor = bz2.BZ2Decompressor()
 
+    if self.input_format < 1:
+      raise self.FormatException(
+        "impossible format version: %d" % self.input_format)
+
     if self.input_format > 2:
       raise self.FormatException(
         "unrecognized format version: %d" % self.input_format)
@@ -210,7 +249,7 @@ class PadDecoder:
       # Format 1 got the compression/encryption order wrong.  Look,
       # this is embarrassing.  I'm only telling you about it because
       # we still need to support that mis-ordering for compatibility.
-      ret = self.pad.convert((decompressor.decompress
+      ret = self.pad.convert((self.decompressor.decompress
                               (base64.b64decode(string))))
     else: # must be format 2
       ret = self.decompressor.decompress(self.pad.convert
@@ -220,7 +259,7 @@ class PadDecoder:
 
   def finalize(self):
     """Finalize pad usage with the configuration."""
-    self.config.consume(self.pad, True)
+    self.config.record_consumed(self.pad, True)
 
 
 class Configuration:
@@ -413,7 +452,9 @@ use-vc = false
 
   def _get_next_offset(self, used):
     """Get the next free offset from USED, which is assumed to be in
-    consolidated form."""
+    consolidated form.  The minimum offset returned is 32; that way
+    the Pad ID stretch is always accounted for, even if USED was
+    initialized from an old v1 pad record."""
     cur_offset = None
     # We don't do anything fancy, just get the earliest available
     # offset past the last used tuple.  This means that any ranges in
@@ -422,8 +463,8 @@ use-vc = false
     for tup in used:
       (this_offset, this_length) = tup
       cur_offset = this_offset + this_length
-    if cur_offset is None:
-      return 0
+    if cur_offset is None or cur_offset < 32:
+      return 32
     else:
       return cur_offset
     
@@ -567,11 +608,13 @@ use-vc = false
   def register(self, pad):
     """Register PAD if it is not already registered, and set its
     offset based on previously used regions for that pad, if any."""
+    # TODO: Need to look for old v1 ID here too and DTRT.  If both are
+    # present, raise an error, because that should never be possible.
     if not self.pad_records.has_key(pad.id()):
       self.pad_records[pad.id()] = { "used" : [ ] }
     pad.set_offset(self._get_next_offset(self.pad_records[pad.id()]["used"]))
 
-  def consume(self, pad, allow_reconsumption):
+  def record_consumed(self, pad, allow_reconsumption):
     """Record that PAD has used PAD.length() bytes starting at PAD.offset().
 
     If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
@@ -595,7 +638,7 @@ use-vc = false
 
 def version():
   "Return a version string."
-  rev = "$Revision$"
+  rev = "$Revision: 156 $"
   m = re.match(".*Revision: ([0-9]+)[^0-9]*", rev)
   if m:
     return "2.%s" % m.group(1)
@@ -633,7 +676,7 @@ All options:
                            '-' for DIR means use no config area (implies -n)
    --use-vc                Take advantage of SVN/CVS control of the config area
    --no-vc                 Ignore SVN/CVS control of the config area
-   --show-pad-id           Print pad ID; used with -p only
+   --show-id               Show a pad's ID; used with -p only
    --intro                 Show an introduction to OneTime and one-time pads
    -v | -V | --version     Show version information
    -? | -h | --help        Show usage
@@ -648,7 +691,7 @@ def main():
   pad_file    = None
   incoming    = None
   output      = None
-  offset      = 0
+  offset      = None
   config_area = None
   debug       = False
   error_exit  = False
@@ -667,7 +710,7 @@ def main():
                                  "config=",
                                  "no-vc",
                                  "use-vc",
-                                 "show-pad-id",
+                                 "show-id",
                                  "no-trace",
                                  "debug",
                                  "intro", "help", "version"])
@@ -705,7 +748,7 @@ def main():
       no_vc = True
     elif opt == '--use-vc':
       use_vc = True
-    elif opt == '--show-pad-id':
+    elif opt == '--show-id':
       show_pad_id = True
     elif opt == '--no-trace' or opt == '-n':
       no_trace = True
@@ -717,7 +760,7 @@ def main():
 
   if show_pad_id:
     if encrypting or decrypting:
-      sys.stderr.write("Error: cannot use --show-pad-id with -e or -d.\n")
+      sys.stderr.write("Error: cannot use --show-id with -e or -d.\n")
       error_exit = True
   elif not encrypting and not decrypting:
     sys.stderr.write("Error: must pass either '-e' or '-d'.\n")
@@ -766,6 +809,10 @@ def main():
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
     error_exit = True
 
+  if offset is not None and offset < 32:
+      sys.stderr.write("Error: argument to --offset must be >= 32\n")
+      error_exit = True
+
   if error_exit:
     usage(sys.stderr)
     sys.exit(1)
@@ -777,11 +824,15 @@ def main():
 
   if show_pad_id:
     print pad.id()
+    print "  Note that older versions of OneTime (v1 and before) " \
+      + "would have reported"
+    print "  %s.  This v1 ID output may go away" % pad.id(version=1)
+    print "  in a future release, so please do not depend on its presence."
     sys.exit(0)
 
-  ### todo: need to be less clumsy about offset handling
-  if offset > 0:
+  if offset is not None:
     pad.set_offset(offset)
+    offset = None  # junk this; we'll rely on pad for offset from now on
 
   # The first line of OneTime format 2 is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
@@ -877,6 +928,19 @@ def main():
       maybe_header_line = incoming.readline()
       m = re.match("Offset: ([0-9]+)", maybe_header_line)
       if m:
+        # Note we don't have to adjust the received offset here to
+        # compensate for the 32-byte Pad ID stretch, because the
+        # recorded offset in *both* format version 1 and version 2
+        # ciphertexts is an absolute offset from the true edge of the
+        # Pad.  The v2 Pad ID stretch is already reflected in the
+        # offset for v2 files, but if an incoming ciphertext is v1,
+        # then naturally we just use whatever offset it requests.
+        #
+        # (When the pad record is written back out, the 32 bytes for
+        # the ID will be recorded as consumed no matter what, because
+        # config.register() takes care of that.  But in practice, most
+        # plaintexts will have already used more than that anyway, so
+        # that safeguard is probably redundant here.)
         pad.set_offset(int(m.group(1)))
         continue
       m = re.match("Format: ([0-9]+) ", maybe_header_line)
