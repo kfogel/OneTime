@@ -275,6 +275,24 @@ then
   PASSED="no"
 fi
 
+if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input removed 0 offset from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<length>15</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input affected length 15 in pad-records"
+  PASSED="no"
+fi
+
+if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 1 ]
+then
+  echo "ERROR: decoding v1 input inserted spurious length into pad-records"
+  PASSED="no"
+fi
+
 check_result
 
 ########################################################################
