@@ -6,11 +6,30 @@ TEST_PAD_1_V1_ID="6af6d0ac17081705cec30833da3cd436a400c429"
 TEST_PAD_2_ID="6788fea7a6fe5fd200dcbd09df586bc9239b2614"
 TEST_PAD_2_V1_ID="de61f169bce003a1189b3e6ebb8ddfc0ef007ac2"
 
-cd tests
+# See start_new_test() and check_result() for what these do.
+THIS_TEST="(no test name initialized yet)"
+PASSED="(uninitialized)"
 
+cd tests
 rm -rf test-tmp
 mkdir test-tmp
 cd test-tmp
+
+start_new_test()
+{
+  THIS_TEST="${1}"
+  PASSED="yes"  # see check_result()
+  reset_config
+}
+
+check_result()
+{
+  if [ ${PASSED} = "yes" ]; then
+    echo "PASS: ${THIS_TEST}"
+  else
+    echo "FAIL: ${THIS_TEST}"
+  fi
+}
 
 # Because OneTime itself is sensitive to version control, we create
 # a fresh test directory every time.  For now, we're not testing the
@@ -33,7 +52,7 @@ reset_config()
 # encrypted text and "d.N" is decrypted text.
 ###
 
-reset_config
+start_new_test "option parsing"
 
 # mode 1
 ../../onetime -C dot-onetime -e -p ../test-pad-2 -o e.1 ../test-plaintext-a
@@ -57,27 +76,23 @@ mv e.2 d.2
 ../../onetime -C dot-onetime -e -p ../test-pad-2 -o e.5 < ../test-plaintext-a
 ../../onetime -C dot-onetime -d -p ../test-pad-2 -o d.5 < e.5
 
-PASSED="yes"
 for n in 1 2 3 4 5; do
   if cmp ../test-plaintext-a d.${n}; then
     true
   else
-    echo "Error: option-parsing tests failed, something went wrong."
     PASSED="no"
   fi
 done
 
-if [ ${PASSED} = "yes" ]; then
-  echo "Option-parsing tests passed."
-fi
+check_result
 
 ############################################################################
 ###  Functionality tests.                                                ###
 ############################################################################
 
 ########################################################################
-## Regression test for "Decryption wrongly shrinks pad usage."
-#
+start_new_test "decryption should not shrink pad usage"
+
 # User sent in a report:
 #
 #   $ onetime.py -e -p onetimepad.dat test1.txt
@@ -91,15 +106,12 @@ fi
 #
 #   $ onetime.py -d -p onetimepad.dat test1.txt.onetime
 #     ==> pad-records says length reverted to 27340!
-
-reset_config
-
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-1.onetime ../test-plaintext-b
 if ! grep -q "<length>12154</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 1."
   cat dot-onetime/pad-records
-  exit 1
+  PASSED="no"
 fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
@@ -107,7 +119,7 @@ fi
 if ! grep -q "<length>24203</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 2."
   cat dot-onetime/pad-records
-  exit 1
+  PASSED="no"
 fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
@@ -115,7 +127,7 @@ fi
 if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
   echo "ERROR: Pad usage length incorrect after encryption iteration 3."
   cat dot-onetime/pad-records
-  exit 1
+  PASSED="no"
 fi
 
 ../../onetime -C dot-onetime -d -p ../test-pad-1 \
@@ -127,21 +139,22 @@ if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
   else
     echo "ERROR: Usage length wrong after decryption 1, but don't know why."
   fi
-  exit 1
+  PASSED="no"
 fi
 
 if ! cmp tmp-plaintext-b-1 ../test-plaintext-b; then
   echo "ERROR: Decryption failed to produce correct plaintext."
-  exit 1
+  PASSED="no"
 fi
 
+check_result
+
 ########################################################################
-## Test reconsumption, via repeated encoding and decoding.
+start_new_test "test reconsumption via repeated encoding and decoding"
 
-reset_config
-
+# Debugging helper function.  Deactivated by default -- change 'false'
+# to 'true' to turn this on.
 # Print the (string) first argument, then display all pad lengths.
-# NOTE: Deactivated by default.  Change 'false' to 'true' to turn on.
 maybe_show_lengths()
 {
    if false; then
@@ -161,14 +174,14 @@ maybe_show_lengths "After encoding:"
 maybe_show_lengths "After decoding once:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-1; then
   echo "ERROR: tmp-plaintext-a.decoded-1 does not match test-plaintext-a input."
-  exit 1
+  PASSED="no"
 fi
 ../../onetime --config=dot-onetime -d -p ../test-pad-1  \
          < tmp-ciphertext-a.onetime > tmp-plaintext-a.decoded-2
 maybe_show_lengths "After decoding again:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-2; then
   echo "ERROR: tmp-plaintext-a.decoded-2 does not match test-plaintext-a input."
-  exit 1
+  PASSED="no"
 fi
 # Encode again with the same pad
 ../../onetime --config=dot-onetime -e -p ../test-pad-1  \
@@ -180,7 +193,7 @@ maybe_show_lengths "After encoding again:"
 maybe_show_lengths "After decoding:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-3; then
   echo "ERROR: tmp-plaintext-a.decoded-3 does not match test-plaintext-a input."
-  exit 1
+  PASSED="no"
 fi
 
 # Now do the entire thing again with the other pad.
@@ -194,14 +207,14 @@ maybe_show_lengths "After encoding:"
 maybe_show_lengths "After decoding once:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-1; then
   echo "ERROR: tmp-plaintext-a.decoded-1 (pad test-pad-2) does not match test-plaintext-a input."
-  exit 1
+  PASSED="no"
 fi
 ../../onetime --config=dot-onetime -d -p ../test-pad-2  \
          < tmp-ciphertext-a.onetime > tmp-plaintext-a.decoded-2
 maybe_show_lengths "After decoding again:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-2; then
   echo "ERROR: tmp-plaintext-a.decoded-2 (pad test-pad-2) does not match test-plaintext-a input."
-  exit 1
+  PASSED="no"
 fi
 # Encode again with the same pad
 ../../onetime --config=dot-onetime -e -p ../test-pad-2  \
@@ -213,24 +226,28 @@ maybe_show_lengths "After encoding again:"
 maybe_show_lengths "After decoding:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-3; then
   echo "ERROR: tmp-plaintext-a.decoded-3 (pad test-pad-2) does not match test-plaintext-a input."
-  exit 1
+  PASSED="no"
 fi
 
+check_result
+
 ########################################################################
-## Test 2.x <- 1.x compatibility features.
+start_new_test "'--show-id' shows everything it should"
 
 #####
 ## Check that both v2 and v1 pad IDs are displayed with --show-id.
 if ! ../../onetime --show-id -p ../test-pad-1 | grep -q ${TEST_PAD_1_ID}
 then
   echo "ERROR: --show-id -p test-pad-1 failed to display ID"
-  exit 1
+  PASSED="no"
 fi
 if ! ../../onetime --show-id -p ../test-pad-1 | grep -q "  ${TEST_PAD_1_V1_ID}"
 then
   echo "ERROR: --show-id -p test-pad-1 failed to display v2 ID"
-  exit 1
+  PASSED="no"
 fi
+
+check_result
 
 #####
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
@@ -265,8 +282,6 @@ reset_config
 ## Encrypt message, have v1 pad-records file with entry for pad used.
 ## Result: pad entry should be upgraded, with stretch marked as used.
 reset_config
-
-echo "Functionality tests passed."
 
 ############################################################################
 ###  All tests finished.  Leave the test area in place for inspection.   ###
