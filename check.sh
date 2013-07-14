@@ -250,7 +250,7 @@ fi
 check_result
 
 ########################################################################
-start_new_test "decode v1 message where pad range already used"
+start_new_test "decode v1 msg, where v1 entry has pad range already used"
 
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
 ## pad, and that stretch of pad already marked as used.  Decode msg.
@@ -278,7 +278,7 @@ fi
 check_result
 
 ########################################################################
-start_new_test "decode v1 message where pad range already used"
+start_new_test "decode v1 msg, where where v1 entry has range not already used"
 
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
 ## pad, but this stretch of pad not marked as used.
@@ -286,7 +286,7 @@ start_new_test "decode v1 message where pad range already used"
 
 
 ########################################################################
-start_new_test "decode v1 message where pad range already used"
+start_new_test "decode v2 msg, where v1 entry has range already used"
 
 ## Receive v2 msg M, have v1 pad-records file with pad entry for M's
 ## pad and that stretch of pad already marked as used.
@@ -294,7 +294,7 @@ start_new_test "decode v1 message where pad range already used"
 
 
 ########################################################################
-start_new_test "decode v1 message where pad range already used"
+start_new_test "decode v2 msg, where v1 entry has range not already used"
 
 ## Receive v2 msg M, have v1 pad-records file with pad entry for M's
 ## pad, but this stretch of pad not marked as used.
@@ -302,14 +302,14 @@ start_new_test "decode v1 message where pad range already used"
 
 
 ########################################################################
-start_new_test "decode v1 message where pad range already used"
+start_new_test "decode v1 msg, where no entry in pad-records at all"
 
 ## Receive v1 msg M, have no entry in pad-records file for M's pad.
 ## Result: new v2 entry
 
 
 ########################################################################
-start_new_test "decode v1 message where pad range already used"
+start_new_test "encode msg, where v1 pad entry has some range already used"
 
 ## Encrypt message, have v1 pad-records file with entry for pad used.
 ## Result: pad entry should be upgraded, with stretch marked as used.
