@@ -277,33 +277,43 @@ fi
 
 check_result
 
-#####
+########################################################################
+start_new_test "decode v1 message where pad range already used"
+
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
 ## pad, but this stretch of pad not marked as used.
 ## Result: upgraded pad ID, stretch marked as used.
-reset_config
 
-#####
+
+########################################################################
+start_new_test "decode v1 message where pad range already used"
+
 ## Receive v2 msg M, have v1 pad-records file with pad entry for M's
 ## pad and that stretch of pad already marked as used.
 ## Result: upgraded pad ID, everything else stays same.
-reset_config
 
-#####
+
+########################################################################
+start_new_test "decode v1 message where pad range already used"
+
 ## Receive v2 msg M, have v1 pad-records file with pad entry for M's
 ## pad, but this stretch of pad not marked as used.
 ## Result: upgraded pad ID, stretch marked as used.
-reset_config
 
-#####
+
+########################################################################
+start_new_test "decode v1 message where pad range already used"
+
 ## Receive v1 msg M, have no entry in pad-records file for M's pad.
 ## Result: new v2 entry
-reset_config
 
-#####
+
+########################################################################
+start_new_test "decode v1 message where pad range already used"
+
 ## Encrypt message, have v1 pad-records file with entry for pad used.
 ## Result: pad entry should be upgraded, with stretch marked as used.
-reset_config
+
 
 ############################################################################
 ###  All tests finished.  Leave the test area in place for inspection.   ###
