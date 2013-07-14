@@ -11,9 +11,11 @@ cd test-tmp
 # version control functionality, just the encoding and decoding.
 reset_config()
 {
-   rm -rf dot-onetime
-   cp -a ../dot-onetime ./dot-onetime
-   rm -rf dot-onetime/.svn
+   for name in dot-onetime v1-dot-onetime; do
+     rm -rf ${name}
+     cp -a ../${name} ./${name}
+     rm -rf ${name}/.svn
+   done
 }
 
 ############################################################################
@@ -207,6 +209,37 @@ if ! cmp ../test-plaintext-a test-plaintext-a.decoded-3; then
   echo "ERROR: test-plaintext-a.decoded-3 (pad test-pad-2) does not match test-plaintext-a input."
   exit 1
 fi
+
+########################################################################
+## Test 2.x <- 1.x compatibility features.
+
+reset_config
+## Receive v1 msg M, have v1 pad-records file with pad entry for M's
+## pad and that stretch of pad already marked as used.
+## Result: upgraded pad ID, everything else stays same.
+
+reset_config
+## Receive v1 msg M, have v1 pad-records file with pad entry for M's
+## pad, but this stretch of pad not marked as used.
+## Result: upgraded pad ID, stretch marked as used.
+
+reset_config
+## Receive v2 msg M, have v1 pad-records file with pad entry for M's
+## pad and that stretch of pad already marked as used.
+## Result: upgraded pad ID, everything else stays same.
+
+reset_config
+## Receive v2 msg M, have v1 pad-records file with pad entry for M's
+## pad, but this stretch of pad not marked as used.
+## Result: upgraded pad ID, stretch marked as used.
+
+reset_config
+## Receive v1 msg M, have no entry in pad-records file for M's pad.
+## Result: new v2 entry
+
+reset_config
+## Encrypt message, have v1 pad-records file with entry for pad used.
+## Result: pad entry should be upgraded, with stretch marked as used.
 
 echo "Functionality tests passed."
 
