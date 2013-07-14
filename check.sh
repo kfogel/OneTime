@@ -250,7 +250,7 @@ fi
 check_result
 
 ########################################################################
-start_new_test "decode v1 msg, where v1 entry has pad range already used"
+start_new_test "decode v1 msg, where v1 entry has range already used"
 
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
 ## pad, and that stretch of pad already marked as used.  Decode msg.
@@ -296,12 +296,56 @@ fi
 check_result
 
 ########################################################################
-start_new_test "decode v1 msg, where where v1 entry has range not already used"
+start_new_test "decode v1 msg, where v1 entry has range not already used"
 
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
 ## pad, but this stretch of pad not marked as used.
 ## Result: upgraded pad ID, stretch marked as used.
+../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
+         < ../test-v1-ciphertext-offset-15-a-1 > tmp-plaintext-a
+if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo "ERROR: tmp-plaintext-a does not match original plaintext."
+  PASSED="no"
+fi
+rm tmp-plaintext-a
 
+if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input failed to upgrade pad ID in pad-records"
+  PASSED="no"
+fi
+
+if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input failed to remove v1 pad ID from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input removed 0 offset from pad-records"
+  PASSED="no"
+fi
+
+if grep -q "<length>15</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input left length 15 still in pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<length>30</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input failed to put length 30 in pad-records"
+  PASSED="no"
+fi
+
+if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 1 ]
+then
+  echo "ERROR: decoding v1 input inserted spurious length into pad-records"
+  PASSED="no"
+fi
+
+check_result
 
 ########################################################################
 start_new_test "decode v2 msg, where v1 entry has range already used"
@@ -310,13 +354,189 @@ start_new_test "decode v2 msg, where v1 entry has range already used"
 ## pad and that stretch of pad already marked as used.
 ## Result: upgraded pad ID, everything else stays same.
 
+# Create the ciphertext, leaving no trace (this is test prep only).
+../../onetime -n -e -p ../test-pad-1 \
+         < ../test-plaintext-a > tmp-ciphertext-a-1
+
+# Manually tweak the v1 pad-records file to claim that range is
+# already used, since otherwise it's a bit tough (using v2 onetime) to
+# get that result, given that v2 would automatically upgrade the
+# record's ID along with the range, and the whole point here is that
+# we want to test that the ID can get upgraded without the range being
+# affected.
+sed -e 's|<length>15</length></used>|<length>512</length></used>|' \
+    < v1-dot-onetime/pad-records > v1-dot-onetime/TMP-pad-records
+mv v1-dot-onetime/TMP-pad-records v1-dot-onetime/pad-records
+
+# Decrypt the v2 file, updating the newly range-expanded v1 pad-records.
+../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
+         < tmp-ciphertext-a-1 > tmp-plaintext-a
+if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo "ERROR: tmp-plaintext-a does not match original plaintext."
+  PASSED="no"
+fi
+rm tmp-plaintext-a
+rm tmp-ciphertext-a-1
+
+if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to upgrade pad ID in pad-records"
+  PASSED="no"
+fi
+
+if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to remove v1 pad ID from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input removed 0 offset from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<length>512</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input affected length 512 in pad-records"
+  PASSED="no"
+fi
+
+if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 1 ]
+then
+  echo "ERROR: decoding v2 input inserted spurious length into pad-records"
+  PASSED="no"
+fi
+
+check_result
+
 
 ########################################################################
-start_new_test "decode v2 msg, where v1 entry has range not already used"
+start_new_test "decode v2 msg, where v1 entry range needs stretching"
 
 ## Receive v2 msg M, have v1 pad-records file with pad entry for M's
 ## pad, but this stretch of pad not marked as used.
 ## Result: upgraded pad ID, stretch marked as used.
+
+# Create the ciphertext, leaving no trace (this is test prep only).
+../../onetime -n -e -p ../test-pad-1 \
+         < ../test-plaintext-a > tmp-ciphertext-a-1
+
+# Manually tweak the v1 pad-records file to put the already-used range
+# just above 32, which is the offset where our v2 ciphertext starts
+# using the pad.  This gives us a chance to see if the range gets
+# stretched and replaced when we decrypt.
+sed -e 's|<length>15</length></used>|<length>33</length></used>|' \
+    < v1-dot-onetime/pad-records > v1-dot-onetime/TMP-pad-records
+mv v1-dot-onetime/TMP-pad-records v1-dot-onetime/pad-records
+
+# Decrypt the v2 file, updating the newly range-expanded v1 pad-records.
+../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
+         < tmp-ciphertext-a-1 > tmp-plaintext-a
+if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo "ERROR: tmp-plaintext-a does not match original plaintext."
+  PASSED="no"
+fi
+rm tmp-plaintext-a
+rm tmp-ciphertext-a-1
+
+if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to upgrade pad ID in pad-records"
+  PASSED="no"
+fi
+
+if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to remove v1 pad ID from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input removed 0 offset from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<length>85</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to use length 85 in pad-records"
+  PASSED="no"
+fi
+
+if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 1 ]
+then
+  echo "ERROR: decoding v2 input inserted spurious length into pad-records"
+  PASSED="no"
+fi
+
+check_result
+
+
+########################################################################
+start_new_test "decode v2 msg, where v1 entry needs new range"
+
+## Receive v2 msg M, have v1 pad-records file with pad entry for M's
+## pad, but this stretch of pad not marked as used.
+## Result: upgraded pad ID, stretch marked as used.
+
+# Create the ciphertext, leaving no trace (this is test prep only).
+../../onetime -n -e -p ../test-pad-1 \
+         < ../test-plaintext-a > tmp-ciphertext-a-1
+
+# Decrypt the v2 file, updating the newly range-expanded v1 pad-records.
+../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
+         < tmp-ciphertext-a-1 > tmp-plaintext-a
+if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo "ERROR: tmp-plaintext-a does not match original plaintext."
+  PASSED="no"
+fi
+rm tmp-plaintext-a
+rm tmp-ciphertext-a-1
+
+if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to upgrade pad ID in pad-records"
+  PASSED="no"
+fi
+
+if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to remove v1 pad ID from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input removed 0 offset from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<length>15</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input removed length 15 from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<used><offset>32</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to add offset 32 to pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<length>53</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v2 input failed to add length 53 to pad-records"
+  PASSED="no"
+fi
+
+if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 2 ]
+then
+  echo "ERROR: decoding v2 input inserted spurious length into pad-records"
+  PASSED="no"
+fi
+
+check_result
 
 
 ########################################################################
