@@ -615,12 +615,11 @@ use-vc = false
     # old v1-style pad IDs and upgrade them if present.
     if not self.pad_records.has_key(pad.id()):
       if self.pad_records.has_key(pad.id(version=1)):
-        # Upgrade...
+        # Upgrade v1 record to v2.
         self.pad_records[pad.id()] = self.pad_records[pad.id(version=1)]
         del self.pad_records[pad.id(version=1)]
-        # ...then record:
-        next_offset = self._get_next_offset(self.pad_records[pad.id()]["used"])
       else:
+        # Initialize a new v2 record.
         self.pad_records[pad.id()] = { "used" : [ ] }
     else:
       if self.pad_records.has_key(pad.id(version=1)):
@@ -630,9 +629,9 @@ use-vc = false
           "  v1: %s\n"                                                \
           "This is supposed to be impossible.  Please resolve."       \
           % (pad.id(), pad.id(version=2)))
-      else:
-        next_offset = self._get_next_offset(
-          self.pad_records[pad.id()]["used"])
+    # One way or another, we now have an up-to-date v2 pad record.
+    # Set the next offset accordingly.
+    next_offset = self._get_next_offset(self.pad_records[pad.id()]["used"])
     pad.set_offset(next_offset)
 
   def record_consumed(self, pad, allow_reconsumption):
@@ -659,7 +658,7 @@ use-vc = false
 
 def version():
   "Return a version string."
-  rev = "$Revision: 157 $"
+  rev = "$Revision: 160 $"
   m = re.match(".*Revision: ([0-9]+)[^0-9]*", rev)
   if m:
     return "2.%s" % m.group(1)

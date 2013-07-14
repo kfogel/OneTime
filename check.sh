@@ -1,5 +1,11 @@
 #!/bin/sh
 
+TEST_PAD_1_ID="978f54bb57aa14de9597a21f107f34255ce28be3"
+TEST_PAD_1_V1_ID="6af6d0ac17081705cec30833da3cd436a400c429"
+
+TEST_PAD_2_ID="6788fea7a6fe5fd200dcbd09df586bc9239b2614"
+TEST_PAD_2_V1_ID="de61f169bce003a1189b3e6ebb8ddfc0ef007ac2"
+
 cd tests
 
 rm -rf test-tmp
@@ -212,6 +218,19 @@ fi
 
 ########################################################################
 ## Test 2.x <- 1.x compatibility features.
+
+#####
+## Check that both v2 and v1 pad IDs are displayed with --show-id.
+if ! ../../onetime --show-id -p ../test-pad-1 | grep -q ${TEST_PAD_1_ID}
+then
+  echo "ERROR: --show-id -p test-pad-1 failed to display ID"
+  exit 1
+fi
+if ! ../../onetime --show-id -p ../test-pad-1 | grep -q "  ${TEST_PAD_1_V1_ID}"
+then
+  echo "ERROR: --show-id -p test-pad-1 failed to display v2 ID"
+  exit 1
+fi
 
 #####
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
