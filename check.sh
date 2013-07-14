@@ -249,11 +249,33 @@ fi
 
 check_result
 
-#####
+########################################################################
+start_new_test "decode v1 message where pad range already used"
+
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
 ## pad, and that stretch of pad already marked as used.  Decode msg.
 ## Result: upgraded pad ID, everything else stays same.
-reset_config
+../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
+         < ../test-v1-ciphertext-offset-0-a-1 > tmp-plaintext-a
+if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo "ERROR: tmp-plaintext-a does not match original plaintext."
+  PASSED="no"
+fi
+rm tmp-plaintext-a
+check_result
+
+if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input failed to upgrade pad ID in pad-records"
+  exit 1
+fi
+
+if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input failed to remove v1 pad ID from pad-records"
+  exit 1
+fi
+
 
 #####
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
