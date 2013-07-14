@@ -262,20 +262,20 @@ if ! cmp ../test-plaintext-a tmp-plaintext-a; then
   PASSED="no"
 fi
 rm tmp-plaintext-a
-check_result
 
 if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
 then
   echo "ERROR: decoding v1 input failed to upgrade pad ID in pad-records"
-  exit 1
+  PASSED="no"
 fi
 
 if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
 then
   echo "ERROR: decoding v1 input failed to remove v1 pad ID from pad-records"
-  exit 1
+  PASSED="no"
 fi
 
+check_result
 
 #####
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
