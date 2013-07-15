@@ -250,6 +250,25 @@ fi
 check_result
 
 ########################################################################
+start_new_test "same plaintext should encrypt smaller with v2+ than with v1"
+
+## Encrypt message, compare against same message encrypted with v1.
+## Result: the more recent ciphertext should be noticeably smaller.
+
+../../onetime -n -e -p ../test-pad-1 \
+        -o test-ciphertext-b-1 ../test-plaintext-b
+BYTES_NOW=`wc -c test-ciphertext-b-1 | cut -d " " -f1`
+BYTES_V1=`wc -c ../test-v1-ciphertext-b-1 | cut -d " " -f1`
+if [ ${BYTES_NOW} -ge ${BYTES_V1} ]
+then
+   echo "ERROR: new crypttext is bigger than v1 encryption of same plaintext"
+   PASSED="no"
+fi
+
+check_result
+
+
+########################################################################
 start_new_test "decode v1 msg, where v1 entry has range already used"
 
 ## Receive v1 msg M, have v1 pad-records file with pad entry for M's
