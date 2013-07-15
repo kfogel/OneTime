@@ -7,9 +7,9 @@
 #   1) start_new_test "some descriptive test string"
 #
 #   2) Do stuff.  Your cwd is a temporary directory, tests/test-tmp/,
-#      and it already has its own tmp config directories in place:
-#      "tests/test-tmp/dot-onetime" & "tests/test-tmp/v1-dot-onetime".
-#      So a typical invocation will look something like this:
+#      and it already has its own tmp config directories in place, e.g.,
+#      "tests/test-tmp/dot-onetime" and others (see reset_config for
+#      the full list).  So a typical invocation will look like this:
 #      "../../onetime --config=dot-onetime -e -p ../test-pad-1 etc etc"
 #
 #      (All the permanent test data lives in tests/, so you'll use
