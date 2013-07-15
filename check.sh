@@ -20,9 +20,11 @@
 #
 #   4) At the end of the test, call check_result.
 #
-# Even if passing -n (--no-trace), you should probably always specify
-# one of the test config directories explicitly (use "blank-dot-onetime"
-# for a no-op config dir).  Otherwise, if you happen to have some of the
+# Note on why tests should *always* pass a config dir explicitly:
+#
+# Even when passing -n (--no-trace), you should always specify one of
+# the test config directories explicitly (use "blank-dot-onetime" for
+# a no-op config dir).  Otherwise, if you happen to have some of the
 # test pads recorded in your own ~/.onetime/pad-records (as can
 # accidentally happen if you've been doing OneTime development and
 # failed to pass '--config' every time you manually tested), you could
@@ -30,7 +32,12 @@
 # your ~/.onetime/pad-records or is inadvertently sensitive to the
 # ~/.onetime/pad-records of other people who have played around with
 # the test pads and accidentally affected their ~/.onetime/pad-records.
-# Either way, your test would not be portable.
+# Either way, your test would not be portable.  Even when an invocation
+# couldn't possibly depend on nor affect any values in pad-records
+# (e.g., it just runs --show-id or something), you should still pass
+# "--config=blank-dot-onetime", because otherwise someone running the
+# test who doesn't currently have a ~/.onetime directory will suddenly
+# have one afterwards, which would be bad behavior for a test suite.
 
 TEST_PAD_1_ID="978f54bb57aa14de9597a21f107f34255ce28be3"
 TEST_PAD_1_V1_ID="6af6d0ac17081705cec30833da3cd436a400c429"
@@ -268,12 +275,14 @@ start_new_test "make sure '--show-id' shows everything it should"
 
 #####
 ## Check that both v2 and v1 pad IDs are displayed with --show-id.
-if ! ../../onetime --show-id -p ../test-pad-1 | grep -q ${TEST_PAD_1_ID}
+if ! ../../onetime --config=blank-dot-onetime --show-id -p ../test-pad-1 \
+             | grep -q ${TEST_PAD_1_ID}
 then
   echo "ERROR: --show-id -p test-pad-1 failed to display ID"
   PASSED="no"
 fi
-if ! ../../onetime --show-id -p ../test-pad-1 | grep -q "  ${TEST_PAD_1_V1_ID}"
+if ! ../../onetime --config=blank-dot-onetime --show-id -p ../test-pad-1 \
+             | grep -q "  ${TEST_PAD_1_V1_ID}"
 then
   echo "ERROR: --show-id -p test-pad-1 failed to display v2 ID"
   PASSED="no"
