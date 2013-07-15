@@ -1,5 +1,37 @@
 #!/bin/sh
 
+# Test suite for OneTime.
+#
+# How to write a new test:
+#
+#   1) start_new_test "some descriptive test string"
+#
+#   2) Do stuff.  Your cwd is a temporary directory, tests/test-tmp/,
+#      and it already has its own tmp config directories in place:
+#      "tests/test-tmp/dot-onetime" & "tests/test-tmp/v1-dot-onetime".
+#      So a typical invocation will look something like this:
+#      "../../onetime --config=dot-onetime -e -p ../test-pad-1 etc etc"
+#
+#      (All the permanent test data lives in tests/, so you'll use
+#      arguments like "../test-plaintext-b" and ../test-pad-1" a lot.)
+#
+#   3) If a tested condition fails, echo "ERROR: describe how & why",
+#      then set PASSED="no".
+#
+#   4) At the end of the test, call check_result.
+#
+# Even if passing -n (--no-trace), you should probably always specify
+# one of the test config directories explicitly (use "blank-dot-onetime"
+# for a no-op config dir).  Otherwise, if you happen to have some of the
+# test pads recorded in your own ~/.onetime/pad-records (as can
+# accidentally happen if you've been doing OneTime development and
+# failed to pass '--config' every time you manually tested), you could
+# write a test here that either inadvertently depends on something in
+# your ~/.onetime/pad-records or is inadvertently sensitive to the
+# ~/.onetime/pad-records of other people who have played around with
+# the test pads and accidentally affected their ~/.onetime/pad-records.
+# Either way, your test would not be portable.
+
 TEST_PAD_1_ID="978f54bb57aa14de9597a21f107f34255ce28be3"
 TEST_PAD_1_V1_ID="6af6d0ac17081705cec30833da3cd436a400c429"
 
@@ -36,7 +68,7 @@ check_result()
 # version control functionality, just the encoding and decoding.
 reset_config()
 {
-   for name in dot-onetime v1-dot-onetime; do
+   for name in dot-onetime v1-dot-onetime blank-dot-onetime; do
      rm -rf ${name}
      cp -a ../${name} ./${name}
      rm -rf ${name}/.svn
@@ -255,7 +287,7 @@ start_new_test "same plaintext should encrypt smaller with v2+ than with v1"
 ## Encrypt message, compare against same message encrypted with v1.
 ## Result: the more recent ciphertext should be noticeably smaller.
 
-../../onetime -n -e -p ../test-pad-1 \
+../../onetime -n --config=blank-dot-onetime -e -p ../test-pad-1 \
         -o test-ciphertext-b-1 ../test-plaintext-b
 BYTES_NOW=`wc -c test-ciphertext-b-1 | cut -d " " -f1`
 BYTES_V1=`wc -c ../test-v1-ciphertext-b-1 | cut -d " " -f1`
@@ -374,7 +406,7 @@ start_new_test "decode v2 msg, where v1 entry has range already used"
 ## Result: upgraded pad ID, everything else stays same.
 
 # Create the ciphertext, leaving no trace (this is test prep only).
-../../onetime -n -e -p ../test-pad-1 \
+../../onetime -n --config=blank-dot-onetime -e -p ../test-pad-1 \
          < ../test-plaintext-a > tmp-ciphertext-a-1
 
 # Manually tweak the v1 pad-records file to claim that range is
@@ -439,7 +471,7 @@ start_new_test "decode v2 msg, where v1 entry range needs stretching"
 ## Result: upgraded pad ID, stretch marked as used.
 
 # Create the ciphertext, leaving no trace (this is test prep only).
-../../onetime -n -e -p ../test-pad-1 \
+../../onetime -n --config=blank-dot-onetime -e -p ../test-pad-1 \
          < ../test-plaintext-a > tmp-ciphertext-a-1
 
 # Manually tweak the v1 pad-records file to put the already-used range
@@ -502,7 +534,7 @@ start_new_test "decode v2 msg, where v1 entry needs new range"
 ## Result: upgraded pad ID and new range added.
 
 # Create the ciphertext, leaving no trace (this is test prep only).
-../../onetime -n -e -p ../test-pad-1 \
+../../onetime -n --config=blank-dot-onetime -e -p ../test-pad-1 \
          < ../test-plaintext-a > tmp-ciphertext-a-1
 
 # Decrypt the v2 file, updating the newly range-expanded v1 pad-records.
