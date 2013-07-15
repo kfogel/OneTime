@@ -232,7 +232,7 @@ fi
 check_result
 
 ########################################################################
-start_new_test "'--show-id' shows everything it should"
+start_new_test "make sure '--show-id' shows everything it should"
 
 #####
 ## Check that both v2 and v1 pad IDs are displayed with --show-id.
