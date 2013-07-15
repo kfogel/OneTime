@@ -434,7 +434,8 @@ check_result
 start_new_test "decode v2 msg, where v1 entry range needs stretching"
 
 ## Receive v2 msg M, have v1 pad-records file with pad entry for M's
-## pad, but this stretch of pad not marked as used.
+## pad, but this stretch of pad not marked as used and starting within
+## the highest current used range.
 ## Result: upgraded pad ID, stretch marked as used.
 
 # Create the ciphertext, leaving no trace (this is test prep only).
@@ -496,8 +497,9 @@ check_result
 start_new_test "decode v2 msg, where v1 entry needs new range"
 
 ## Receive v2 msg M, have v1 pad-records file with pad entry for M's
-## pad, but this stretch of pad not marked as used.
-## Result: upgraded pad ID, stretch marked as used.
+## pad, but this stretch of pad not marked as used and starting
+## after the end of the highest current used range.
+## Result: upgraded pad ID and new range added.
 
 # Create the ciphertext, leaving no trace (this is test prep only).
 ../../onetime -n -e -p ../test-pad-1 \
@@ -563,13 +565,103 @@ start_new_test "decode v1 msg, where no entry in pad-records at all"
 
 ## Receive v1 msg M, have no entry in pad-records file for M's pad.
 ## Result: new v2 entry
+../../onetime --config=v1-dot-onetime -d -p ../test-pad-2  \
+         < ../test-v1-ciphertext-b-2 > tmp-plaintext-b
+if ! cmp ../test-plaintext-b tmp-plaintext-b; then
+  echo "ERROR: tmp-plaintext-b does not match original plaintext."
+  PASSED="no"
+fi
+rm tmp-plaintext-b
 
+if ! grep -q "<id>${TEST_PAD_2_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input failed to insert pad ID into pad-records"
+  PASSED="no"
+fi
+
+if grep -q "<id>${TEST_PAD_2_V1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input somehow inserted v1 pad ID into pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input removed 0 offset from pad-records"
+  PASSED="no"
+fi
+
+# Expect the new length on the 10th line, which is in the second pad entry.
+# But first test to make sure it's there at all; otherwise grep -n outputs
+# nothing and the conditional gets harder to write.
+if ! grep -q "<length>45541</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: decoding v1 input failed to insert new record into pad-records"
+  PASSED="no"
+elif [ `grep -n "<length>45541</length></used>" v1-dot-onetime/pad-records \
+        | cut -d ":" -f 1` -ne 10 ]
+then
+  echo "ERROR: decoding v1 input mis-inserted new record into pad-records"
+  PASSED="no"
+fi
+
+check_result
 
 ########################################################################
 start_new_test "encode msg, where v1 pad entry has some range already used"
 
 ## Encrypt message, have v1 pad-records file with entry for pad used.
-## Result: pad entry should be upgraded, with stretch marked as used.
+## Result: pad entry should be upgraded, with stretch now marked used.
+
+../../onetime --config=v1-dot-onetime -e -p ../test-pad-1  \
+         -o tmp-ciphertext-b-1 < ../test-plaintext-b
+# Toss the encryption, as it's not what we're testing here.
+rm tmp-ciphertext-b-1
+
+if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: encoding failed to upgrade v1 pad ID in pad-records"
+  PASSED="no"
+fi
+
+if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: encoding failed to remove v1 pad ID from pad-records"
+  PASSED="no"
+fi
+
+if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: encoding removed 0 offset from v1 entry in pad-records"
+  PASSED="no"
+fi
+
+# Expect the new offset on the 6th line, in second range of first entry.
+# But first test to make sure it's there at all; otherwise grep -n outputs
+# nothing and the conditional gets harder to write.
+if ! grep -q "<used><offset>32</offset>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: encoding failed to insert new offset into pad-records"
+  PASSED="no"
+elif [ `grep -n "<used><offset>32</offset>" v1-dot-onetime/pad-records \
+        | cut -d ":" -f 1` -ne 6 ]
+then
+  echo "ERROR: encoding mis-inserted new offset into pad-records"
+  PASSED="no"
+fi
+
+# Expect the new length on the 7th line, in second range of first entry.
+if ! grep -q "<length>12049</length></used>" v1-dot-onetime/pad-records
+then
+  echo "ERROR: encoding failed to insert new length into pad-records"
+  PASSED="no"
+elif [ `grep -n "<length>12049</length></used>" v1-dot-onetime/pad-records \
+        | cut -d ":" -f 1` -ne 7 ]
+then
+  echo "ERROR: encoding failed to insert correct new length into pad-records"
+  PASSED="no"
+fi
+check_result
 
 
 ############################################################################
