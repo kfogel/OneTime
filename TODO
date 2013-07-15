@@ -8,13 +8,6 @@ ToDo list for OneTime.  (We should probably get a real bug tracker.)
 
   Putting input argument before last option should work.  Why doesn't it?
 
-* Off-by-one-error when when adding the next encrypted length each time?
-
-  Try encrypting long-msg multiple times, watch the used range climb
-  by "length(long-msg) - 1" each time.
-
-  Preliminary investigation indicates there's no bug here.  Confirm.
-
 * Failed decryption should create no output file, not create 0-byte file.
 
 * Look at environment variables as well as options, for things like
