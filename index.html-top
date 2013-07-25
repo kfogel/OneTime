@@ -1,17 +1,21 @@
 <html>
 <head>
 <title>OneTime: An Encoder/Decoder Using The "One-Time Pad" Method</title>
+<style type="text/css">
+  body { background: white; margin-left: 5%; margin-right: 5%; }
+  h1, h2, h3 { text-align: center; }
+  :target { border: 2px solid red; }
+  a, img { border: none; }
+</style>
 </head>
 
-<body text="#000000" bgcolor="#FFFFFF" link="#0000FF" vlink="#800080">
 <div id="content">
 
 <div style="background: lightblue; font-style: italic;">
-   <h2><center>OneTime: An Encoder/Decoder Using The "One-Time Pad" Method</center></h2>
+   <h2>OneTime: An Encoder/Decoder Using The "One-Time Pad" Method</h2>
 </div>
 
-<center><h3><a href="get.html"
-        >Download OneTime version ONETIMEVERSION</a></h3></center>
+<h3><a href="get.html" >Download OneTime version ONETIMEVERSION</a></h3>
 
 <p><a href="onetime">OneTime</a> is
 an <a href="http://www.opensource.org/" >open source</a>
