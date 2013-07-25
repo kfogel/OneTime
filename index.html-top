@@ -45,6 +45,29 @@ stretch of pad&nbsp;&mdash;&nbsp;doing so could reveal some or all of
 the used pad to eavesdroppers.  OneTime's default behavior is to always
 avoid reusing pad data, unless you tell it otherwise.</p>
 
+<p>When would you want to use a one-time pad system?</p>
+
+<p>Not often, probably, given the difficulty of secure advance key
+exchange!  But it might be handy in a few rare situations:</p>
+
+<ul>
+<li><p>You're not completely confident about the provenance of GnuPG
+  on some system, but you are reasonably confident about its Python
+  interpreter;</p></li>
+<li><p>To bootstrap trust: i.e., to have a fallback method for
+  exchanging other, more convenient keys (for example, if your GnuPG
+  public key has changed, those who share a pad with you can get the
+  new one via a method that is not dependent on any old public
+  keys);</p></li>
+<li><p>You feel the need for an encryption program whose source code
+  is small and simple enough that you can inspect it and understand it
+  yourself;</p></li>
+<li><p>To throw a little diversity into the surveillance stream.
+  Watchers have bots looking for &amp; saving messages in OpenPGP
+  format and various other popular encryption formats.  OneTime makes
+  'em work a little harder! :-)</p> </li>
+</ul>
+
 <p>Here is the output of '<b>onetime&nbsp;--intro</b>':</p>
 
 <pre><i>

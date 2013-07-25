@@ -89,7 +89,7 @@ www: dist
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@# Make the license link live.
-	@sed -e 's| LICENSE | <a href="LICENSE">LICENSE</a>|g' \
+	@sed -e 's| LICENSE | <a href="LICENSE">LICENSE</a> |g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@rm intro.tmp help.tmp version.tmp
