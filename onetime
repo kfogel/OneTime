@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+__version__ = "2.0"
+
 __doc__ = """Encoder/decoder for one-time pads.  Run 'onetime --help' for usage.
 
 The usual public-key encryption programs, such as GnuPG, are probably
@@ -54,7 +56,10 @@ except:
   True = 1
   False = 0
 
-# The current format version.
+# The current format version.  This is always the major version number
+# of OneTime, with any minor and micro version numbers removed.  In
+# other words, major version bumps always correspond to format
+# changes, and vice versa.
 #
 # Format 1 was the format from the first release of OneTime through
 # the very end of 2011.  It did not include the "Format:" header in
@@ -64,7 +69,7 @@ except:
 # Format 2, introduced 2012-01-01, does include the "Format:" header
 # in the human-readable portion of the output, and gets the
 # compression/encryption order right.
-Format = 2
+Format = int(__version__.split(".")[0])
 
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
@@ -656,16 +661,6 @@ use-vc = false
       print "  used:", self.pad_records[pad_id]["used"]
 
 
-def version():
-  "Return a version string."
-  rev = "$Revision: 160 $"
-  m = re.match(".*Revision: ([0-9]+)[^0-9]*", rev)
-  if m:
-    return "2.%s" % m.group(1)
-  else:
-    return "2.<need to fix the revision keyword parsing>"
-
-
 def usage(outfile=sys.stdout):
   """Return a usage string."""
   usage_str = """\
@@ -701,7 +696,7 @@ All options:
    -v | -V | --version     Show version information
    -? | -h | --help        Show usage
 
-""" % version()
+""" % __version__
   outfile.write(usage_str)
 
 
@@ -747,7 +742,7 @@ def main():
       print __doc__,
       sys.exit(0)
     elif opt == '--version' or opt == '-v' or opt == '-V':
-      print "OneTime version %s" % version()
+      print "OneTime version %s" % __version__
       sys.exit(0)
     elif opt == '--encrypt' or opt == '-e':
       encrypting = True
@@ -862,7 +857,6 @@ def main():
   onetime_begin = "-----BEGIN OneTime MESSAGE-----\n"
   old_onetime_begin = "-----BEGIN OTP MESSAGE-----\n"   # compat
   onetime_header = "%s" % onetime_begin                        \
-               + "Version: OneTime %s\n" % version()           \
                + "Format: %d  " % Format                       \
                + "   <<< NOTE: OneTime 1.x and older "         \
                +              "cannot read this format. >>>\n" \
@@ -880,7 +874,6 @@ def main():
   # it's located:
   #
   #    -----BEGIN OneTime MESSAGE-----
-  #    Version: OneTime 2.135
   #    Format: 2
   #    Pad ID: de61f169bce003a1189b3e6ebb8ddfc0ef007ac2
   #    

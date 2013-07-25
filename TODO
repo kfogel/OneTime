@@ -29,6 +29,4 @@ ToDo list for OneTime.  (We should probably get a real bug tracker.)
 
 * Remove obsolete TODOs from code.
 
-* Get SVN keyword revision out; we'll manually set version number.
-
 * Redo how web page is assembled, based on new Git reality.
