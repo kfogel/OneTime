@@ -73,11 +73,19 @@ www: dist
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@# Make the Wikipedia link live.
-	@sed -e 's/ http:\/\/en.wikipedia.org\/wiki\/One-time_pad / <a href="http:\/\/en.wikipedia.org\/wiki\/One-time_pad">http:\/\/en.wikipedia.org\/wiki\/One-time_pad<\/a> /g' \
+	@sed -e 's| http://en.wikipedia.org/wiki/One-time_pad | <a href="http://en.wikipedia.org/wiki/One-time_pad">http://en.wikipedia.org/wiki/One-time_pad</a> |g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@# Make the SVN and CVS links live.
-	@sed -e 's/Subversion or CVS,/<a href="http:\/\/subversion.tigris.org\/">Subversion<\/a> or <a href="http:\/\/www.nongnu.org\/cvs\/">CVS<\/a>,/g' \
+	@sed -e 's|Subversion or CVS,|<a href="http://subversion.tigris.org/">Subversion</a> or <a href="http://www.nongnu.org/cvs/">CVS</a>,|g' \
+           < index.html > index.html.tmp
+	@mv index.html.tmp index.html
+	@# Make the author name link live.
+	@sed -e 's|Karl Fogel|<a href="http://red-bean.com/kfogel">Karl Fogel</a>|g' \
+           < index.html > index.html.tmp
+	@mv index.html.tmp index.html
+	@# Make the home page link live.
+	@sed -e 's| http://www.red-bean.com/onetime/| <a href="http://www.red-bean.com/onetime/">http://www.red-bean.com/onetime/</a>|g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@rm intro.tmp help.tmp version.tmp

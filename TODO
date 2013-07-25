@@ -24,5 +24,3 @@ ToDo list for OneTime.  (We should probably get a real bug tracker.)
 * Put a 'version' file in ~/.onetime, so that future versions of
   onetime can notice what the previously-installed version was (absent
   means 1, of course) and make the appropriate recommendations.
-
-* Redo how web page is assembled, based on new Git reality.

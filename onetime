@@ -32,9 +32,9 @@ See http://en.wikipedia.org/wiki/One-time_pad for more information
 about one-time pads in general.
 
 OneTime is written by Karl Fogel and distributed under an MIT-style
-open source license.  Its home page is http://www.red-bean.com/onetime/.
-Run 'onetime --license', or see the LICENSE file in full distribution,
-for full licensing information.
+open source license; run 'onetime --license' or see the LICENSE file
+in full distribution for full licensing information.  OneTime's home
+page is http://www.red-bean.com/onetime/.
 """
 
 import os
