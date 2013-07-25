@@ -51,7 +51,7 @@ avoid reusing pad data, unless you tell it otherwise.</p>
 
 <p>When would you want to use a one-time pad system?</p>
 
-<p>Not often, probably, given the difficulty of secure advance key
+<p>Not often, probably, given the difficulty of secure advance pad
 exchange!  But it might be handy in a few rare situations:</p>
 
 <ul>
