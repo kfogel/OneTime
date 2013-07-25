@@ -25,14 +25,14 @@ clean:
 	@rm -rf index.html test-msg.* *~ onetime-*.* onetime-*.tar.gz
 
 dist:
-	@rm -rf ./onetime-`./onetime --version | cut -f 3 -d " "`
-	@rm -f ./onetime-`./onetime --version | cut -f 3 -d " "`.tar.gz
-	@svn export -q . ./onetime-`./onetime --version | cut -f 3 -d " "`
-	@rm -rf ./onetime-`./onetime --version | cut -f 3 -d " "`/debian
-	@tar zcvf ./onetime-`./onetime --version | cut -f 3 -d " "`.tar.gz \
-                  ./onetime-`./onetime --version | cut -f 3 -d " "`
-	@zip -qr ./onetime-`./onetime --version | cut -f 3 -d " "`.zip \
-                 ./onetime-`./onetime --version | cut -f 3 -d " "`
+	@git archive --format="tar.gz" -9                                   \
+           --prefix="onetime-`./onetime --version | cut -f 3 -d " "`/"      \
+                  -o onetime-`./onetime --version | cut -f 3 -d " "`.tar.gz \
+           HEAD
+	@git archive --format="zip" -9                                      \
+           --prefix="onetime-`./onetime --version | cut -f 3 -d " "`/"      \
+                  -o onetime-`./onetime --version | cut -f 3 -d " "`.zip    \
+           HEAD
 
 www: dist
 	@./onetime --intro > intro.tmp

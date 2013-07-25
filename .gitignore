@@ -1,5 +1,6 @@
 msg
 test-msg.*
 index.html
-onetime-?.??
-onetime-?.??.tar.gz
+onetime-*.*
+onetime-*.*.tar.gz
+onetime-*.*.zip
