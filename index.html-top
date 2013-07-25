@@ -13,8 +13,8 @@
 <center><h3><a href="get.html"
         >Download OneTime version ONETIMEVERSION</a></h3></center>
 
-<p><a href="onetime">OneTime</a> is a public
-domain, <a href="http://www.opensource.org/" >open source</a>
+<p><a href="onetime">OneTime</a> is
+an <a href="http://www.opensource.org/" >open source</a>
 encryption program that uses the <a
 href="http://en.wikipedia.org/wiki/One-time_pad">one-time pad
 algorithm</a> to allow two parties to communicate securely, without

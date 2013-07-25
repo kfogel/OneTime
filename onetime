@@ -31,8 +31,10 @@ configuration area, just records about pad usage.)
 See http://en.wikipedia.org/wiki/One-time_pad for more information
 about one-time pads in general.
 
-OneTime is written by Karl Fogel and is in the public domain.  Its
-home page is http://www.red-bean.com/onetime/.
+OneTime is written by Karl Fogel and distributed under an MIT-style
+open source license.  Its home page is http://www.red-bean.com/onetime/.
+Run 'onetime --license', or see the LICENSE file in full distribution,
+for full licensing information.
 """
 
 import os
@@ -222,10 +224,6 @@ class PadEncoder:
 class PadDecoder:
   """Class for decoding OneTime output back to plaintext."""
 
-  class FormatException(Exception):
-    """Exception raised if we don't recognize input's format version."""
-    pass
-
   def __init__(self, pad, config, input_format):
     """Initialize a decoder for PAD with Configuration CONFIG.
     INPUT_FORMAT indicates the OneTime format version of the incoming
@@ -237,11 +235,11 @@ class PadDecoder:
     self.decompressor = bz2.BZ2Decompressor()
 
     if self.input_format < 1:
-      raise self.FormatException(
+      raise Pad.FormatVersion(
         "impossible format version: %d" % self.input_format)
 
     if self.input_format > 2:
-      raise self.FormatException(
+      raise Pad.FormatVersion(
         "unrecognized format version: %d" % self.input_format)
 
   def decode(self, string):
@@ -661,8 +659,40 @@ use-vc = false
       print "  used:", self.pad_records[pad_id]["used"]
 
 
+def license(outfile=sys.stdout):
+  """Print open source license information to OUTFILE."""
+  # Looks like we're maintaining this in parallel with the LICENSE
+  # file.  I'd like to avoid that, but I don't see how.  The MIT
+  # license text itself won't change, but the copyright years will
+  # from time to time, and the copyright holder could as well.
+  license_str = """\
+OneTime version %s.
+
+Copyright (c)  2004-2013  Karl Fogel
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+""" % __version__
+  outfile.write(license_str)
+
+
 def usage(outfile=sys.stdout):
-  """Return a usage string."""
+  """Print usage information to OUTFILE."""
   usage_str = """\
 OneTime version %s, an encoder/decoder for one-time pads.  Standard usage:
 
@@ -694,6 +724,7 @@ All options:
    --show-id               Show a pad's ID; used with -p only
    --intro                 Show an introduction to OneTime and one-time pads
    -v | -V | --version     Show version information
+   --license               Show full open source license information
    -? | -h | --help        Show usage
 
 """ % __version__
@@ -728,7 +759,7 @@ def main():
                                  "show-id",
                                  "no-trace",
                                  "debug",
-                                 "intro", "help", "version"])
+                                 "intro", "help", "version", "license"])
   except getopt.GetoptError:
     sys.stderr.write("Error: problem processing options\n")
     usage(sys.stderr)
@@ -743,6 +774,9 @@ def main():
       sys.exit(0)
     elif opt == '--version' or opt == '-v' or opt == '-V':
       print "OneTime version %s" % __version__
+      sys.exit(0)
+    elif opt == '--license':
+      license()
       sys.exit(0)
     elif opt == '--encrypt' or opt == '-e':
       encrypting = True
