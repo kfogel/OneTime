@@ -28,8 +28,8 @@ programming language and requires a Python interpreter to run.</p>
 <p>In Debian GNU/Linux or Ubuntu, you can just use the package manager
 to install the "<a href="http://packages.debian.org/sid/onetime"
 >onetime</a>" package.  (But as of 24 July 2013, the version of
-OneTime packaged in Debian is a major version number behind this
-upstream release; we'll try to get Debian updated soon!)</p>
+OneTime packaged in Debian and Ubuntu is a major version number behind
+this upstream release; we'll try to get them updated soon!)</p>
 
 <p>To use OneTime reliably, you need a source of good random data.  On
 modern Unix systems, the <tt>/dev/random</tt> device is probably good
