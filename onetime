@@ -614,8 +614,6 @@ use-vc = false
   def register(self, pad):
     """Register PAD if it is not already registered, and set its
     offset based on previously used regions for that pad, if any."""
-    # TODO: Okay, this code handles old v1 IDs here now, but it really
-    # needs a regression test.
     next_offset = None
     # This is a little complicated only because we need; to look for
     # old v1-style pad IDs and upgrade them if present.
