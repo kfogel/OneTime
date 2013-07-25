@@ -76,6 +76,13 @@ Format = int(__version__.split(".")[0])
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
   Feed bytes through convert() to XOR them against the pad."""
+
+  # Length of the front stretch of pad used for the ID, which is a
+  # SHA1 of these bytes, which are then never used for encryption.
+  # (And why 32, given that a SHA1 hash only holds 20 bytes anyway?
+  # No reason, except the usual religious bias toward powers of 2.)
+  id_source_length = 32
+
   def __init__(self, pad_path):
     """Initialize a new pad, using padfile PAD_PATH.  The pad cannot be
   used for encoding or decoding until set_offset() is called."""
@@ -118,15 +125,11 @@ work with, not necessarily because input is ended yet."""
     return result
 
   def _get_id(self):
-    """Get the ID (the SHA1 of its first 32 bytes) for this pad.
-    Note that those 32 bytes are never used for encryption, though
-    the code that enforces that is elswhere.
-    (And why 32, given that a SHA1 hash only holds 20 bytes anyway?
-    No reason, except the usual religious bias toward powers of 2.)"""
+    """Get the ID for this pad."""
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
     sha1 = hashlib.sha1()
-    string = self.padfile.read(32)
+    string = self.padfile.read(Pad.id_source_length)
     sha1.update(string)
     self.padfile.seek(saved_posn)
     return sha1.hexdigest()
@@ -454,10 +457,10 @@ use-vc = false
     return new_used
 
   def _get_next_offset(self, used):
-    """Get the next free offset from USED, which is assumed to be in
-    consolidated form.  The minimum offset returned is 32; that way
-    the Pad ID stretch is always accounted for, even if USED was
-    initialized from an old v1 pad record."""
+    """Return the next free offset from USED, which assumed to be in
+    consolidated form.  The minimum returned is Pad.id_source_length;
+    that way the Pad ID stretch is always accounted for, even if USED
+    was initialized from an old v1 pad record."""
     cur_offset = None
     # We don't do anything fancy, just get the earliest available
     # offset past the last used tuple.  This means that any ranges in
@@ -466,8 +469,8 @@ use-vc = false
     for tup in used:
       (this_offset, this_length) = tup
       cur_offset = this_offset + this_length
-    if cur_offset is None or cur_offset < 32:
-      return 32
+    if cur_offset is None or cur_offset < Pad.id_source_length:
+      return Pad.id_source_length
     else:
       return cur_offset
     
@@ -858,8 +861,9 @@ def main():
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
     error_exit = True
 
-  if offset is not None and offset < 32:
-      sys.stderr.write("Error: argument to --offset must be >= 32\n")
+  if offset is not None and offset < Pad.id_source_length:
+      sys.stderr.write("Error: argument to --offset must be >= %d\n"
+                       % Pad.id_source_length)
       error_exit = True
 
   if error_exit:

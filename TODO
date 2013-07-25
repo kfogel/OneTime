@@ -25,8 +25,6 @@ ToDo list for OneTime.  (We should probably get a real bug tracker.)
   onetime can notice what the previously-installed version was (absent
   means 1, of course) and make the appropriate recommendations.
 
-* Make Pad class the only place aware of the 32-byte ID length.
-
 * Remove obsolete TODOs from code.
 
 * Redo how web page is assembled, based on new Git reality.
