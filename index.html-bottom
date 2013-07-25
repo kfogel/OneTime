@@ -4,12 +4,13 @@
 
 <center>
 <p>OneTime is under version control at <a
-href="http://svn.red-bean.com/repos/onetime/trunk/"
->http://svn.red-bean.com/repos/onetime/trunk/</a>,
+href="https://github.com/kfogel/OneTime"
+>github.com/kfogel/OneTime</a> and at
+<a href="https://gitorious.org/onetime/onetime"
+>gitorious.org/onetime/onetime</a>.
 <br />
-<a href="http://www.viewvc.org">ViewVC</a> repository browsing at
-<a href="http://svn.red-bean.com/viewcvs/onetime/"
->http://svn.red-bean.com/viewcvs/onetime/</a>.</p>
+The two are usually in sync, but treat the one at GitHub as the master
+for pull requests, issues, etc.</p> 
 </center>
 
 <hr />
