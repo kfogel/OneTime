@@ -6,8 +6,8 @@
 <p>OneTime is under version control at <a
 href="https://github.com/kfogel/OneTime"
 >github.com/kfogel/OneTime</a> and at
-<a href="https://gitorious.org/onetime/onetime"
->gitorious.org/onetime/onetime</a>.
+<a href="https://gitorious.org/onetime"
+>gitorious.org/onetime</a>.
 <br />
 The two are usually in sync, but treat the one at GitHub as the master
 for pull requests, issues, etc.</p> 
