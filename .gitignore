@@ -1,6 +1,7 @@
 msg
 test-msg.*
 index.html
+get.html
 onetime-*.*
 onetime-*.*.tar.gz
 onetime-*.*.zip

@@ -88,6 +88,10 @@ www: dist
 	@sed -e 's| http://www.red-bean.com/onetime/| <a href="http://www.red-bean.com/onetime/">http://www.red-bean.com/onetime/</a>|g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
+	@# Make the license link live.
+	@sed -e 's| LICENSE | <a href="LICENSE">LICENSE</a>|g' \
+           < index.html > index.html.tmp
+	@mv index.html.tmp index.html
 	@rm intro.tmp help.tmp version.tmp
 
 debian: deb

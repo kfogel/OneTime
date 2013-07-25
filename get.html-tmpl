@@ -27,11 +27,15 @@
     or other incidental files.</p></li>
 
 <li><p>OneTime is packaged in <a href="http://debian.org/">Debian
-    GNU/Linux</a> now.  So if you run the "testing" distribution of
+    GNU/Linux</a> now.  If you run the "testing" distribution of
     Debian or higher, do
     <tt>'sudo&nbsp;apt-get&nbsp;update&nbsp;&amp;&amp;&nbsp;sudo&nbsp;apt-get&nbsp;install&nbsp;onetime'</tt>
     (or the equivalent in your preferred package management
-    interface).</p></li>
+    interface).</p>
+    <p><em>Note that as of 24 July 2013, the version of OneTime packaged
+    in Debian may be a major version number behind this upstream
+    release.  We'll try to get Debian updated as soon as
+    possible.</em></p></li>
 
 </ul>
 

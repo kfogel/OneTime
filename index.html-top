@@ -43,9 +43,6 @@ stretch of pad&nbsp;&mdash;&nbsp;doing so could reveal some or all of
 the used pad to eavesdroppers.  OneTime's default behavior is to always
 avoid reusing pad data, unless you tell it otherwise.</p>
 
-<p>OneTime was written by <a href="http://www.red-bean.com/kfogel">Karl
-Fogel</a>.</p>
-
 <p>Here is the output of '<b>onetime&nbsp;--intro</b>':</p>
 
 <pre><i>
