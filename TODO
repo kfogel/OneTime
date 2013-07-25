@@ -1,0 +1,34 @@
+ToDo list for OneTime.  (We should probably get a real bug tracker.)
+
+* There seem to be two styles of 'raise' call in the code.  Consistify.
+
+* Likewise with "\\\n(" vs "(\n" in function calls.  Latter is preferred.
+
+* "onetime -d -p PAD INPUT -o OUTPUT" should work
+
+  Putting input argument before last option should work.  Why doesn't it?
+
+* Failed decryption should create no output file, not create 0-byte file.
+
+* Look at environment variables as well as options, for things like
+  config location, etc.
+
+* Make pad-records file location potentially independent of config dir.
+
+* Yo.  Wrap those base64 lines with newlines.  Hmm, they *are* wrapped
+  in v1 output; why is v2 different?  Apparently because of r145, when
+  base64.encodestring() was replaced with base64.b64encode(), for
+  reasons not clear in the comments or log message.  Make sure that
+  undoing that is okay before undoing.
+
+* Put a 'version' file in ~/.onetime, so that future versions of
+  onetime can notice what the previously-installed version was (absent
+  means 1, of course) and make the appropriate recommendations.
+
+* Make Pad class the only place aware of the 32-byte ID length.
+
+* Remove obsolete TODOs from code.
+
+* Get SVN keyword revision out; we'll manually set version number.
+
+* Redo how web page is assembled, based on new Git reality.

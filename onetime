@@ -5,23 +5,25 @@ __doc__ = """Encoder/decoder for one-time pads.  Run 'onetime --help' for usage.
 The usual public-key encryption programs, such as GnuPG, are probably
 secure for everyday purposes, but their implementations are too
 complex for all but the most knowledgeable programmers to vet, and
-anyway there are too many vulnerable steps in the supply chain between
-GPG's authors and the end user.
+in some cases there may be vulnerable steps in the supply chain
+between GnuPG's authors and the end user.  When bootstrapping trust,
+it helps to start with something you can trust by inspection.
 
-Hence this script, OneTime, a simple encryption program that works with
-one-time pads.  If you don't know what one-time pads are, you probably
-wouldn't be able to use them securely, so this program is not for you.
+Hence this script, OneTime, a simple encryption program that works
+with one-time pads.  If you don't know what one-time pads are, this
+program may not be right for you.  If you do know what they are and
+how to use them, this program can make using them more convenient.
 
-If you do know what they are and how to use them, OneTime will take care
-of some of the pad-management bureacracy for you.  It avoids re-using
-pad data -- except when decrypting the same encrypted message twice, of
-course -- by maintaining records of pad usage in ~/.onetime/pad-records.
-And if you keep your ~/.onetime configuration area under version control
-with Subversion or CVS, OneTime will automatically update it to get the
-latest pad usage records before using a pad, and will commit new records
-after using a pad.  Thus, by sharing a single configuration area via
-version control, you and your interlocutors can more easily avoid the
-sin of pad range reuse.  (The pads themselves are not stored in the
+OneTime takes care of some of the pad-management bureacracy for you.
+It avoids re-using pad data -- except when decrypting the same
+encrypted message twice, of course -- by maintaining records of pad
+usage in ~/.onetime/pad-records.  And if you keep your ~/.onetime
+configuration area under version control with Subversion or CVS,
+OneTime will automatically update it to get the latest pad usage
+records before using a pad, and will commit new records after using a
+pad.  Thus, by sharing a single configuration area via version
+control, you and your interlocutors can more easily avoid the sin of
+pad range reuse.  (The pads themselves are not stored in the
 configuration area, just records about pad usage.)
 
 See http://en.wikipedia.org/wiki/One-time_pad for more information
@@ -42,6 +44,7 @@ import re
 import xml
 import xml.dom
 import xml.dom.minidom
+import ConfigParser
 
 
 # Set up booleans that older Pythons didn't have, if necessary.
@@ -51,6 +54,17 @@ except:
   True = 1
   False = 0
 
+# The current format version.
+#
+# Format 1 was the format from the first release of OneTime through
+# the very end of 2011.  It did not include the "Format:" header in
+# output, and had a (rather embarrassing) bug whereby plaintext was
+# encrypted and then then compressed, instead of the other way around.
+#
+# Format 2, introduced 2012-01-01, does include the "Format:" header
+# in the human-readable portion of the output, and gets the
+# compression/encryption order right.
+Format = 2
 
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
@@ -63,10 +77,15 @@ class Pad:
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._offset = 0  # where to start using pad bytes
     self._length = 0  # number of pad bytes used this time
-    self._id = self._get_id(self.padfile)
+    self._id = None
+    self._v1_id = None
     
   class PadShort(Exception):
     """Exception raised if Pad doesn't have enough data for this encryption."""
+    pass
+
+  class FormatVersion(Exception):
+    """Exception raised if an unknown format version is specified."""
     pass
 
   def set_offset(self, offset):
@@ -77,7 +96,10 @@ class Pad:
     self.padfile.seek(self._offset)
 
   def convert(self, string):
-    """Return a new string that is STRING XORed against the pad."""
+    """If STRING is not empty or None, return it as XORed against the pad;
+else return the empty string.  Note STRING may be empty on intermediate
+calls simply because a compressor has not yet had enough incoming data to
+work with, not necessarily because input is ended yet."""
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
@@ -88,8 +110,28 @@ class Pad:
     self._length += string_len
     return result
 
-  def _get_id(self, padfile):
-    """Get the ID (the SHA1 of its first kilobyte) for this pad."""
+  def _get_id(self):
+    """Get the ID (the SHA1 of its first 32 bytes) for this pad.
+    Note that those 32 bytes are never used for encryption, though
+    the code that enforces that is elswhere.
+    (And why 32, given that a SHA1 hash only holds 20 bytes anyway?
+    No reason, except the usual religious bias toward powers of 2.)"""
+    saved_posn = self.padfile.tell()
+    self.padfile.seek(0)
+    sha1 = hashlib.sha1()
+    string = self.padfile.read(32)
+    sha1.update(string)
+    self.padfile.seek(saved_posn)
+    return sha1.hexdigest()
+
+  def _get_v1_id(self):
+    """Get the OneTime Version 1 ID for this pad.
+    In OneTime format version 1, Pad IDs were based on the first 1024
+    (octet) bytes of the pad.  This was needlessly spendy, or rather,
+    it would have been needlessly spendy if version 1 of the program
+    had been paranoid enough to not use any of those bytes for
+    encryption.  Version 2 fixed this, reducing the number of bytes
+    used on ID but also making they are not used for encryption."""
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
     sha1 = hashlib.sha1()
@@ -98,9 +140,19 @@ class Pad:
     self.padfile.seek(saved_posn)
     return sha1.hexdigest()
 
-  def id(self):
-    """Return the pad's ID."""
-    return self._id
+  def id(self, version=2):
+    """Return the pad's ID.
+    If version is specified, return the ID according to that format version."""
+    if version == 2:
+      if self._id is None:
+        self._id = self._get_id()
+      return self._id
+    elif version == 1:
+      if self._v1_id is None:
+        self._v1_id = self._get_v1_id()
+      return self._v1_id
+    else:
+      raise Pad.FormatVersion("unknown format version %d for ID" % version)
 
   def path(self):
     """Return the pad's path."""
@@ -119,98 +171,107 @@ class Pad:
     return "Pad '%s' (%s):\n   Offset: %d\n   Length: %d\n" \
            % (self.path(), self.id(), self.offset(), self.length())
 
-
 class PadEncoder:
   """Class for encoding raw data to OneTime output."""
 
-  class PadEncoderNotFinished(Exception):
-    """Exception raised if the encoder is asked for information it
-    doesn't have yet, such as the final encoded length."""
+  class UnknownCompressionException(Exception):
+    """Exception raised when an unknown compression method is requested."""
     pass
 
   def __init__(self, pad, config):
     """Initialize an encoder for PAD with Configuration CONFIG."""
     self.pad = pad
     self.config = config
+    # We use bz2 compression unconditionally.  If we offered a choice,
+    # we'd have to name that choice somewhere for use in decryption.
+    # But if we were to list the choice in the open headers, then we
+    # would reveal something about the plaintext.  On the other hand,
+    # if we were to name it in "inner headers" that are also masked by
+    # the pad, that would complexify the code a great deal (we know
+    # because we tried -- see the 2.x branch history) and that would
+    # defeat part of the point of this program: to be so simple as to
+    # be trivially auditable.  So just use bz2.  The worst case is ok.
     self.compressor = bz2.BZ2Compressor()
-    self.finished = 0
 
-  def _output(self, compressed_str):
-    "Return encoding of COMPRESSED_STR, or None if COMPRESSED_STR is empty."
-    if compressed_str:
-      return base64.encodestring(compressed_str)
+  def _output(self, string):
+    "Return encoding of STRING, or the empty string if STRING is empty."
+    if string:
+      return base64.b64encode(string)
     else:
-      return None
+      return ''
 
   def encode(self, string):
-    """Return all available onetime-encoded data so far, including for STRING,
-    or return None if no encoded data is ready yet."""
-    return self._output(self.compressor.compress(self.pad.convert(string)))
+    """Return onetime-encoded data for STRING, or the empty string if none.
+    Consume pad as needed."""
+    out = self._output(self.pad.convert(self.compressor.compress(string)))
+    self.config.record_consumed(self.pad, False)
+    return out
 
   def finish(self):
-    "Return last of encoding of COMPRESSED_STR, or None if none left."
-    self.finished = 1
-    last_bits = self._output(self.compressor.flush())
-    self.config.consume(self.pad, False)
+    "Return last remaining bits of crypttext, or None if none left."
+    last_bits = self._output(self.pad.convert(self.compressor.flush()))
+    self.config.record_consumed(self.pad, False)
     return last_bits
 
 
 class PadDecoder:
-  """todo: write this doc string"""
-  def __init__(self, pad, config):
-    """Initialize a decoder for PAD with Configuration CONFIG."""
+  """Class for decoding OneTime output back to plaintext."""
+
+  class FormatException(Exception):
+    """Exception raised if we don't recognize input's format version."""
+    pass
+
+  def __init__(self, pad, config, input_format):
+    """Initialize a decoder for PAD with Configuration CONFIG.
+    INPUT_FORMAT indicates the OneTime format version of the incoming
+    data, i.e., the value given in the crypttext's 'Format: ' header."""
     self.pad = pad
     self.config = config
-    self.decompressor = bz2.BZ2Decompressor()
     self.unused_data = ""
+    self.input_format = input_format
+    self.decompressor = bz2.BZ2Decompressor()
+
+    if self.input_format < 1:
+      raise self.FormatException(
+        "impossible format version: %d" % self.input_format)
+
+    if self.input_format > 2:
+      raise self.FormatException(
+        "unrecognized format version: %d" % self.input_format)
 
   def decode(self, string):
     """Return all available onetime-decoded data so far, including for STRING,
     or return None if no decoded data is ready yet.  Throw EOFError
     exception if called past the end of decodable data.  Store any
     unused data in self.unused_data."""
-    ### todo: we're not really doing that unused_data thing, are we?
-    return self.pad.convert((self.decompressor.decompress
-                             (base64.decodestring(string))))
+    ret = ""
+    if self.input_format == 1:
+      # Format 1 got the compression/encryption order wrong.  Look,
+      # this is embarrassing.  I'm only telling you about it because
+      # we still need to support that mis-ordering for compatibility.
+      ret = self.pad.convert((self.decompressor.decompress
+                              (base64.b64decode(string))))
+    else: # must be format 2
+      ret = self.decompressor.decompress(self.pad.convert
+                                         (base64.b64decode(string)))
+    self.unused_data += self.decompressor.unused_data
+    return ret
 
-  def finish(self):
+  def finalize(self):
     """Finalize pad usage with the configuration."""
-    self.config.consume(self.pad, True)
+    self.config.record_consumed(self.pad, True)
 
 
 class Configuration:
   """A parsed representation of one user's ~/.onetime/ configuration area.
-  A .onetime/ directory contains just a 'pad-records' file right now."""
-  def __init__(self, path=None, no_vc=False):
-    """Initialize a new configuration.
+  A .onetime/ directory contains just a 'pad-records' file right now.
 
-    If PATH is None, try to find or create the config area in the
-    standard location in the user's home directory; otherwise, find or
-    create it at PATH.
-
-    Unless NO_VC, update and commit the pad-records file when appropriate."""
-    self.config_area = path
-    self.no_vc = no_vc
-    if self.config_area is None:
-      self.config_area = os.path.join(os.path.expanduser("~"), ".onetime")
-    self.pad_records_file = os.path.join(self.config_area, "pad-records")
-    # Create the configuration area if necessary.
-    if not os.path.isdir(self.config_area):
-      # Legacy data check: if they have a ~/.otp dir, that's probably
-      # from a previous incarnation of this program, when it was named
-      # "otp".  If so, just rename the old config area.
-      old_config_area = os.path.join(os.path.expanduser("~"), ".otp")
-      old_pad_records_file = os.path.join(old_config_area, "pad-records")
-      if os.path.isfile(old_pad_records_file):
-        os.rename(old_config_area, self.config_area)
-      else:
-        os.mkdir(self.config_area)
-    if not os.path.isfile(self.pad_records_file):
-      open(self.pad_records_file, "w").close()
-    # Update the pad-records file before parsing, if possible.
-    self._maybe_update_pad_records()
-    # Parse the pad-records file (if any) in the configuration area.
-    self.pad_records = self._parse_pad_records_file()
+  Even in cases where we're operating without touching permanent
+  storage, a Configuration instance is still created and updated
+  internally.  This is partly because the Configuration does some
+  consistency checks on incoming/outgoing data, and partly because it
+  would be useful if we're ever providing an API.
+  """
 
   class ConfigurationError(Exception):
     """Exception raised if we encounter an impossible state in a
@@ -222,6 +283,109 @@ class Configuration:
     a Configuration."""
     pass
 
+  def __init__(self, path=None, use_vc=None):
+    """Initialize a new configuration.
+
+    If PATH is None, try to find or create the config area in the
+    standard location in the user's home directory; otherwise, find or
+    create it at PATH.
+
+    If PATH is \"-\", instantiate a Configuration object but do not
+    connect it to any activity on disk; it will neither read from nor
+    write to permanent storage. 
+
+    Iff USE_VC is true, update and commit the pad-records file when
+    appropriate no matter what the permanent config file says."""
+
+    # We use Python's ConfigParser to read permanent configuration
+    # information from a ~/.onetime/config file.
+    self.config_area = path
+    self.use_vc = use_vc
+    if self.config_area is None:
+      self.config_area = os.path.join(os.path.expanduser("~"), ".onetime")
+    self.perm_config_file = os.path.join(self.config_area, "config")
+    self.perm_config = ConfigParser.ConfigParser()
+    self.pad_records_file = os.path.join(self.config_area, "pad-records")
+    # Create the configuration area if necessary.
+    if self.config_area != '-' and not os.path.isdir(self.config_area):
+      # Legacy data check: if they have a ~/.otp dir, that's probably
+      # from a previous incarnation of this program, when it was named
+      # "otp".  If so, just rename the old config area.
+      old_config_area = os.path.join(os.path.expanduser("~"), ".otp")
+      old_pad_records_file = os.path.join(old_config_area, "pad-records")
+      if os.path.isfile(old_pad_records_file):
+        os.rename(old_config_area, self.config_area)
+      else:
+        os.mkdir(self.config_area)
+
+    # Set up perm config defaults.  Passing the 'defaults' parameter
+    # to instance initialization doesn't work the way I expect it to,
+    # or maybe I just don't understand how it's supposed to work --
+    # how do you set a default value for an option in a particular
+    # section?  So we just set up the per-section defaults manually.
+    self.perm_config.add_section("general")
+    self.perm_config.set("general", "use-vc", False)
+
+    if not self.config_area == '-':
+      # Now inhale the user's actual permanent config, if any.
+      if os.path.isfile(self.perm_config_file):
+        self.perm_config.read(self.perm_config_file)
+        # Now handle whatever configuration options are present, except
+        # when an explicitly-passed option overrides them.
+        if self.use_vc is None:
+          # No explicit --use-vc request, so see what config says.
+          cfg_use_vc = self.perm_config.get("general", "use-vc")
+          if cfg_use_vc is None \
+                or cfg_use_vc == False \
+                or (isinstance(cfg_use_vc, str)
+                    and cfg_use_vc.lower() == "false"):
+            self.use_vc = False
+          elif cfg_use_vc == True \
+                or (isinstance(cfg_use_vc, str)
+                    and cfg_use_vc.lower() == "true"):
+            self.use_vc = True
+          else:
+            raise self.ConfigurationError, \
+                "unrecognized value for use-vc: %s" % str(cfg_use_vc)
+      else:
+        perm_config_init = """\
+### Configure various run-time behaviors for OneTime.
+###
+### (See http://www.red-bean.com/onetime/ for an introduction.)
+
+### The commented-out examples below demonstrate how to use this file.
+
+### Section for general customizations.
+[general]
+# If you keep your ~/.onetime configuration area under version control
+# with Subversion or CVS, OneTime can automatically update it to get
+# the latest pad usage records before using a pad and commit new
+# records after using a pad.  This helps you and your interlocutors
+# more securely share a pad, by having everyone's pad ranges update
+# together.  Note the pad itself is not stored in version control,
+# just the information about which pad ranges have been used.
+#
+# However, even if your ~/.onetime area is under version control,
+# OneTime will not use it by default.  If you want to change that, set
+# the value to "true" below (and make sure ~/.onetime/pad-records is
+# under version control, of course).  You can still pass the --no-vc
+# option when you want OneTime to ignore available version control;
+# or when set to "false" below, you can pass --use-vc to override.
+use-vc = false
+"""
+        c = open(self.perm_config_file, "w")
+        c.write(perm_config_init)
+        c.close()
+
+    # Create the pad-records file if necessary.
+    if self.config_area != '-' and not os.path.isfile(self.pad_records_file):
+      open(self.pad_records_file, "w").close()
+    # Update the pad-records file before parsing, if possible.
+    if self.config_area != '-':
+      self._maybe_update_pad_records()
+    # Parse the pad-records file (if any) in the configuration area.
+    self.pad_records = self._parse_pad_records_file()
+    
   def _consolidate_used_ranges(self, used, allow_reconsumption=False):
     """Return a consolidated version of USED.  USED is a list of
     tuples, indicating offsets and lengths:
@@ -247,6 +411,7 @@ class Configuration:
     new_used = [ ]
     last_offset = None
     last_length = None
+
     for tup in used:
       (this_offset, this_length) = tup
       if last_offset is not None:
@@ -287,7 +452,9 @@ class Configuration:
 
   def _get_next_offset(self, used):
     """Get the next free offset from USED, which is assumed to be in
-    consolidated form."""
+    consolidated form.  The minimum offset returned is 32; that way
+    the Pad ID stretch is always accounted for, even if USED was
+    initialized from an old v1 pad record."""
     cur_offset = None
     # We don't do anything fancy, just get the earliest available
     # offset past the last used tuple.  This means that any ranges in
@@ -296,14 +463,16 @@ class Configuration:
     for tup in used:
       (this_offset, this_length) = tup
       cur_offset = this_offset + this_length
-    if cur_offset is None:
-      return 0
+    if cur_offset is None or cur_offset < 32:
+      return 32
     else:
       return cur_offset
     
   def _directory_vc(self, directory):
     """If DIRECTORY is under version control with SVN or CVS, return
     the string 'svn' or 'cvs' accordingly, else return False."""
+    if self.config_area == '-':
+      return False
     if os.path.isdir(os.path.join(directory, '.svn')):
       return 'svn'
     elif os.path.isdir(os.path.join(directory, 'CVS')):
@@ -317,12 +486,11 @@ class Configuration:
     ACTION can be 'update' or 'commit -mMSG'.  Put MSG in quotes if it
     is longer than one word.  If ACTION fails, throw a
     ConfigurationVCError exception."""
-    if self.no_vc:
-      return
-    vc = self._directory_vc(self.config_area)
-    if vc:
-      if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
-        raise ConfigurationVCError
+    if self.config_area != '-' and self.use_vc:
+      vc = self._directory_vc(self.config_area)
+      if vc:
+        if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
+          raise ConfigurationVCError
 
   def _maybe_update_pad_records(self):
     """If the 'pad-records' file in the configuration area appears to
@@ -375,6 +543,9 @@ class Configuration:
       """
     dict = { }
 
+    if self.config_area == '-':
+      return dict
+
     try:
       dom = xml.dom.minidom.parse(self.pad_records_file)
 
@@ -412,6 +583,8 @@ class Configuration:
     
   def save(self):
     """Save the pad-records file, and maybe commit it."""
+    if self.config_area == '-':
+      return
     tempfile = self.pad_records_file + ".tmp"
     fp = open(tempfile, 'w')
     fp.write("<onetime-pad-records>\n")
@@ -435,11 +608,33 @@ class Configuration:
   def register(self, pad):
     """Register PAD if it is not already registered, and set its
     offset based on previously used regions for that pad, if any."""
+    # TODO: Okay, this code handles old v1 IDs here now, but it really
+    # needs a regression test.
+    next_offset = None
+    # This is a little complicated only because we need; to look for
+    # old v1-style pad IDs and upgrade them if present.
     if not self.pad_records.has_key(pad.id()):
-      self.pad_records[pad.id()] = { "used" : [ ] }
-    pad.set_offset(self._get_next_offset(self.pad_records[pad.id()]["used"]))
+      if self.pad_records.has_key(pad.id(version=1)):
+        # Upgrade v1 record to v2.
+        self.pad_records[pad.id()] = self.pad_records[pad.id(version=1)]
+        del self.pad_records[pad.id(version=1)]
+      else:
+        # Initialize a new v2 record.
+        self.pad_records[pad.id()] = { "used" : [ ] }
+    else:
+      if self.pad_records.has_key(pad.id(version=1)):
+        raise Configuration.ConfigurationError(
+          "Pad has both v2 and v1 IDs present in pad-records file:\n" \
+          "  v2: %s\n"                                                \
+          "  v1: %s\n"                                                \
+          "This is supposed to be impossible.  Please resolve."       \
+          % (pad.id(), pad.id(version=2)))
+    # One way or another, we now have an up-to-date v2 pad record.
+    # Set the next offset accordingly.
+    next_offset = self._get_next_offset(self.pad_records[pad.id()]["used"])
+    pad.set_offset(next_offset)
 
-  def consume(self, pad, allow_reconsumption):
+  def record_consumed(self, pad, allow_reconsumption):
     """Record that PAD has used PAD.length() bytes starting at PAD.offset().
 
     If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
@@ -463,12 +658,12 @@ class Configuration:
 
 def version():
   "Return a version string."
-  rev = "$Revision$"
+  rev = "$Revision: 160 $"
   m = re.match(".*Revision: ([0-9]+)[^0-9]*", rev)
   if m:
-    return "1.%s" % m.group(1)
+    return "2.%s" % m.group(1)
   else:
-    return "1.<need to fix the revision keyword parsing>"
+    return "2.<need to fix the revision keyword parsing>"
 
 
 def usage(outfile=sys.stdout):
@@ -481,8 +676,8 @@ OneTime version %s, an encoder/decoder for one-time pads.  Standard usage:
 
 Other usage modes:
 
-  onetime [-e|-d] -p PAD INPUT -o OUTPUT  (both INPUT and OUTPUT are files)
-  onetime [-e|-d] -p PAD INPUT -o -       (output goes to stdout)
+  onetime [-e|-d] -p PAD -o OUTPUT INPUT  (both INPUT and OUTPUT are files)
+  onetime [-e|-d] -p PAD -o - INPUT       (output goes to stdout)
   onetime [-e|-d] -p PAD                  (input from stdin, output to stdout)
   onetime [-e|-d] -p PAD -o OUTPUT        (input from stdin, output to OUTPUT)
 
@@ -497,8 +692,11 @@ All options:
    -o OUT | --output=OUT   Output to file OUT ("-" for stdout)
    --offset=N              Control the pad data start offset
    -n | --no-trace         Leave no record of pad usage in your config
-   -C DIR | --config=DIR   Specify DIR (instead of ~/.onetime) as config area
+   -C DIR | --config=DIR   Specify DIR (instead of ~/.onetime) as config area;
+                           '-' for DIR means use no config area (implies -n)
+   --use-vc                Take advantage of SVN/CVS control of the config area
    --no-vc                 Ignore SVN/CVS control of the config area
+   --show-id               Show a pad's ID; used with -p only
    --intro                 Show an introduction to OneTime and one-time pads
    -v | -V | --version     Show version information
    -? | -h | --help        Show usage
@@ -511,13 +709,15 @@ def main():
   encrypting  = False
   decrypting  = False
   pad_file    = None
-  input       = None
+  incoming    = None
   output      = None
-  offset      = 0
+  offset      = None
   config_area = None
   debug       = False
   error_exit  = False
-  no_vc       = False
+  no_vc       = None
+  use_vc      = None
+  show_pad_id = False
   no_trace    = False
 
   try:
@@ -529,6 +729,8 @@ def main():
                                  "offset=",
                                  "config=",
                                  "no-vc",
+                                 "use-vc",
+                                 "show-id",
                                  "no-trace",
                                  "debug",
                                  "intro", "help", "version"])
@@ -564,6 +766,10 @@ def main():
       config_area = value
     elif opt == '--no-vc':
       no_vc = True
+    elif opt == '--use-vc':
+      use_vc = True
+    elif opt == '--show-id':
+      show_pad_id = True
     elif opt == '--no-trace' or opt == '-n':
       no_trace = True
     elif opt == '--debug':
@@ -572,7 +778,11 @@ def main():
       sys.stderr.write("Error: unrecognized option: '%s'\n" % opt)
       error_exit = True
 
-  if not encrypting and not decrypting:
+  if show_pad_id:
+    if encrypting or decrypting:
+      sys.stderr.write("Error: cannot use --show-id with -e or -d.\n")
+      error_exit = True
+  elif not encrypting and not decrypting:
     sys.stderr.write("Error: must pass either '-e' or '-d'.\n")
     error_exit = True
 
@@ -580,17 +790,23 @@ def main():
     sys.stderr.write("Error: cannot pass both '-e' and '-d'.\n")
     error_exit = True
 
+  if no_vc is not None and use_vc is not None:
+    sys.stderr.write("Error: cannot pass both '--no-vc' and '--use-vc'.\n")
+    error_exit = True
+  elif no_vc is True:
+    use_vc = False
+
   if not pad_file:
     sys.stderr.write("Error: must specify pad file with -p.\n")
     error_exit = True
 
   if len(args) == 0 or args[0] == "-":
-    input = sys.stdin
+    incoming = sys.stdin
     if output is None:
-      # If input is stdin, output defaults to stdout.
+      # If incoming is stdin, output defaults to stdout.
       output = sys.stdout
   elif len(args) == 1:
-    input = open(args[0])
+    incoming = open(args[0])
     if output is None:
       if encrypting:
         # If plaintext input is 'FILENAME', output defaults to
@@ -613,30 +829,45 @@ def main():
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
     error_exit = True
 
+  if offset is not None and offset < 32:
+      sys.stderr.write("Error: argument to --offset must be >= 32\n")
+      error_exit = True
+
   if error_exit:
     usage(sys.stderr)
     sys.exit(1)
 
   pad = Pad(pad_file)
 
-  config = Configuration(config_area, no_vc)
+  config = Configuration(config_area, use_vc)
   config.register(pad)
 
-  ### todo: need to be less clumsy about offset handling
-  if offset > 0:
-    pad.set_offset(offset)
+  if show_pad_id:
+    print pad.id()
+    print "  Note that older versions of OneTime (v1 and before) " \
+      + "would have reported"
+    print "  %s.  This v1 ID output may go away" % pad.id(version=1)
+    print "  in a future release, so please do not depend on its presence."
+    sys.exit(0)
 
-  # The first line of OneTime format is the begin line.
+  if offset is not None:
+    pad.set_offset(offset)
+    offset = None  # junk this; we'll rely on pad for offset from now on
+
+  # The first line of OneTime format 2 is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
   # Then comes the encoded body.
   # The last line indicates the end, and is distinguishable from
   #   encoded content by inspection 
   onetime_begin = "-----BEGIN OneTime MESSAGE-----\n"
   old_onetime_begin = "-----BEGIN OTP MESSAGE-----\n"   # compat
-  onetime_header = "%s" % onetime_begin              \
-               + "Version: OneTime %s\n" % version() \
-               + "Pad ID: %s\n" % pad.id()           \
-               + "Offset: %s\n" % pad.offset()       \
+  onetime_header = "%s" % onetime_begin                        \
+               + "Version: OneTime %s\n" % version()           \
+               + "Format: %d  " % Format                       \
+               + "   <<< NOTE: OneTime 1.x and older "         \
+               +              "cannot read this format. >>>\n" \
+               + "Pad ID: %s\n" % pad.id()                     \
+               + "Offset: %s\n" % pad.offset()                 \
                + "\n"
   onetime_end = "-----END OneTime MESSAGE-----\n"
   old_onetime_end = "-----END OTP MESSAGE-----\n"       # compat
@@ -649,7 +880,8 @@ def main():
   # it's located:
   #
   #    -----BEGIN OneTime MESSAGE-----
-  #    Version: OneTime 1.59
+  #    Version: OneTime 2.135
+  #    Format: 2
   #    Pad ID: de61f169bce003a1189b3e6ebb8ddfc0ef007ac2
   #    
   #    Offset 0:
@@ -688,10 +920,10 @@ def main():
   # format, if not, then we're using the new format.
 
   if encrypting:
-    encoder = PadEncoder(pad, config)
     output.write(onetime_header)
+    encoder = PadEncoder(pad, config)
     while 1:
-      string = input.read()
+      string = incoming.read()
       if len(string) > 0:
         result = encoder.encode(string)
         if result:
@@ -701,23 +933,48 @@ def main():
         if result:
           output.write(result)
         break
+    output.write("\n")
     output.write(onetime_end)
 
   elif decrypting:
-    decoder = PadDecoder(pad, config)
+    decoder = None # Will set to a decoder when we know the incoming format.
     saw_end = None
-    maybe_header_line = input.readline()
+    maybe_header_line = incoming.readline()
     if (maybe_header_line != onetime_begin
         and maybe_header_line != old_onetime_begin):
       sys.stderr.write("Error: malformed OneTime format: no begin line.\n")
       sys.exit(1)
     while maybe_header_line != "\n":
-      maybe_header_line = input.readline()
+      maybe_header_line = incoming.readline()
       m = re.match("Offset: ([0-9]+)", maybe_header_line)
       if m:
+        # Note we don't have to adjust the received offset here to
+        # compensate for the 32-byte Pad ID stretch, because the
+        # recorded offset in *both* format version 1 and version 2
+        # ciphertexts is an absolute offset from the true edge of the
+        # Pad.  The v2 Pad ID stretch is already reflected in the
+        # offset for v2 files, but if an incoming ciphertext is v1,
+        # then naturally we just use whatever offset it requests.
+        #
+        # (When the pad record is written back out, the 32 bytes for
+        # the ID will be recorded as consumed no matter what, because
+        # config.register() takes care of that.  But in practice, most
+        # plaintexts will have already used more than that anyway, so
+        # that safeguard is probably redundant here.)
         pad.set_offset(int(m.group(1)))
+        continue
+      m = re.match("Format: ([0-9]+) ", maybe_header_line)
+      if m:
+        format_number = int(m.group(1))
+        decoder = PadDecoder(pad, config, format_number)
+        continue
+
+    if decoder is None:
+      # If we saw no format, it must be the old format 1.
+      decoder = PadDecoder(pad, config, 1)
+
     while 1:
-      string = input.readline()
+      string = incoming.readline()
       if (string == onetime_end or string == old_onetime_end):
         saw_end = 1
         break
@@ -730,7 +987,7 @@ def main():
           output.write(result)
       else:
         break
-    decoder.finish()
+    decoder.finalize()
     if not saw_end:
       sys.stderr.write("Error: malformed OneTime format: no end line.\n")
       sys.exit(1)
