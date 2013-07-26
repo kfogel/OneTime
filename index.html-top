@@ -36,9 +36,10 @@ OneTime packaged in Debian and Ubuntu is a major version number behind
 this upstream release; we'll try to get them updated soon!)</p>
 
 <p>To use OneTime reliably, you need a source of good random data.  On
-modern Unix systems, the <tt>/dev/random</tt> device is probably good
+modern Linux systems, the <tt>/dev/random</tt> device is probably good
 enough (I haven't done the math myself, I'm just taking other people's
-word for it).  On non-Unix systems, you're on your own.  Whatever your
+<a href="http://en.wikipedia.org/wiki//dev/random#Linux" >word</a> for
+it); elsewher, you're on your own.  Whatever your
 source of random data, store the data in a file (that's the "pad") and
 point to it using OneTime's <tt>-p</tt> option when you encrypt; the
 recipient must use the same pad to decrypt, of course.  Note that the
