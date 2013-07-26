@@ -69,7 +69,7 @@ www: dist
            < get.html-tmpl > get.html.tmp
 	@mv get.html.tmp get.html
 	@# Make the GPG link live.
-	@sed -e 's/GPG,/<a href="http:\/\/www.gnupg.org\/">GPG<\/a>,/g' \
+	@sed -e 's/GnuPG,/<a href="http:\/\/www.gnupg.org\/">GnuPG<\/a>,/g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
 	@# Make the Wikipedia link live.
