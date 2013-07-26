@@ -4,10 +4,6 @@ ToDo list for OneTime.  (We should probably get a real bug tracker.)
 
 * Likewise with "\\\n(" vs "(\n" in function calls.  Latter is preferred.
 
-* "onetime -d -p PAD INPUT -o OUTPUT" should work
-
-  Putting input argument before last option should work.  Why doesn't it?
-
 * Failed decryption should create no output file, not create 0-byte file.
 
 * Look at environment variables as well as options, for things like
