@@ -82,16 +82,27 @@ reset_config()
    done
 }
 
-############################################################################
-###  Option-parsing tests.                                               ###
-############################################################################
+########################################################################
+start_new_test "basic encryption, decryption"
+../../onetime --config=blank-dot-onetime -e -p ../test-pad-1 \
+         -o tmp-ciphertext-b-1 ../test-plaintext-b
+../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
+         -o tmp-plaintext-b tmp-ciphertext-b-1
+
+if ! cmp tmp-plaintext-b ../test-plaintext-b
+then
+  PASSED="no"
+fi
+
+check_result
+
+########################################################################
+start_new_test "option parsing"
 
 ###
 # In the tests of the various option parsing methods, "e.N" is
 # encrypted text and "d.N" is decrypted text.
 ###
-
-start_new_test "option parsing"
 
 # mode 1
 ../../onetime -C dot-onetime -e -p ../test-pad-2 -o e.1 ../test-plaintext-a
@@ -124,10 +135,6 @@ for n in 1 2 3 4 5; do
 done
 
 check_result
-
-############################################################################
-###  Functionality tests.                                                ###
-############################################################################
 
 ########################################################################
 start_new_test "decryption should not shrink pad usage"
