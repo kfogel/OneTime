@@ -215,6 +215,65 @@ class PadEncoder:
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
+    # Some thoughts on whether to inject random data into the ciphertext:
+    #
+    # In theory, on the first call to encode() we could inject a
+    # random-length prefix of pseudo-random data, that would not be
+    # compressed but just encoded against the pad.  (Even though it's
+    # pseudo-random, we'd still need to encrypt it, to avoid revealing
+    # anything about the system on which encryption took place.)
+    #
+    # One purpose of a random-length prefix would be to make it
+    # unpredictable where the bz2 headers start (they are essentially
+    # a known plaintext, though a very short one).  That way even if
+    # the pad were a little bit less than random, we'd still have
+    # removed even that tiny hint of a known-plaintext attack.  The
+    # decoder would have to read the length (presumably stored in the
+    # first few bytes of the prefix) and skip past the rest of the
+    # random prefix to get to the start of the real ciphertext.
+    #
+    # But I'm reluctant to add features that compensate for bad pads.
+    # It's not like we can make it safe in general to use bad pads, so
+    # it feels cleaner not to go down that road at all, and not going
+    # down that road keeps the code simpler.
+    #
+    # However, I'm open to other opinions.  Another argument in favor
+    # of injecting some random noise into every message is that it
+    # obscures the precise length of the plaintext.  Clearly we can't
+    # hide the general length -- to do so would require gobbling up
+    # a lot of pad, and we should treat pad as pretty valuable: it's
+    # not just that is random data itself isn't entirely cheap, it's
+    # that the value of pads comes partly from the difficulty involved
+    # in conveying them to one's interlocutors.  We don't want to use
+    # up pad unnecessarily, because we don't know how hard it will be
+    # for the user(s) to re-exchange new pad data.
+    #
+    # Is it worthwhile to obscure the precise pliantext length?  I
+    # don't really know.  It's a subtle thing to reason about.  The
+    # shorter the plaintext, the greater proportional variance from
+    # its true length we can achieve in the ciphertext.  But what you
+    # end up with is a floor on the apparent length of messages: for
+    # plaintexts that are near the maximum possible length of the
+    # random prefix, the attacker knows only that the plaintext is
+    # below a certain size... which is what the attacker knows anyway,
+    # without any random prefix, it's just that we can increase that
+    # maximum size.  Is that really worth it?
+    #
+    # One solution is to give the user options to control this -- in a
+    # sense, options to specify the relative value of pad data versus
+    # information about the plaintext length.  But that doesn't sound
+    # like much of a usability win in practice.  So for now, we don't
+    # do the random prefix thing.  Clear-eyed arguments welcome :-). 
+    #
+    # Regarding the bzip2 headers thing: known plaintext or not,
+    # they should not be vulnerable to the kind of compression
+    # attack for example described here:
+    #
+    #   http://security.stackexchange.com/questions/19911/\
+    #   crime-how-to-beat-the-beast-successor/19914#19914
+    #
+    # One-time pads don't have that problem, for obvious reasons.
+    #
     out = self._output(self.pad.convert(self.compressor.compress(string)))
     self.config.record_consumed(self.pad, False)
     return out
