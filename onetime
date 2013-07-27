@@ -412,8 +412,8 @@ class Configuration:
                     and cfg_use_vc.lower() == "true"):
             self.use_vc = True
           else:
-            raise self.ConfigurationError, \
-                "unrecognized value for use-vc: %s" % str(cfg_use_vc)
+            raise self.ConfigurationError(
+              "unrecognized value for use-vc: %s" % str(cfg_use_vc))
       else:
         perm_config_init = """\
 ### Configure various run-time behaviors for OneTime.
@@ -488,8 +488,8 @@ use-vc = false
           # we're not allowing reconsumption...
           if (last_offset + last_length > this_offset
               and not allow_reconsumption):
-            raise self.ConfigurationError, \
-                  "pad's used ranges are incoherent:\n   %s" % str(used)
+            raise self.ConfigurationError(
+              "pad's used ranges are incoherent:\n   %s" % str(used))
           # ...but otherwise we just extend the range from the
           # original offset, whether it was a true overlap or a
           # snuggle-right-up-against kind of thing:
@@ -557,7 +557,8 @@ use-vc = false
       vc = self._directory_vc(self.config_area)
       if vc:
         if os.system("%s -q %s %s" % (vc, action, self.pad_records_file)):
-          raise ConfigurationVCError
+          raise ConfigurationVCError(
+            "running '%s -q %s %s'" % (vc, action, self.pad_records_file))
 
   def _maybe_update_pad_records(self):
     """If the 'pad-records' file in the configuration area appears to
