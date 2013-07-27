@@ -38,6 +38,7 @@
 <li><p>VC can be turned on in the config file, or on a per-command
     basis with the new <tt>--use-vc</tt> option.</p></li> 
 <li><p>The <tt>--no-vc</tt> option still works (to override config).</p></li>
+<li><p>Regression <a href="check.sh" >test suite</a> added.</p></li>
 <li><p>OneTime's license is now an MIT-style open source license, to
     avoid various <a href="http://opensource.org/faq#public-domain"
     >problems</a> with the public domain.</p></li>
