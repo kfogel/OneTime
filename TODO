@@ -1,7 +1,5 @@
 ToDo list for OneTime.  (We should probably get a real bug tracker.)
 
-* Likewise with "\\\n(" vs "(\n" in function calls.  Latter is preferred.
-
 * Failed decryption should create no output file, not create 0-byte file.
 
 * Look at environment variables as well as options, for things like

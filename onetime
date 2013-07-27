@@ -316,11 +316,11 @@ class PadDecoder:
       # Format 1 got the compression/encryption order wrong.  Look,
       # this is embarrassing.  I'm only telling you about it because
       # we still need to support that mis-ordering for compatibility.
-      ret = self.pad.convert((self.decompressor.decompress
-                              (base64.b64decode(string))))
+      ret = self.pad.convert((self.decompressor.decompress(
+        base64.b64decode(string))))
     else: # must be format 2
-      ret = self.decompressor.decompress(self.pad.convert
-                                         (base64.b64decode(string)))
+      ret = self.decompressor.decompress(self.pad.convert(
+        base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
     return ret
 
@@ -659,8 +659,8 @@ use-vc = false
     for pad_id in self.pad_records.keys():
       fp.write("  <pad-record>\n")
       fp.write("    <id>%s</id>\n" % pad_id)
-      for tuple in self._consolidate_used_ranges\
-          (self.pad_records[pad_id]["used"]):
+      for tuple in self._consolidate_used_ranges(
+          self.pad_records[pad_id]["used"]):
         fp.write("    <used><offset>%d</offset>\n" % tuple[0])
         fp.write("          <length>%d</length></used>\n" % tuple[1])
       for key in self.pad_records[pad_id].keys():
@@ -711,8 +711,8 @@ use-vc = false
     re-use a range for encoding."""
     used = self.pad_records[pad.id()]["used"]
     used.append((pad.offset(), pad.length()))
-    self.pad_records[pad.id()]["used"] = self._consolidate_used_ranges\
-                                         (used, allow_reconsumption)
+    self.pad_records[pad.id()]["used"] = self._consolidate_used_ranges(
+      used, allow_reconsumption)
     pass
 
   def show_pad_records(self):
