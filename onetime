@@ -2,7 +2,9 @@
 
 __version__ = "2.0-beta"
 
-__doc__ = """Encoder/decoder for one-time pads.  Run 'onetime --help' for usage.
+__doc__ = """OneTime: an open source encoder/decoder that uses one-time pads.
+
+(Run 'onetime --help' for usage information.)
 
 The usual public-key encryption programs, such as GnuPG, are probably
 secure for everyday purposes, but their implementations are too
@@ -23,10 +25,10 @@ usage in ~/.onetime/pad-records.  And if you keep your ~/.onetime
 configuration area under version control with Subversion or CVS,
 OneTime will automatically update it to get the latest pad usage
 records before using a pad, and will commit new records after using a
-pad.  Thus, by sharing a single configuration area via version
-control, you and your interlocutors can more easily avoid the sin of
-pad range reuse.  (The pads themselves are not stored in the
-configuration area, just records about pad usage.)
+pad.  Thus, by keeping your configuration area under version control,
+you can more easily avoid the sin of pad range reuse.  (The pads
+themselves are not stored in the configuration area, just records
+about pad usage.)
 
 See http://en.wikipedia.org/wiki/One-time_pad for more information
 about one-time pads in general.
@@ -695,10 +697,12 @@ THE SOFTWARE.
 def usage(outfile=sys.stdout):
   """Print usage information to OUTFILE."""
   usage_str = """\
-OneTime version %s, an encoder/decoder for one-time pads.  Standard usage:
+OneTime version %s, an open source encoder/decoder that uses one-time pads.
 
-  onetime -e -p PAD INPUT           (encrypt; write output to 'INPUT.onetime')
-  onetime -d -p PAD INPUT.onetime   (decrypt; output loses '.onetime' suffix)
+Typical usage:
+
+  onetime -e -p PAD MSG           (encrypt; write output to 'MSG.onetime')
+  onetime -d -p PAD MSG.onetime   (decrypt; output loses '.onetime' suffix)
 
 Other usage modes:
 
@@ -708,7 +712,7 @@ Other usage modes:
   onetime [-e|-d] -p PAD -o OUTPUT        (input from stdin, output to OUTPUT)
 
 OneTime remembers what ranges of what pad files have been used, and avoids
-re-using those ranges when encoding.
+re-using those ranges when encoding, by keeping records in ~/.onetime/.
 
 All options:
 

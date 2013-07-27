@@ -19,7 +19,32 @@
 
 <table style="border: 0;">
 <tr style="border-top: 0; border-bottom: 0;">
-<td style="border-right: 1px solid grey; padding-left: 3%; padding-right: 3%; width: 67%; vertical-align: top;">
+<td style="border-right: 1px solid grey; padding-left: 3%; padding-right: 3%; width: 19%; vertical-align: top; font-size: 85%;">
+<p style="text-align: center; font-style: italic; text-decoration: underline;"
+   >Changes in 2.0</p>
+<ul style="padding-left: 3%; list-style-type: circle; ">
+<li><p>New output format.<br/>
+    OneTime 2.x can still read 1.x output, but older versions cannot
+    read 2.x output.</p></li>
+<li><p>Pad IDs have changed, because they are calculated differently
+    now.  The IDs in your <tt>pad-records</tt> file will be upgraded
+    automatically; you do not need to do anything.</p></li>
+<li><p>New <tt>--show-id</tt> option displays a pad's ID.</p></li>
+<li><p>The config file <tt>~/.onetime/config</tt> is looked for, and
+    is created if not present.</p></li>
+<li><p>Version control (VC) of pad metadata is off by default (by the
+    <a href="https://en.wikipedia.org/wiki/Principle_of_least_astonishment"
+    >Principle of Least Astonishment</a>).</p></li>
+<li><p>VC can be turned on in the config file, or on a per-command
+    basis with the new <tt>--use-vc</tt> option.</p></li> 
+<li><p>The <tt>--no-vc</tt> option still works (to override config).</p></li>
+<li><p>OneTime's license is now an MIT-style open source license, to
+    avoid various <a href="http://opensource.org/faq#public-domain"
+    >problems</a> with the public domain.</p></li>
+<li><p>New <tt>--license</tt> option displays the license.</p></li>
+</ul>
+</td>
+<td style="border-right: 1px solid grey; padding-left: 3%; padding-right: 3%; width: 62%; vertical-align: top;">
 <p><a href="onetime">OneTime</a> is
 an <a href="http://www.opensource.org/" >open source</a>
 encryption program that uses the <a
@@ -54,25 +79,6 @@ of the system is greatly compromised.  Never encrypt with the same
 stretch of pad twice!  Doing so could reveal some or all of the used
 pad to eavesdroppers.  OneTime's default behavior is to always avoid
 reusing pad data, unless you tell it otherwise.</p>
-
-</td>
-<td style="padding-left: 3%; padding-right: 3%; width: 33%; vertical-align: top;" >
-<p style="font-style: italic;" >When would I use this?</p>
-
-<p>Not often, probably, given the difficulty of secure advance pad
-exchange.  But it might be handy in a few rare situations:</p>
-
-<ul style="padding-left: 3%; list-style-type: circle; ">
-<li><p>You're not completely confident about the provenance of <a href="http://www.gnupg.org/" >GnuPG</a> on your system;</p></li>
-<li><p>To bootstrap trust: i.e., to have a reliable fallback method for
-  exchanging other, more convenient keys;</p></li>
-<li><p>To have an encryption program whose code is small and simple
-  enough that you can inspect it and understand it;</p></li>
-<li><p>To throw a little diversity into the surveillance stream.
-  Bots are watching for &amp; saving messages in the popular
-  encryption formats.  OneTime makes 'em work a little harder! :-)</p> </li>
-</ul>
-</td></tr></table>
 
 <p>Here is the output of '<b>onetime&nbsp;--intro</b>':</p>
 
