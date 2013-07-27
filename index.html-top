@@ -47,13 +47,12 @@
 </ul>
 </td>
 <td style="border-right: 1px solid grey; padding-left: 3%; padding-right: 3%; width: 62%; vertical-align: top;">
-<p><a href="onetime">OneTime</a> is
-an <a href="http://www.opensource.org/" >open source</a>
-encryption program that uses the <a
-href="http://en.wikipedia.org/wiki/One-time_pad">one-time pad</a>
-algorithm to allow two parties to communicate securely, without
-worrying about <a
-href="http://en.wikipedia.org/wiki/NSA_electronic_surveillance_program"
+<p><a href="onetime">OneTime</a> is an <a href="LICENSE" >open
+source</a> encryption program that uses
+the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time
+pad</a> algorithm to allow two parties to communicate securely,
+without worrying about
+<a href="http://en.wikipedia.org/wiki/NSA_electronic_surveillance_program"
 >unauthorized people listening in</a>.  OneTime has features to assist
 with the bureaucracy of pad management and comes with built-in help.
 It is written in the <a href="http://www.python.org/" >Python</a>
