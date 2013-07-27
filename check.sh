@@ -705,6 +705,22 @@ fi
 check_result
 
 
+########################################################################
+start_new_test "decode msg, erroring because garbage after base64 data"
+## Encrypt message
+../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+         -o tmp-ciphertext-b-1 < ../test-plaintext-b
+sed -e 's/-----END OneTime MESSAGE-----/	\n-----END OneTime MESSAGE-----/' \
+    < tmp-ciphertext-b-1 > tmp-ciphertext-b-1.damaged
+../../onetime --config=blank-dot-onetime -d -p ../test-pad-1  \
+         -o tmp-plaintext-b-1 tmp-ciphertext-b-1.damaged 2>err.out
+if ! grep -q "DecodingError: unexpected input" err.out
+then
+  PASSED="no"
+fi
+
+check_result
+
 ############################################################################
 ###  All tests finished.  Leave the test area in place for inspection.   ###
 ############################################################################

@@ -208,7 +208,7 @@ class PadEncoder:
   def _output(self, string):
     "Return encoding of STRING, or the empty string if STRING is empty."
     if string:
-      return base64.b64encode(string)
+      return base64.encodestring(string)
     else:
       return ''
 
@@ -287,6 +287,10 @@ class PadEncoder:
 
 class PadDecoder:
   """Class for decoding OneTime output back to plaintext."""
+
+  class DecodingError(Exception):
+    """Exception raised when something goes wrong decoding."""
+    pass
 
   def __init__(self, pad, config, input_format):
     """Initialize a decoder for PAD with Configuration CONFIG.
@@ -1075,7 +1079,14 @@ def main():
         try:
           result = decoder.decode(string)
         except EOFError:
-          break
+          if string == "\n":
+            # It's just the blank line between the end of the base64
+            # data and the onetime_end marker.  Continue, because the
+            # next thing we read should be the onetime_end marker.
+            continue
+          else:
+            raise PadDecoder.DecodingError(
+              "unexpected input: '%s'" % string)
         if result:
           output.write(result)
       else:
