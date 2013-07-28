@@ -1,7 +1,5 @@
 ToDo list for OneTime.  (We should probably get a real bug tracker.)
 
-* Failed decryption should create no output file, not create 0-byte file.
-
 * Look at environment variables as well as options, for things like
   config location, etc.
 

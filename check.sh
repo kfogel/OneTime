@@ -137,6 +137,26 @@ done
 check_result
 
 ########################################################################
+start_new_test "failed decryption should give an error and create no output"
+../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+         -o tmp-ciphertext-b-1 < ../test-plaintext-b
+../../onetime --config=blank-dot-onetime -d -p ../test-pad-2  \
+         -o tmp-plaintext-b-1 tmp-ciphertext-b-1 2>err.out
+if ! grep -q "DecodingError: unable to decode (wrong pad?)" err.out
+then
+  echo "ERROR: did not see expected error on failed decryption"
+  PASSED="no"
+fi
+
+if [ -f tmp-plaintext-b-1 ]
+then
+  echo "ERROR: output file left still created on failed decryption"
+  PASSED="no"
+fi
+
+check_result
+
+########################################################################
 start_new_test "decryption should not shrink pad usage"
 
 # User sent in a report:

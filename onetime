@@ -312,9 +312,9 @@ class PadDecoder:
 
   def decode(self, string):
     """Return all available onetime-decoded data so far, including for STRING,
-    or return None if no decoded data is ready yet.  Throw EOFError
-    exception if called past the end of decodable data.  Store any
-    unused data in self.unused_data."""
+    or return None if no decoded data is ready yet.  Throw IOError if
+    data is not decodable.  Throw EOFError exception if called past
+    the end of decodable data.  Store any unused data in self.unused_data."""
     ret = ""
     if self.input_format == 1:
       # Format 1 got the compression/encryption order wrong.  Look,
@@ -691,6 +691,7 @@ def main():
   pad_file    = None
   incoming    = None
   output      = None
+  output_name = None
   offset      = None
   config_area = None
   debug       = False
@@ -738,7 +739,8 @@ def main():
       if value == "-":
         output = sys.stdout
       else:
-        output = open(value, "w")
+        output_name = value
+        output = open(output_name, "w")
     elif opt == '--offset':
       offset = int(value)
     elif opt == '--config' or opt == '-C':
@@ -780,20 +782,21 @@ def main():
       if encrypting:
         # If plaintext input is 'FILENAME', output defaults to
         # 'FILENAME.onetime'.
-        output = open(args[0] + ".onetime", "w")
+        output_name = args[0] + ".onetime"
       else:
         # If crypttext input is 'FILENAME.onetime', output defaults to
         # 'FILENAME'.  But we also look for ".otp", for compatibility
         # with older versions of this program.
         if args[0].endswith(".onetime"):
-          output = open(args[0][:-8], "w")
+          output_name = args[0][:-8]
         elif args[0].endswith(".otp"):
-          output = open(args[0][:-4], "w")
+          output_name = args[0][:-4]
         else:
           sys.stderr.write(
             "Error: input filename does not end with '.onetime' or '.otp'.\n")
           error_exit = True
-      
+      output = open(output_name, "w")
+
   elif len(args) > 1:
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
     error_exit = True
@@ -949,6 +952,11 @@ def main():
       if len(string) > 0:
         try:
           result = decoder.decode(string)
+        except IOError:
+          output.close()
+          if output_name is not None:
+            os.remove(output_name)
+          raise PadDecoder.DecodingError("unable to decode (wrong pad?)")
         except EOFError:
           if string == "\n":
             # It's just the blank line between the end of the base64
@@ -956,6 +964,9 @@ def main():
             # next thing we read should be the onetime_end marker.
             continue
           else:
+            output.close()
+            if output_name is not None:
+              os.remove(output_name)
             raise PadDecoder.DecodingError(
               "unexpected input: '%s'" % string)
         if result:
