@@ -248,7 +248,7 @@ class PadEncoder:
     # up pad unnecessarily, because we don't know how hard it will be
     # for the user(s) to re-exchange new pad data.
     #
-    # Is it worthwhile to obscure the precise pliantext length?  I
+    # Is it worthwhile to obscure the precise plaintext length?  I
     # don't really know.  It's a subtle thing to reason about.  The
     # shorter the plaintext, the greater proportional variance from
     # its true length we can achieve in the ciphertext.  But what you
@@ -265,6 +265,13 @@ class PadEncoder:
     # like much of a usability win in practice.  So for now, we don't
     # do the random prefix thing.  Clear-eyed arguments welcome :-). 
     #
+    # Also, users who are concerned about this can add their own noise
+    # to the plaintext anyway, and are in a better position to
+    # determine how much is needed (i.e., how much pad to spend on it).
+    # That seems more in keeping with OneTime's general philosophy of
+    # just providing a one-time pad system and assuming that users
+    # know what they're doing.
+    #
     # Regarding the bzip2 headers thing: known plaintext or not,
     # they should not be vulnerable to the kind of compression
     # attack for example described here:
@@ -273,7 +280,6 @@ class PadEncoder:
     #   crime-how-to-beat-the-beast-successor/19914#19914
     #
     # One-time pads don't have that problem, for obvious reasons.
-    #
     out = self._output(self.pad.convert(self.compressor.compress(string)))
     self.config.record_consumed(self.pad, False)
     return out
