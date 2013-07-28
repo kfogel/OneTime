@@ -23,22 +23,20 @@
 <p style="text-align: center; font-style: italic; text-decoration: underline;"
    >Changes in 2.0</p>
 <ul style="padding-left: 3%; list-style-type: circle; ">
-<li><p>New output format.<br/>
-    OneTime 2.x can still read 1.x output, but older versions cannot
-    read 2.x output.</p></li>
+<li><p>New output format, to allow much more efficient pad usage.
+    OneTime 2.x can still read 1.x output, but 1.x and older versions
+    cannot read 2.x output.</p></li>
 <li><p>Pad IDs have changed, because they are calculated differently
     now.  The IDs in your <tt>pad-records</tt> file will be upgraded
     automatically; you do not need to do anything.</p></li>
 <li><p>New <tt>--show-id</tt> option displays a pad's ID.</p></li>
-<li><p>The config file <tt>~/.onetime/config</tt> is looked for, and
-    is created if not present.</p></li>
-<li><p>Version control (VC) of pad metadata is off by default (by the
-    <a href="https://en.wikipedia.org/wiki/Principle_of_least_astonishment"
-    >Principle of Least Astonishment</a>).</p></li>
-<li><p>VC can be turned on in the config file, or on a per-command
-    basis with the new <tt>--use-vc</tt> option.</p></li> 
-<li><p>The <tt>--no-vc</tt> option still works (to override config).</p></li>
 <li><p>Regression <a href="check.sh" >test suite</a> added.</p></li>
+<li><p>There is no more automated version control of pad metadata.
+    This is for many reasons, among them code simplicity and the
+    <a href="https://en.wikipedia.org/wiki/Principle_of_least_astonishment"
+    >Principle of Least Astonishment</a>.  You can still keep your
+    <tt>~/.onetime/</tt> area under VC manually, of course.</p></li>
+<li><p>The <tt>--no-vc</tt> option is therefore removed.</p></li>
 <li><p>OneTime's license is now an <a href="LICENSE" >MIT-style open
     source license</a>, to avoid various
     <a href="http://opensource.org/faq#public-domain" >problems</a>
