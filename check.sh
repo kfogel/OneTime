@@ -91,6 +91,7 @@ start_new_test "basic encryption, decryption"
 
 if ! cmp tmp-plaintext-b ../test-plaintext-b
 then
+  echo "ERROR: decrypted plaintext does not match original plaintext"
   PASSED="no"
 fi
 
@@ -130,6 +131,7 @@ for n in 1 2 3 4 5; do
   if cmp ../test-plaintext-a d.${n}; then
     true
   else
+    echo "ERROR: one or more of the usage modes failed"
     PASSED="no"
   fi
 done
@@ -743,6 +745,7 @@ sed -e 's/-----END OneTime MESSAGE-----/	\n-----END OneTime MESSAGE-----/' \
          -o tmp-plaintext-b-1 tmp-ciphertext-b-1.damaged 2>err.out
 if ! grep -q "DecodingError: unexpected input" err.out
 then
+  echo "ERROR: decoder failed to detect trailing garbage in input stream"
   PASSED="no"
 fi
 
