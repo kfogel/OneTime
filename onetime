@@ -22,7 +22,14 @@ OneTime takes care of some of the pad-management bureacracy for you.
 It avoids re-using pad data -- except when decrypting the same
 encrypted message twice, of course -- by maintaining records of pad
 usage in ~/.onetime/pad-records.  (The pads themselves are not stored
-there, just records about pad usage.)
+there, just records about pad usage.)  
+
+Recommended practice: if you are Alice communicating with Bob, then
+keep two different pads, 'alice_to_bob.pad' and 'bob_to_alice.pad', as
+opposed to sharing the same pad and depending on OneTime's bookkeeping
+to avoid pad range re-use.  With two separate pads, even if you each
+send a message simultaneously to the other with no advance planning,
+you still won't accidentally use any of the same pad data twice.
 
 See http://en.wikipedia.org/wiki/One-time_pad for more information
 about one-time pads in general.

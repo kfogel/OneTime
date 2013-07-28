@@ -32,7 +32,9 @@
 <li><p>New <tt>--show-id</tt> option displays a pad's ID.</p></li>
 <li><p>Regression <a href="check.sh" >test suite</a> added.</p></li>
 <li><p>There is no more automated version control of pad metadata.
-    This is for many reasons, among them code simplicity and the
+    This is for many
+    <a href="https://github.com/kfogel/OneTime/commit/e343a860123a01c6ddb3f7ce2537325efe17238f
+    " >reasons</a>, among them code simplicity and the
     <a href="https://en.wikipedia.org/wiki/Principle_of_least_astonishment"
     >Principle of Least Astonishment</a>.  You can still keep your
     <tt>~/.onetime/</tt> area under VC manually, of course.</p></li>
@@ -78,6 +80,17 @@ of the system is greatly compromised.  Never encrypt with the same
 stretch of pad twice!  Doing so could reveal some or all of the used
 pad to eavesdroppers.  OneTime's default behavior is to always avoid
 reusing pad data, unless you tell it otherwise.</p>
+
+<p><span style="text-decoration: underline;">Recommended
+practice:</span> if you are Alice communicating with Bob, then keep
+two different pads, <tt>alice_to_bob.pad</tt>
+and <tt>bob_to_alice.pad</tt>, as opposed to sharing the same pad and
+depending on OneTime's bookkeeping to avoid pad range re-use.  With
+two separate pads, even if you each send a message simultaneously to
+the other with no advance planning, you still won't accidentally use
+any of the same pad data twice.</p>
+
+<hr style="text-align: center; margin-top: 2em; margin-bottom: 2em; width: 95%;" />
 
 <p>Here is the output of '<b>onetime&nbsp;--intro</b>':</p>
 

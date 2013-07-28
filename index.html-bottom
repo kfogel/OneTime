@@ -4,11 +4,10 @@
 <p style="text-align: center; font-style: italic; text-decoration: underline;"
   >Why use this?</p>
 
-<p>You might not need it.  One-time pad systems are not convenient,
-because of the difficulty of pad generation and exchange.
-But if you want to use one, you might as well have a reasonably
-user-friendly implementation.  OneTime could be handy in a few rare
-situations:</p>
+<p>You might not need to.  One-time pad systems are inconvenient,
+because of the difficulty of pad generation and exchange, and there
+are plenty of other easier cryptography programs out there.  But
+OneTime could be handy in a few rare situations:</p>
 
 <ul style="padding-left: 3%; list-style-type: circle; ">
 <li><p>You're not completely confident about the provenance of <a href="http://www.gnupg.org/" >GnuPG</a> on your system;</p></li>
