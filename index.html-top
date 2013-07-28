@@ -23,7 +23,7 @@
 <p style="text-align: center; font-style: italic; text-decoration: underline;"
    >Changes in 2.0</p>
 <ul style="padding-left: 3%; list-style-type: circle; ">
-<li><p>New output format, to allow much more efficient pad usage.
+<li><p>New output format, to allow more efficient pad usage.
     OneTime 2.x can still read 1.x output, but 1.x and older versions
     cannot read 2.x output.</p></li>
 <li><p>Pad IDs have changed, because they are calculated differently
