@@ -5,10 +5,11 @@
 <p style="text-align: center; font-style: italic; text-decoration: underline;"
   >What's it look like?</p>
 
-<p>See <a href="example.onetime" >an example.</a></p>
+<p style="text-align: center;"
+  >See <a href="example.onetime" >this example.</a></p>
 
 <p style="text-align: center; font-style: italic; text-decoration: underline;"
-  >Why use this?</p>
+  >Why use OneTime?</p>
 
 <p>You might not need to.  One-time pad systems are inconvenient,
 because of the difficulty of pad generation and exchange, and there
