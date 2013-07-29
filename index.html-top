@@ -84,11 +84,11 @@ reusing pad data, unless you tell it otherwise.</p>
 <p><span style="text-decoration: underline;">Recommended
 practice:</span> if you are Alice communicating with Bob, then keep
 two different pads, <tt>alice_to_bob.pad</tt>
-and <tt>bob_to_alice.pad</tt>, as opposed to sharing the same pad and
-depending on OneTime's bookkeeping to avoid pad range re-use.  With
-two separate pads, even if you each send a message simultaneously to
-the other with no advance planning, you still won't accidentally use
-any of the same pad data twice.</p>
+and <tt>bob_to_alice.pad</tt>, as opposed to sharing the same pad for
+both directions of communication.  With two separate pads, even if you
+each send a message simultaneously to the other with no advance
+planning, you still won't accidentally use any of the same pad data
+twice, assuming you let OneTime do its bookkeeping naturally.</p>
 
 <hr style="text-align: center; margin-top: 2em; margin-bottom: 2em; width: 95%;" />
 
