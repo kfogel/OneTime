@@ -60,10 +60,13 @@ except:
   True = 1
   False = 0
 
-# The current format version.  This is always the major version number
-# of OneTime, with any minor and micro version numbers removed.  In
-# other words, major version bumps always correspond to format
-# changes, and vice versa.
+# The current format version.  
+#
+# The output format is only allowed to change when the major version
+# number of OneTime increments.  A major version increment does not
+# necessarily imply a format change, but in practice we probably
+# wouldn't bump the major version number unless there were a format
+# change, hence below we just compute the latter from the former.
 #
 # Format 1 was the format from the first release of OneTime through
 # the very end of 2011.  It did not include the "Format:" header in
