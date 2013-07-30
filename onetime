@@ -94,7 +94,7 @@ class Pad:
     self.pad_path = pad_path
     self.padfile = open(self.pad_path)
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
-    self._offset = 0  # where to start using pad bytes
+    self._offset = None  # where to start using pad bytes (must inititialize)
     self._length = 0  # number of pad bytes used this time
     self._id = None
     self._v1_id = None
