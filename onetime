@@ -606,7 +606,7 @@ class Configuration:
     If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
     if reconsuming any part of a range that has been consumed previously.
     But if ALLOW_RECONSUMPTION is True, allow ranges to overlap.
-    Typically, it is be False when encoding and True when decoding,
+    Typically, it is False when encoding and True when decoding,
     because it's okay to decode a message multiple times, but not to
     re-use a range for encoding."""
     used = self.pad_records[pad.id()]["used"]
