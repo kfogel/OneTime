@@ -887,8 +887,8 @@ def main():
   #    [...etc, etc...]
   #    -----END OneTime MESSAGE-----
   #
-  # However, the common case is two people sharing a pad to exchange
-  # messages serially, and in that case there is no benefit to using
+  # However, the common case is that someone encrypts successively
+  # from the same pad, and in that case there is no benefit to using
   # this scheme, since they're already using the pad as efficiently as
   # possible.  IMHO, the extra complexity isn't worth the occasional
   # space-savings.  Random numbers aren't dirt cheap, but they're not
