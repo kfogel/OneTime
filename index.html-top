@@ -30,6 +30,7 @@
     now.  The IDs in your <tt>pad-records</tt> file will be upgraded
     automatically; you do not need to do anything.</p></li>
 <li><p>New <tt>--show-id</tt> option displays a pad's ID.</p></li>
+<li><p>New <tt>--pad-help</tt> option tells how to generate pads.</p></li>
 <li><p>Regression <a href="check.sh" >test suite</a> added.</p></li>
 <li><p>There is no more automated version control of pad metadata.
     This is for many
