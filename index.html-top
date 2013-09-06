@@ -68,10 +68,12 @@ upstream release; we'll try to get the distros updated soon.)</p>
 of the pad data: if the pad is not truly random, the security of your
 messages cannot be guaranteed.  So to use OneTime reliably, you need a
 source of good random data to create pad files.  On modern Linux
-systems, the <tt>/dev/random</tt> device is probably good enough (I
-haven't done the math myself, I'm just taking other people's
-<a href="http://en.wikipedia.org/wiki//dev/random#Linux" >word</a> for
-it); elsewhere, you're on your own.</p>
+systems, the <tt>/dev/random</tt> device is probably good enough
+(<a href="#pad-generation" >here's how</a> to do
+it, but note I haven't done the math myself&nbsp;&mdash;&nbsp;I'm just
+taking other people's <a
+href="http://en.wikipedia.org/wiki//dev/random#Linux" >word</a>
+for it).  Elsewhere, you're on your own.</p>
 
 <p>Also, if the same pad data is used to encrypt different plaintext
 messages&nbsp;&mdash;&nbsp;even slightly different ones, such as the

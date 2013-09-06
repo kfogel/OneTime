@@ -35,9 +35,10 @@ dist:
            HEAD
 
 www: dist
-	@./onetime --intro > intro.tmp
-	@./onetime --help  > help.tmp
-	@# Escape and indent the --intro and --help output.
+	@./onetime --intro     > intro.tmp
+	@./onetime --help      > usage.tmp
+	@./onetime --pad-help  > pad-help.tmp
+	@# Escape and indent all the help output.
 	@sed -e 's/\&/\&amp;/g' < intro.tmp > intro.tmp.tmp
 	@mv intro.tmp.tmp intro.tmp
 	@sed -e 's/</\&lt;/g' < intro.tmp > intro.tmp.tmp
@@ -46,19 +47,29 @@ www: dist
 	@mv intro.tmp.tmp intro.tmp
 	@sed -e 's/^\(.*\)/   \1/g' < intro.tmp > intro.tmp.tmp
 	@mv intro.tmp.tmp intro.tmp
-	@sed -e 's/\&/\&amp;/g' < help.tmp > help.tmp.tmp
-	@mv help.tmp.tmp help.tmp
-	@sed -e 's/</\&lt;/g' < help.tmp > help.tmp.tmp
-	@mv help.tmp.tmp help.tmp
-	@sed -e 's/>/\&gt;/g' < help.tmp > help.tmp.tmp
-	@mv help.tmp.tmp help.tmp
-	@sed -e 's/^\(.*\)/   \1/g' < help.tmp > help.tmp.tmp
-	@mv help.tmp.tmp help.tmp
-	@cat index.html-top     \
-             intro.tmp          \
-             index.html-middle  \
-             help.tmp           \
-             index.html-bottom  \
+	@sed -e 's/\&/\&amp;/g' < usage.tmp > usage.tmp.tmp
+	@mv usage.tmp.tmp usage.tmp
+	@sed -e 's/</\&lt;/g' < usage.tmp > usage.tmp.tmp
+	@mv usage.tmp.tmp usage.tmp
+	@sed -e 's/>/\&gt;/g' < usage.tmp > usage.tmp.tmp
+	@mv usage.tmp.tmp usage.tmp
+	@sed -e 's/^\(.*\)/   \1/g' < usage.tmp > usage.tmp.tmp
+	@mv usage.tmp.tmp usage.tmp
+	@sed -e 's/\&/\&amp;/g' < pad-help.tmp > pad-help.tmp.tmp
+	@mv pad-help.tmp.tmp pad-help.tmp
+	@sed -e 's/</\&lt;/g' < pad-help.tmp > pad-help.tmp.tmp
+	@mv pad-help.tmp.tmp pad-help.tmp
+	@sed -e 's/>/\&gt;/g' < pad-help.tmp > pad-help.tmp.tmp
+	@mv pad-help.tmp.tmp pad-help.tmp
+	@sed -e 's/^\(.*\)/   \1/g' < pad-help.tmp > pad-help.tmp.tmp
+	@mv pad-help.tmp.tmp pad-help.tmp
+	@cat index.html-top            \
+             intro.tmp                 \
+             index.html-middle-top     \
+             usage.tmp                 \
+             index.html-middle-bottom  \
+             pad-help.tmp              \
+             index.html-bottom         \
            > index.html
 	@# Substitute in the latest version number.
 	@./onetime --version | cut -f 3 -d " " > version.tmp
@@ -92,7 +103,7 @@ www: dist
 	@sed -e 's| LICENSE | <a href="LICENSE">LICENSE</a> |g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
-	@rm intro.tmp help.tmp version.tmp
+	@rm intro.tmp usage.tmp pad-help.tmp version.tmp
 
 debian: deb
 deb: dist
