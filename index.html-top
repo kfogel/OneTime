@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>OneTime: An Encoder/Decoder Using The "One-Time Pad" Method</title>
+<title>OneTime: An Encryption Program Using The "One-Time Pad" Method</title>
 <style type="text/css">
   body { background: white; margin-left: 5%; margin-right: 5%; }
   h1, h2, h3 { text-align: center; }
@@ -12,7 +12,7 @@
 <div id="content">
 
 <div style="background: lightblue; font-style: italic;">
-   <h2>OneTime: An Encoder/Decoder Using The "One-Time Pad" Method</h2>
+   <h2>OneTime: An Encryption Program Using The "One-Time Pad" Method</h2>
 </div>
 
 <h3><a href="get.html" >Download OneTime version ONETIMEVERSION</a></h3>
