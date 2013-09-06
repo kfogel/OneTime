@@ -691,6 +691,25 @@ All options:
    --license               Show full open source license information
    -? | -h | --help        Show usage
 
+## Generating a One-Time Pad
+
+These commands will create a pad on computers that have a local source
+of random bytes at /dev/random and the ability to copy those bytes
+with the `dd` command.  Most GNU/Linux computers can do this.
+
+     mkdir -p ~/.onetime
+     dd if=/dev/random of=~/.onetime/to_foo.pad bs=1024 count=10
+
+That command will place a 10 megabyte pad in ~/.onetime/to_foo.pad.
+That pad will be good for encrypting 10 megabytes of data before it
+should be retired.  If you anticipate sending more than 10 megabytes
+of data with this pad, you will want to replace 10 with a higher
+count.  On some computers, large pads will take a long time to
+generate.  Just let dd work while you do other things.
+
+To encrypt a file named WALLET.DAT with that pad:
+
+     onetime -e -p ~/.onetime/to_foo.pad WALLET.DAT
 """ % __version__
   outfile.write(usage_str)
 
