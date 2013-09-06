@@ -655,6 +655,36 @@ THE SOFTWARE.
   outfile.write(license_str)
 
 
+def pad_generation_help(outfile=sys.stdout):
+  """Print information on how to generate a pad."""
+  help_str = """\
+How to Generate a One-Time Pad
+==============================
+
+These commands will create a pad on computers that have a local source
+of random bytes at /dev/random and the ability to copy those bytes
+with the `dd` command.  Most GNU/Linux computers can do this.
+
+  $ mkdir -p ~/.onetime
+  $ dd if=/dev/random of=~/.onetime/to_foo.pad bs=1000000 count=10
+
+That command will place a 10 megabyte pad in ~/.onetime/to_foo.pad
+(1000000 bytes is one megabyte).  That pad will be good for encrypting
+10 megabytes of data before it should be retired.  If you anticipate
+sending more than 10 megabytes of data with the same pad, you will
+want to replace 10 with a higher count.  On some computers, large pads
+may take a long time to generate.  Just let dd work while you do other
+things.
+
+To encrypt a file named WALLET.DAT with that pad:
+
+  $ onetime -e -p ~/.onetime/to_foo.pad WALLET.DAT
+
+(produces WALLET.DAT.onetime).
+"""
+  outfile.write(help_str)
+  
+
 def usage(outfile=sys.stdout):
   """Print usage information to OUTFILE."""
   usage_str = """\
@@ -689,27 +719,8 @@ All options:
    --intro                 Show an introduction to OneTime and one-time pads
    -v | -V | --version     Show version information
    --license               Show full open source license information
+   --pad-help              Show help on how to generate one-time pads
    -? | -h | --help        Show usage
-
-## Generating a One-Time Pad
-
-These commands will create a pad on computers that have a local source
-of random bytes at /dev/random and the ability to copy those bytes
-with the `dd` command.  Most GNU/Linux computers can do this.
-
-     mkdir -p ~/.onetime
-     dd if=/dev/random of=~/.onetime/to_foo.pad bs=1024 count=10
-
-That command will place a 10 megabyte pad in ~/.onetime/to_foo.pad.
-That pad will be good for encrypting 10 megabytes of data before it
-should be retired.  If you anticipate sending more than 10 megabytes
-of data with this pad, you will want to replace 10 with a higher
-count.  On some computers, large pads will take a long time to
-generate.  Just let dd work while you do other things.
-
-To encrypt a file named WALLET.DAT with that pad:
-
-     onetime -e -p ~/.onetime/to_foo.pad WALLET.DAT
 """ % __version__
   outfile.write(usage_str)
 
@@ -739,7 +750,8 @@ def main():
                                  "show-id",
                                  "no-trace",
                                  "debug",
-                                 "intro", "help", "version", "license"])
+                                 "intro", "help", "pad-help",
+                                 "version", "license"])
   except getopt.GetoptError:
     sys.stderr.write("Error: problem processing options\n")
     usage(sys.stderr)
@@ -748,6 +760,9 @@ def main():
   for opt, value in opts:
     if opt == '--help' or opt == '-h' or opt == '-?':
       usage()
+      sys.exit(0)
+    if opt == '--pad-help':
+      pad_generation_help()
       sys.exit(0)
     if opt == '--intro':
       print __doc__,
