@@ -98,6 +98,30 @@ fi
 check_result
 
 ########################################################################
+start_new_test "(XFAIL) encryption, decryption of large plaintext"
+# Assemble a pad and plaintext so large that not only are they many
+# times larger than our 8k chunk size, but they're larger than the
+# Python bzip2 compressor's maximum possible buffer.  Experiments
+# indicate that range(0, 2) would be enough here, but let's use 10.
+for ignored in `python -c "for i in range(0, 10): print i"`; do
+  cat ../test-pad-1 >> large-pad
+  cat ../test-pad-2 >> large-plaintext
+done
+
+../../onetime --config=blank-dot-onetime -e -p large-pad \
+         -o tmp-large-ciphertext large-plaintext
+../../onetime --config=blank-dot-onetime -d -p large-pad \
+         -o tmp-large-plaintext tmp-large-ciphertext
+
+if ! cmp tmp-large-plaintext large-plaintext
+then
+  echo "ERROR: decrypted large plaintext does not match original plaintext"
+  PASSED="no"
+fi
+
+check_result
+
+########################################################################
 start_new_test "option parsing"
 
 ###

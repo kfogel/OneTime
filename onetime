@@ -81,7 +81,13 @@ Format = int(__version__.split(".")[0])
 
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
-  Feed bytes through convert() to XOR them against the pad."""
+Feed bytes through convert() to XOR them against the pad.
+
+A Pad is used for a single encryption or decryption session; it should
+not be used for subsequent sessions -- instead, a new Pad object
+should be generated (it might refer to the same underlying pad file,
+but it still needs to be a new object due to certain initializations).
+  """
 
   # Length of the front stretch of pad used for the ID, which is a
   # SHA1 of these bytes, which are then never used for encryption.
@@ -100,6 +106,10 @@ class Pad:
     self._id = None
     self._v1_id = None
     
+  class PadUninitialized(Exception):
+    """Exception raised if Pad hasn't been initialized yet."""
+    pass
+
   class PadShort(Exception):
     """Exception raised if Pad doesn't have enough data for this encryption."""
     pass
@@ -120,6 +130,8 @@ class Pad:
 else return the empty string.  Note STRING may be empty on intermediate
 calls simply because a compressor has not yet had enough incoming data to
 work with, not necessarily because input is ended yet."""
+    if self._offset is None:
+      raise Pad.PadUninitialized("pad not yet initialized (no offset)")
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
@@ -175,12 +187,25 @@ work with, not necessarily because input is ended yet."""
     return self.pad_path
 
   def offset(self):
-    """Return offset from which encoding/decoding started."""
+    """Return offset from which encoding/decoding starts."""
     return self._offset
 
   def length(self):
     """Return the number of pad bytes used so far."""
     return self._length
+
+  def read(self, length):
+    """Return LENGTH bytes (octets) of pad from current pad position.
+    Don't use this for encryption or decryption; see self.convert()
+    instead.  This is for reading pad data that won't be used directly
+    for encryption or decryption."""
+    if self._offset is None:
+      raise Pad.PadUninitialized("pad not yet initialized (no offset)")
+    ret = self.padfile.read(length)
+    if len(ret) < length:
+      raise Pad.PadShort("not enough pad data available to supply request")
+    self._length += length
+    return ret
 
   def __str__(self):
     """Return a string representation of this pad."""
@@ -198,6 +223,8 @@ class PadEncoder:
     """Initialize an encoder for PAD with Configuration CONFIG."""
     self.pad = pad
     self.config = config
+    # Set to True only after encode() is called the first time.
+    self.used = False
     # We use bz2 compression unconditionally.  If we offered a choice,
     # we'd have to name that choice somewhere for use in decryption.
     # But if we were to list the choice in the open headers, then we
@@ -275,8 +302,12 @@ class PadEncoder:
     #   crime-how-to-beat-the-beast-successor/19914#19914
     #
     # One-time pads don't have that problem, for obvious reasons.
-    out = self._output(self.pad.convert(self.compressor.compress(string)))
-    self.config.record_consumed(self.pad, False)
+    out = ''
+    compressed_plaintext = self.compressor.compress(string)
+    if len(compressed_plaintext) > 0:
+      out = self._output(self.pad.convert(compressed_plaintext))
+      self.config.record_consumed(self.pad, False)
+    self.used = True
     return out
 
   def finish(self):
