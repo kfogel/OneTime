@@ -929,7 +929,7 @@ def main():
     output.write(onetime_header)
     encoder = PadEncoder(pad, config)
     while 1:
-      string = incoming.read()
+      string = incoming.read(8192)
       if len(string) > 0:
         result = encoder.encode(string)
         if result:
