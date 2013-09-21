@@ -96,6 +96,9 @@ echo '   that also includes a brief description of the test.  If the'
 echo '   test is currently expected to fail, for example a known bug'
 echo '   not yet fixed, that description will start with "(XFAIL)".'
 echo ''
+echo "   Note that some tests may take a while.  Don't be alarmed"
+echo "   if a minute or two goes by without output."
+echo ''
 
 ########################################################################
 start_new_test "basic encryption, decryption"
