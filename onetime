@@ -224,7 +224,7 @@ class PadEncoder:
     self.pad = pad
     self.config = config
     # Set to True only after encode() is called the first time.
-    self.used = False
+    self._used = False
     # We use bz2 compression unconditionally.  If we offered a choice,
     # we'd have to name that choice somewhere for use in decryption.
     # But if we were to list the choice in the open headers, then we
@@ -303,10 +303,13 @@ class PadEncoder:
     #
     # One-time pads don't have that problem, for obvious reasons.
     out = ''
+    if not self._used:
+      # Grab padding bytes.
+      noise_source = self.pad.read(4)
     compressed_plaintext = self.compressor.compress(string)
     if len(compressed_plaintext) > 0:
       out = self._output(self.pad.convert(compressed_plaintext))
-    self.used = True
+    self._used = True
     return out
 
   def finish(self):
@@ -329,6 +332,8 @@ class PadDecoder:
     data, i.e., the value given in the crypttext's 'Format: ' header."""
     self.pad = pad
     self.config = config
+    # Set to True only after decode() is called the first time.
+    self._used = False
     self.unused_data = ""
     self.input_format = input_format
     self.decompressor = bz2.BZ2Decompressor()
@@ -354,9 +359,13 @@ class PadDecoder:
       ret = self.pad.convert((self.decompressor.decompress(
         base64.b64decode(string))))
     else: # must be format 2
+      if not self._used:
+        # Grab padding bytes.
+        noise_source = self.pad.read(4)
       ret = self.decompressor.decompress(self.pad.convert(
         base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
+    self._used = True
     return ret
 
   def finalize(self):

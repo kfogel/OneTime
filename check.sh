@@ -765,7 +765,7 @@ fi
 # Expect the new length on the 7th line, in second range of first entry.
 if ! grep -q "<length>12049</length></used>" v1-dot-onetime/pad-records
 then
-  echo "ERROR: encoding failed to insert new length into pad-records"
+  echo "ERROR: encoding failed to insert expected new length into pad-records"
   PASSED="no"
 elif [ `grep -n "<length>12049</length></used>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 7 ]
