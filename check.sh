@@ -83,6 +83,21 @@ reset_config()
 }
 
 ########################################################################
+###               Explain the test suite's output.                   ###
+########################################################################
+
+echo ''
+echo '   Each passing test is indicated by exactly one "PASS" line'
+echo '   that includes a brief description of the test.'
+echo ''
+echo '   Failing tests will show error details first -- which may span'
+echo '   multiple lines and be very noisy -- followed by a "FAIL" line'
+echo '   that also includes a brief description of the test.  If the'
+echo '   test is currently expected to fail, for example a known bug'
+echo '   not yet fixed, that description will start with "(XFAIL)".'
+echo ''
+
+########################################################################
 start_new_test "basic encryption, decryption"
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1 \
          -o tmp-ciphertext-b-1 ../test-plaintext-b
@@ -98,12 +113,12 @@ fi
 check_result
 
 ########################################################################
-start_new_test "(XFAIL) encryption, decryption of large plaintext"
+start_new_test "encryption, decryption of large plaintext"
 # Assemble a pad and plaintext so large that not only are they many
 # times larger than our 8k chunk size, but they're larger than the
 # Python bzip2 compressor's maximum possible buffer.  Experiments
-# indicate that range(0, 2) would be enough here, but let's use 10.
-for ignored in `python -c "for i in range(0, 10): print i"`; do
+# indicate that range(0, 2) would be enough here, but let's use 5.
+for ignored in `python -c "for i in range(0, 5): print i"`; do
   cat ../test-pad-1 >> large-pad
   cat ../test-pad-2 >> large-plaintext
 done

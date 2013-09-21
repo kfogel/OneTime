@@ -306,7 +306,6 @@ class PadEncoder:
     compressed_plaintext = self.compressor.compress(string)
     if len(compressed_plaintext) > 0:
       out = self._output(self.pad.convert(compressed_plaintext))
-      self.config.record_consumed(self.pad, False)
     self.used = True
     return out
 
