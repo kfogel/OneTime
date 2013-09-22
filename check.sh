@@ -67,6 +67,10 @@ check_result()
     echo "PASS: ${THIS_TEST}"
   else
     echo "FAIL: ${THIS_TEST}"
+    # Print an extra blank line separating this "FAIL" line from the
+    # tests that come after it, so any already-printed errors related
+    # to this failure are visually grouped together with it.
+    echo ""
   fi
 }
 
@@ -109,6 +113,7 @@ start_new_test "basic encryption, decryption"
 
 if ! cmp tmp-plaintext-b ../test-plaintext-b
 then
+  echo ""
   echo "ERROR: decrypted plaintext does not match original plaintext"
   PASSED="no"
 fi
@@ -133,6 +138,7 @@ done
 
 if ! cmp tmp-large-plaintext large-plaintext
 then
+  echo ""
   echo "ERROR: decrypted large plaintext does not match original plaintext"
   PASSED="no"
 fi
@@ -173,6 +179,7 @@ for n in 1 2 3 4 5; do
   if cmp ../test-plaintext-a d.${n}; then
     true
   else
+    echo ""
     echo "ERROR: one or more of the usage modes failed"
     PASSED="no"
   fi
@@ -188,12 +195,14 @@ start_new_test "failed decryption should give an error and create no output"
          -o tmp-plaintext-b-1 tmp-ciphertext-b-1 2>err.out
 if ! grep -q "DecodingError: unable to decode (wrong pad?)" err.out
 then
+  echo ""
   echo "ERROR: did not see expected error on failed decryption"
   PASSED="no"
 fi
 
 if [ -f tmp-plaintext-b-1 ]
 then
+  echo ""
   echo "ERROR: output file left still created on failed decryption"
   PASSED="no"
 fi
@@ -219,6 +228,7 @@ start_new_test "decryption should not shrink pad usage"
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-1.onetime ../test-plaintext-b
 if ! grep -q "<length>12154</length>" dot-onetime/pad-records; then
+  echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 1."
   cat dot-onetime/pad-records
   PASSED="no"
@@ -227,6 +237,7 @@ fi
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-2.onetime ../test-plaintext-b
 if ! grep -q "<length>24203</length>" dot-onetime/pad-records; then
+  echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 2."
   cat dot-onetime/pad-records
   PASSED="no"
@@ -235,6 +246,7 @@ fi
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-3.onetime ../test-plaintext-b
 if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
+  echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 3."
   cat dot-onetime/pad-records
   PASSED="no"
@@ -245,14 +257,17 @@ fi
 if ! grep -q "<length>36252</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
   if grep -q "<length>12154</length>" dot-onetime/pad-records; then
+    echo ""
     echo "ERROR: 'Decryption wrongly shrinks pad usage' bug is back."
   else
+    echo ""
     echo "ERROR: Usage length wrong after decryption 1, but don't know why."
   fi
   PASSED="no"
 fi
 
 if ! cmp tmp-plaintext-b-1 ../test-plaintext-b; then
+  echo ""
   echo "ERROR: Decryption failed to produce correct plaintext."
   PASSED="no"
 fi
@@ -283,6 +298,7 @@ maybe_show_lengths "After encoding:"
          < tmp-ciphertext-a.onetime > tmp-plaintext-a.decoded-1
 maybe_show_lengths "After decoding once:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-1; then
+  echo ""
   echo "ERROR: tmp-plaintext-a.decoded-1 does not match test-plaintext-a input."
   PASSED="no"
 fi
@@ -290,6 +306,7 @@ fi
          < tmp-ciphertext-a.onetime > tmp-plaintext-a.decoded-2
 maybe_show_lengths "After decoding again:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-2; then
+  echo ""
   echo "ERROR: tmp-plaintext-a.decoded-2 does not match test-plaintext-a input."
   PASSED="no"
 fi
@@ -302,6 +319,7 @@ maybe_show_lengths "After encoding again:"
          < tmp-ciphertext-a.onetime > tmp-plaintext-a.decoded-3
 maybe_show_lengths "After decoding:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-3; then
+  echo ""
   echo "ERROR: tmp-plaintext-a.decoded-3 does not match test-plaintext-a input."
   PASSED="no"
 fi
@@ -316,6 +334,7 @@ maybe_show_lengths "After encoding:"
          < tmp-ciphertext-a.onetime > tmp-plaintext-a.decoded-1
 maybe_show_lengths "After decoding once:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-1; then
+  echo ""
   echo "ERROR: tmp-plaintext-a.decoded-1 (pad test-pad-2) does not match test-plaintext-a input."
   PASSED="no"
 fi
@@ -323,6 +342,7 @@ fi
          < tmp-ciphertext-a.onetime > tmp-plaintext-a.decoded-2
 maybe_show_lengths "After decoding again:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-2; then
+  echo ""
   echo "ERROR: tmp-plaintext-a.decoded-2 (pad test-pad-2) does not match test-plaintext-a input."
   PASSED="no"
 fi
@@ -335,6 +355,7 @@ maybe_show_lengths "After encoding again:"
          < tmp-ciphertext-a.onetime > tmp-plaintext-a.decoded-3
 maybe_show_lengths "After decoding:"
 if ! cmp ../test-plaintext-a tmp-plaintext-a.decoded-3; then
+  echo ""
   echo "ERROR: tmp-plaintext-a.decoded-3 (pad test-pad-2) does not match test-plaintext-a input."
   PASSED="no"
 fi
@@ -349,12 +370,14 @@ start_new_test "make sure '--show-id' shows everything it should"
 if ! ../../onetime --config=blank-dot-onetime --show-id -p ../test-pad-1 \
              | grep -q ${TEST_PAD_1_ID}
 then
+  echo ""
   echo "ERROR: --show-id -p test-pad-1 failed to display ID"
   PASSED="no"
 fi
 if ! ../../onetime --config=blank-dot-onetime --show-id -p ../test-pad-1 \
              | grep -q "  ${TEST_PAD_1_V1_ID}"
 then
+  echo ""
   echo "ERROR: --show-id -p test-pad-1 failed to display v2 ID"
   PASSED="no"
 fi
@@ -373,6 +396,7 @@ BYTES_NOW=`wc -c test-ciphertext-b-1 | cut -d " " -f1`
 BYTES_V1=`wc -c ../test-v1-ciphertext-b-1 | cut -d " " -f1`
 if [ ${BYTES_NOW} -ge ${BYTES_V1} ]
 then
+   echo ""
    echo "ERROR: new crypttext is bigger than v1 encryption of same plaintext"
    PASSED="no"
 fi
@@ -389,6 +413,7 @@ start_new_test "decode v1 msg, where v1 entry has range already used"
 ../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
          < ../test-v1-ciphertext-offset-0-a-1 > tmp-plaintext-a
 if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo ""
   echo "ERROR: tmp-plaintext-a does not match original plaintext."
   PASSED="no"
 fi
@@ -396,30 +421,35 @@ rm tmp-plaintext-a
 
 if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input failed to upgrade pad ID in pad-records"
   PASSED="no"
 fi
 
 if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input failed to remove v1 pad ID from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input removed 0 offset from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<length>15</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input affected length 15 in pad-records"
   PASSED="no"
 fi
 
 if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 1 ]
 then
+  echo ""
   echo "ERROR: decoding v1 input inserted spurious length into pad-records"
   PASSED="no"
 fi
@@ -435,6 +465,7 @@ start_new_test "decode v1 msg, where v1 entry has range not already used"
 ../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
          < ../test-v1-ciphertext-offset-15-a-1 > tmp-plaintext-a
 if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo ""
   echo "ERROR: tmp-plaintext-a does not match original plaintext."
   PASSED="no"
 fi
@@ -442,36 +473,42 @@ rm tmp-plaintext-a
 
 if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input failed to upgrade pad ID in pad-records"
   PASSED="no"
 fi
 
 if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input failed to remove v1 pad ID from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input removed 0 offset from pad-records"
   PASSED="no"
 fi
 
 if grep -q "<length>15</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input left length 15 still in pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<length>30</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input failed to put length 30 in pad-records"
   PASSED="no"
 fi
 
 if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 1 ]
 then
+  echo ""
   echo "ERROR: decoding v1 input inserted spurious length into pad-records"
   PASSED="no"
 fi
@@ -503,6 +540,7 @@ mv v1-dot-onetime/TMP-pad-records v1-dot-onetime/pad-records
 ../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
          < tmp-ciphertext-a-1 > tmp-plaintext-a
 if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo ""
   echo "ERROR: tmp-plaintext-a does not match original plaintext."
   PASSED="no"
 fi
@@ -511,30 +549,35 @@ rm tmp-ciphertext-a-1
 
 if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to upgrade pad ID in pad-records"
   PASSED="no"
 fi
 
 if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to remove v1 pad ID from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input removed 0 offset from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<length>512</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input affected length 512 in pad-records"
   PASSED="no"
 fi
 
 if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 1 ]
 then
+  echo ""
   echo "ERROR: decoding v2 input inserted spurious length into pad-records"
   PASSED="no"
 fi
@@ -566,6 +609,7 @@ mv v1-dot-onetime/TMP-pad-records v1-dot-onetime/pad-records
 ../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
          < tmp-ciphertext-a-1 > tmp-plaintext-a
 if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo ""
   echo "ERROR: tmp-plaintext-a does not match original plaintext."
   PASSED="no"
 fi
@@ -574,30 +618,35 @@ rm tmp-ciphertext-a-1
 
 if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to upgrade pad ID in pad-records"
   PASSED="no"
 fi
 
 if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to remove v1 pad ID from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input removed 0 offset from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<length>85</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to use length 85 in pad-records"
   PASSED="no"
 fi
 
 if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 1 ]
 then
+  echo ""
   echo "ERROR: decoding v2 input inserted spurious length into pad-records"
   PASSED="no"
 fi
@@ -621,6 +670,7 @@ start_new_test "decode v2 msg, where v1 entry needs new range"
 ../../onetime --config=v1-dot-onetime -d -p ../test-pad-1  \
          < tmp-ciphertext-a-1 > tmp-plaintext-a
 if ! cmp ../test-plaintext-a tmp-plaintext-a; then
+  echo ""
   echo "ERROR: tmp-plaintext-a does not match original plaintext."
   PASSED="no"
 fi
@@ -629,42 +679,49 @@ rm tmp-ciphertext-a-1
 
 if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to upgrade pad ID in pad-records"
   PASSED="no"
 fi
 
 if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to remove v1 pad ID from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input removed 0 offset from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<length>15</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input removed length 15 from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<used><offset>32</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to add offset 32 to pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<length>53</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v2 input failed to add length 53 to pad-records"
   PASSED="no"
 fi
 
 if [ `grep -c "</length></used>" v1-dot-onetime/pad-records` -gt 2 ]
 then
+  echo ""
   echo "ERROR: decoding v2 input inserted spurious length into pad-records"
   PASSED="no"
 fi
@@ -680,6 +737,7 @@ start_new_test "decode v1 msg, where no entry in pad-records at all"
 ../../onetime --config=v1-dot-onetime -d -p ../test-pad-2  \
          < ../test-v1-ciphertext-b-2 > tmp-plaintext-b
 if ! cmp ../test-plaintext-b tmp-plaintext-b; then
+  echo ""
   echo "ERROR: tmp-plaintext-b does not match original plaintext."
   PASSED="no"
 fi
@@ -687,18 +745,21 @@ rm tmp-plaintext-b
 
 if ! grep -q "<id>${TEST_PAD_2_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input failed to insert pad ID into pad-records"
   PASSED="no"
 fi
 
 if grep -q "<id>${TEST_PAD_2_V1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input somehow inserted v1 pad ID into pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input removed 0 offset from pad-records"
   PASSED="no"
 fi
@@ -708,11 +769,13 @@ fi
 # nothing and the conditional gets harder to write.
 if ! grep -q "<length>45541</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: decoding v1 input failed to insert new record into pad-records"
   PASSED="no"
 elif [ `grep -n "<length>45541</length></used>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 10 ]
 then
+  echo ""
   echo "ERROR: decoding v1 input mis-inserted new record into pad-records"
   PASSED="no"
 fi
@@ -732,18 +795,21 @@ rm tmp-ciphertext-b-1
 
 if ! grep -q "<id>${TEST_PAD_1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: encoding failed to upgrade v1 pad ID in pad-records"
   PASSED="no"
 fi
 
 if grep -q "<id>${TEST_PAD_1_V1_ID}</id>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: encoding failed to remove v1 pad ID from pad-records"
   PASSED="no"
 fi
 
 if ! grep -q "<used><offset>0</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: encoding removed 0 offset from v1 entry in pad-records"
   PASSED="no"
 fi
@@ -753,11 +819,13 @@ fi
 # nothing and the conditional gets harder to write.
 if ! grep -q "<used><offset>32</offset>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: encoding failed to insert new offset into pad-records"
   PASSED="no"
 elif [ `grep -n "<used><offset>32</offset>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 6 ]
 then
+  echo ""
   echo "ERROR: encoding mis-inserted new offset into pad-records"
   PASSED="no"
 fi
@@ -765,11 +833,13 @@ fi
 # Expect the new length on the 7th line, in second range of first entry.
 if ! grep -q "<length>12049</length></used>" v1-dot-onetime/pad-records
 then
+  echo ""
   echo "ERROR: encoding failed to insert expected new length into pad-records"
   PASSED="no"
 elif [ `grep -n "<length>12049</length></used>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 7 ]
 then
+  echo ""
   echo "ERROR: encoding failed to insert correct new length into pad-records"
   PASSED="no"
 fi
@@ -787,6 +857,7 @@ sed -e 's/-----END OneTime MESSAGE-----/	\n-----END OneTime MESSAGE-----/' \
          -o tmp-plaintext-b-1 tmp-ciphertext-b-1.damaged 2>err.out
 if ! grep -q "DecodingError: unexpected input" err.out
 then
+  echo ""
   echo "ERROR: decoder failed to detect trailing garbage in input stream"
   PASSED="no"
 fi
