@@ -218,9 +218,10 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     # before any of the pad has been used for encoding or decoding.
     #
     # We then portably convert that sequence of bytes to a number
-    # modulo 256.  The resulting number is the number of bytes forward
-    # to skip in the pad before starting to consume pad data for use
-    # in actual conversion, that is, in encoding or decoding.
+    # modulo 256 (see a bit further down below for why we read 4 bytes
+    # when 1 would do).  The resulting number is the number of bytes
+    # forward to skip in the pad before starting to consume pad data
+    # for use in actual conversion, that is, in encoding or decoding.
     #
     # Even in a known-plaintext case, an attacker does not know the
     # pad, so skipping a random distance based on pad data ensures the
@@ -236,20 +237,28 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     # something, but given the rate at which I at least can generate
     # new pad data, those feel too costly.  256 feels like the right
     # point in the tradeoff slider -- but if anyone has data to
-    # support a different number, send it.  (There's no particular
-    # reason it has to be a power of two; I just try to be classy.)
+    # support a different number, please speak up.
     #
-    # Still, if you send the same message to, say, 256 people who are
-    # all using the same pad, and that exact plaintext is known to the
-    # attacker, and the attacker has active intercept capability with
-    # the recipients, then for some small number of those recipients,
-    # the attacker could substitute some other forged message in place
-    # of your original plaintext.  But the attacker still wouldn't
-    # know which subsitutions were successful, and the rest of the
-    # recipients would receive an obviously garbage message.  Given
-    # the number of prerequisites there, and the unavoidable & easily
-    # detectable failure mode for the attacker, this does not seem
-    # like a serious weakness to me, but comments welcome of course.
+    # We read 4 bytes for the source len, even though 1 byte would be
+    # enough for a range of 0-255, because that way most of this code
+    # can stay the same if we later decide to expand the range; I'm
+    # not worried about the three extra bytes.  (There's no particular
+    # reason the modulus has to be a power of two, either.)
+    #
+    # These precautions greatly reduce the effectiveness of the
+    # known-plaintext message authentication attack.  Still, even now
+    # if you were to send the same message to, say, 256 people who are
+    # all using the same pad, and that exact plaintext were known to
+    # the attacker, and the attacker were to have active intercept
+    # capability with the recipients, then for some small number of
+    # those recipients, the attacker could substitute some other
+    # forged message in place of your original plaintext.  But the
+    # attacker wouldn't know which subsitutions were successful, and
+    # the rest of the recipients would receive an obviously garbage
+    # message.  Given the number of prerequisites there, and the
+    # unavoidable & easily detectable failure mode for the attacker,
+    # this does not seem like a serious weakness to me, but comments
+    # always welcome of course.
     #
     # Remember that the 256 should not be thought of as a key length.
     # The number of possibilities here is 1-in-256, not 1-in-(2^256).
@@ -312,62 +321,6 @@ class PadEncoder:
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
-    # Some thoughts on whether to inject random data into the ciphertext:
-    #
-    # In theory, on the first call to encode() we could inject a
-    # random-length prefix of random data.  The length would
-    # be taken from the pad itself; e.g., consume some bytes of pad
-    # and portably convert them to an integer mod N where N is the
-    # maximum length we want.  The data actually injected could then
-    # be pseudo-random, or could itself be taken from subsequent pad
-    # bytes; if pseudo-random, we'd still want to encrypt it, to avoid
-    # revealing anything about the system on which encryption took place.
-    #
-    # One purpose of this random-length prefix would be to make it
-    # unpredictable where the bz2 headers start (they are essentially
-    # a known plaintext, though a very short one).  That way even if
-    # the pad were a little bit less than random, we'd still have
-    # removed even that tiny hint of a known-plaintext attack.  The
-    # decoder would have to read the length (presumably stored in the
-    # first few bytes of the prefix) and skip past the rest of the
-    # random prefix to get to the start of the real ciphertext.
-    #
-    # The other reason is subtler (and to give credit where credit is
-    # due: it was pointed out by Steve Weis and Andy Isaacson on the
-    # LiberationTech mailing list).  If an attacker knows the exact
-    # plaintext, then they could deduce that portion of the pad from
-    # it, and furthermore there is a message authentication problem:
-    # if the attacker can intercept and substitute messages on the way
-    # the recipient, then the attacker could replace a message with
-    # some other message (again, only if the attacker knew the *exact*
-    # plaintext of the original message).  While this may be a
-    # somewhat low-probability problem in most circumstances, it can
-    # be solved entirely by OneTime, and should be.  Sadly, it will
-    # involve a format change, but we're in 2.0-beta, emphasis on the
-    # "beta", after all.
-    #
-    # Another argument in favor of injecting some random noise into
-    # every message is that it obscures the precise length of the
-    # plaintext.  Clearly we can't hide the general length -- to do so
-    # would require gobbling up a lot of pad, and we should treat pad
-    # as pretty valuable: it's not just that is random data itself
-    # isn't entirely cheap, it's that the value of pads comes partly
-    # from the difficulty involved in conveying them to one's
-    # interlocutors.  We don't want to use up pad unnecessarily,
-    # because we don't know how hard it will be for the user(s) to
-    # exchange new pad data.
-    #
-    # In the meantime, users who are concerned about this can add
-    # their own noise to the plaintext anyway, of course.
-    #
-    # Regarding the bzip2 headers thing: known plaintext or not,
-    # they should not be vulnerable to the kind of compression
-    # attack for example described here:
-    #
-    #   http://security.stackexchange.com/questions/19911/\
-    #   crime-how-to-beat-the-beast-successor/19914#19914
-    #
-    # One-time pads don't have that problem, for obvious reasons.
     out = ''
     compressed_plaintext = self.compressor.compress(string)
     if len(compressed_plaintext) > 0:
