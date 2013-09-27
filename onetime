@@ -99,7 +99,7 @@ but it still needs to be a new object due to certain initializations).
     """Initialize a new pad, using padfile PAD_PATH.  The pad cannot be
   used for encoding or decoding until set_offset() is called."""
     self.pad_path = pad_path
-    self.padfile = open(self.pad_path)
+    self.padfile = open(self.pad_path, "rb")
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._offset = None  # where to start using pad bytes (must initialize)
     self._length = 0  # number of pad bytes used this time
@@ -642,6 +642,7 @@ class Configuration:
     if self.config_area == '-':
       return
     tempfile = self.pad_records_file + ".tmp"
+    # Deliberately not setting binary mode here; this is a text file.
     fp = open(tempfile, 'w')
     fp.write("<onetime-pad-records>\n")
     for pad_id in self.pad_records.keys():
@@ -870,7 +871,7 @@ def main():
         output = sys.stdout
       else:
         output_name = value
-        output = open(output_name, "w")
+        output = open(output_name, "wb")
     elif opt == '--offset':
       offset = int(value)
     elif opt == '--config' or opt == '-C':
@@ -907,7 +908,7 @@ def main():
       # If incoming is stdin, output defaults to stdout.
       output = sys.stdout
   elif len(args) == 1:
-    incoming = open(args[0])
+    incoming = open(args[0], "rb")
     if output is None:
       if encrypting:
         # If plaintext input is 'FILENAME', output defaults to
@@ -925,7 +926,7 @@ def main():
           sys.stderr.write(
             "Error: input filename does not end with '.onetime' or '.otp'.\n")
           error_exit = True
-      output = open(output_name, "w")
+      output = open(output_name, "wb")
 
   elif len(args) > 1:
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
