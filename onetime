@@ -105,6 +105,7 @@ but it still needs to be a new object due to certain initializations).
     self._length = 0  # number of pad bytes used this time
     self._id = None
     self._v1_id = None
+    self._begun = False  # set to True on first call to self.convert()
     
   class PadUninitialized(Exception):
     """Exception raised if Pad hasn't been initialized yet."""
@@ -125,13 +126,18 @@ but it still needs to be a new object due to certain initializations).
     self._offset = offset
     self.padfile.seek(self._offset)
 
-  def convert(self, string):
+  def convert(self, string, format_version=2):
     """If STRING is not empty or None, return it as XORed against the pad;
 else return the empty string.  Note STRING may be empty on intermediate
 calls simply because a compressor has not yet had enough incoming data to
-work with, not necessarily because input is ended yet."""
+work with, not necessarily because input is ended yet.
+
+If FORMAT_VERSION is 1, then don't perform the random distance skip
+(the "fuzz") that is part of the encryption process for format 2."""
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
+    if format_version == 2 and not self._begun:
+      self._make_fuzz()
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
@@ -140,6 +146,7 @@ work with, not necessarily because input is ended yet."""
     for i in range(string_len):
       result = result + chr(ord(string[i]) ^ ord(pad_str[i]))
     self._length += string_len
+    self._begun = True
     return result
 
   def _get_id(self):
@@ -194,18 +201,79 @@ work with, not necessarily because input is ended yet."""
     """Return the number of pad bytes used so far."""
     return self._length
 
-  def read(self, length):
-    """Return LENGTH bytes (octets) of pad from current pad position.
-    Don't use this for encryption or decryption; see self.convert()
-    instead.  This is for reading pad data that won't be used directly
-    for encryption or decryption."""
+  def _make_fuzz(self):
+    """Set up fuzz for the conversion, before any conversion is done.
+    This must be called after the Pad has been initialized, and before
+    self.convert() has consumed any pad to use for actual conversion
+    of plaintext to ciphertext."""
+    fuzz_source_length = 4
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
-    ret = self.padfile.read(length)
-    if len(ret) < length:
-      raise Pad.PadShort("not enough pad data available to supply request")
-    self._length += length
-    return ret
+    fuzz_source = self.padfile.read(fuzz_source_length)
+    if len(fuzz_source) < fuzz_source_length:
+      raise Pad.PadShort("not enough pad available to supply fuzz source")
+    # What's going on here?
+    #
+    # First we read a small number of bytes (4) from the pad.  This is
+    # before any of the pad has been used for encoding or decoding.
+    #
+    # We then portably convert that sequence of bytes to a number
+    # modulo 256.  The resulting number is the number of bytes forward
+    # to skip in the pad before starting to consume pad data for use
+    # in actual conversion, that is, in encoding or decoding.
+    #
+    # Even in a known-plaintext case, an attacker does not know the
+    # pad, so skipping a random distance based on pad data ensures the
+    # attacker can't reliably substitute some other plaintext for the
+    # original: they'd have only a 1-in-256 chance of guessing the
+    # right distance to skip.
+    #
+    # Why modulo 256?  We don't want to skip too far forward -- that
+    # would be wasteful of pad, and pad might be expensive.  So we'll
+    # skip forward 0 <= N <= 255 bytes, N having been determined by
+    # the small bit of pad data we just read.  It's tempting to set a
+    # higher modulus and make it a 1-in-512 chance or 1-in-1024 or
+    # something, but given the rate at which I at least can generate
+    # new pad data, those feel too costly.  256 feels like the right
+    # point in the tradeoff slider -- but if anyone has data to
+    # support a different number, send it.  (There's no particular
+    # reason it has to be a power of two; I just try to be classy.)
+    #
+    # Still, if you send the same message to, say, 256 people who are
+    # all using the same pad, and that exact plaintext is known to the
+    # attacker, and the attacker has active intercept capability with
+    # the recipients, then for some small number of those recipients,
+    # the attacker could substitute some other forged message in place
+    # of your original plaintext.  But the attacker still wouldn't
+    # know which subsitutions were successful, and the rest of the
+    # recipients would receive an obviously garbage message.  Given
+    # the number of prerequisites there, and the unavoidable & easily
+    # detectable failure mode for the attacker, this does not seem
+    # like a serious weakness to me, but comments welcome of course.
+    #
+    # Remember that the 256 should not be thought of as a key length.
+    # The number of possibilities here is 1-in-256, not 1-in-(2^256).
+    #
+    # Two possible improvements would be: skip by bits instead of
+    # bytes, so we get 8 times the variability for the amount of pad
+    # used up, or just go all the way and use some constant number of
+    # pad bytes as a key in a standard (e.g., block cipher) symmetric
+    # encryption algorithm on the data before it is pad-encrypted.
+    # 
+    # Skipping by bits would complicate the code, however, since all
+    # the seeking and I/O is natively aligned on 8-bit boundaries.
+    # And as for doing full symmetric encryption "underneath" the pad,
+    # that's not a bad idea, but there isn't a library for that in the
+    # core Python distribution, and sticking to stuff available in
+    # standard Python is a design goal, to make distribution easier.
+
+    # (Since int.from_bytes() is only available in Python 3.2 or
+    # later, we do the conversion manually here.)
+    fuzz_skip_len = sum([ ord(x) for x in fuzz_source]) % 256
+    try:
+      self.padfile.seek(self.padfile.tell() + fuzz_skip_len)
+    except EOFError:
+      raise Pad.PadShort("not enough pad available to supply fuzz")
 
   def __str__(self):
     """Return a string representation of this pad."""
@@ -223,8 +291,6 @@ class PadEncoder:
     """Initialize an encoder for PAD with Configuration CONFIG."""
     self.pad = pad
     self.config = config
-    # Set to True only after encode() is called the first time.
-    self._used = False
     # We use bz2 compression unconditionally.  If we offered a choice,
     # we'd have to name that choice somewhere for use in decryption.
     # But if we were to list the choice in the open headers, then we
@@ -303,13 +369,9 @@ class PadEncoder:
     #
     # One-time pads don't have that problem, for obvious reasons.
     out = ''
-    if not self._used:
-      # Grab padding bytes.
-      noise_source = self.pad.read(4)
     compressed_plaintext = self.compressor.compress(string)
     if len(compressed_plaintext) > 0:
       out = self._output(self.pad.convert(compressed_plaintext))
-    self._used = True
     return out
 
   def finish(self):
@@ -332,8 +394,6 @@ class PadDecoder:
     data, i.e., the value given in the crypttext's 'Format: ' header."""
     self.pad = pad
     self.config = config
-    # Set to True only after decode() is called the first time.
-    self._used = False
     self.unused_data = ""
     self.input_format = input_format
     self.decompressor = bz2.BZ2Decompressor()
@@ -357,15 +417,11 @@ class PadDecoder:
       # this is embarrassing.  I'm only telling you about it because
       # we still need to support that mis-ordering for compatibility.
       ret = self.pad.convert((self.decompressor.decompress(
-        base64.b64decode(string))))
+        base64.b64decode(string))), format_version=1)
     else: # must be format 2
-      if not self._used:
-        # Grab padding bytes.
-        noise_source = self.pad.read(4)
       ret = self.decompressor.decompress(self.pad.convert(
         base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
-    self._used = True
     return ret
 
   def finalize(self):
