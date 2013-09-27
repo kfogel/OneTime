@@ -210,6 +210,7 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
     fuzz_source = self.padfile.read(fuzz_source_length)
+    self._length += 4
     if len(fuzz_source) < fuzz_source_length:
       raise Pad.PadShort("not enough pad available to supply fuzz source")
     # What's going on here?
@@ -281,6 +282,7 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     fuzz_skip_len = sum([ ord(x) for x in fuzz_source]) % 256
     try:
       self.padfile.seek(self.padfile.tell() + fuzz_skip_len)
+      self._length += fuzz_skip_len
     except EOFError:
       raise Pad.PadShort("not enough pad available to supply fuzz")
 
