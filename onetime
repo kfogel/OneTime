@@ -52,14 +52,6 @@ import xml
 import xml.dom
 import xml.dom.minidom
 
-
-# Set up booleans that older Pythons didn't have, if necessary.
-try:
-  True
-except:
-  True = 1
-  False = 0
-
 # The current format version.  
 #
 # The output format is only allowed to change when the major version
