@@ -38,8 +38,7 @@ about one-time pads in general.
 OneTime is written by Karl Fogel and distributed under an MIT-style
 open source license; run 'onetime --license' or see the LICENSE file
 in the full distribution for complete licensing information.
-OneTime's home page is http://www.red-bean.com/onetime/.
-"""
+OneTime's home page is http://www.red-bean.com/onetime/."""
 
 import os
 import sys
@@ -661,8 +660,8 @@ class Configuration:
   def show_pad_records(self):
     """Print pad records, presumably for debugging."""
     for pad_id in self.pad_records.keys():
-      print "Pad %s:" % pad_id
-      print "  used:", self.pad_records[pad_id]["used"]
+      print("Pad %s:" % pad_id)
+      print("  used:", self.pad_records[pad_id]["used"])
 
 
 def license(outfile=sys.stdout):
@@ -807,10 +806,10 @@ def main():
       pad_generation_help()
       sys.exit(0)
     if opt == '--intro':
-      print __doc__,
+      print(__doc__)
       sys.exit(0)
     elif opt == '--version' or opt == '-v' or opt == '-V':
-      print "OneTime version %s" % __version__
+      print("OneTime version %s" % __version__)
       sys.exit(0)
     elif opt == '--license':
       license()
@@ -902,11 +901,11 @@ def main():
   config.register(pad)
 
   if show_pad_id:
-    print pad.id()
-    print "  Note that older versions of OneTime (v1 and before) " \
-      + "would have reported"
-    print "  %s.  This v1 ID output may go away" % pad.id(version=1)
-    print "  in a future release, so please do not depend on its presence."
+    print(pad.id())
+    print("  Note that older versions of OneTime (v1 and before) " \
+          + "would have reported")
+    print("  %s.  This v1 ID output may go away" % pad.id(version=1))
+    print("  in a future release, so please do not depend on its presence.")
     sys.exit(0)
 
   if offset is not None:
