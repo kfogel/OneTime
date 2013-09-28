@@ -574,7 +574,7 @@ class Configuration:
               else:
                 # Parse unknown elements transparently.
                 subdict[pad_part.nodeName] = pad_part.childNodes[0].nodeValue
-          if not subdict.has_key("used"):
+          if "used" not in subdict:
             # We don't require the "used" element to be present; if it's
             # absent, it just means none of this pad has been used yet.
             subdict["used"] = [ (0, 0) ]
@@ -613,8 +613,8 @@ class Configuration:
     next_offset = None
     # This is a little complicated only because we need; to look for
     # old v1-style pad IDs and upgrade them if present.
-    if not self.pad_records.has_key(pad.id()):
-      if self.pad_records.has_key(pad.id(version=1)):
+    if pad.id() not in self.pad_records:
+      if pad.id(version=1) in self.pad_records:
         # Upgrade v1 record to v2.
         self.pad_records[pad.id()] = self.pad_records[pad.id(version=1)]
         del self.pad_records[pad.id(version=1)]
@@ -622,7 +622,7 @@ class Configuration:
         # Initialize a new v2 record.
         self.pad_records[pad.id()] = { "used" : [ ] }
     else:
-      if self.pad_records.has_key(pad.id(version=1)):
+      if pad.id(version=1) in self.pad_records:
         raise Configuration.ConfigurationError(
           "Pad has both v2 and v1 IDs present in pad-records file:\n" \
           "  v2: %s\n"                                                \
