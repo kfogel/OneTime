@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 __version__ = "2.0-beta2"
 
@@ -51,6 +51,23 @@ import re
 import xml
 import xml.dom
 import xml.dom.minidom
+
+# This script tries to be compatible with both Python 2 and Python 3.
+# There are various shims throughout to make that work; this is one.
+if sys.version < '3':
+  text_type = unicode
+  binary_type = str
+  binary_stdout = sys.stdout
+  def btos(x):
+    # bytes_to_str() is the identity function in Python 2.
+    return x
+else:
+  text_type = str
+  binary_type = bytes
+  binary_stdout = sys.stdout.buffer
+  def btos(x):
+    # bytes_to_str() actually does something Python 3.
+    return x.decode("UTF-8")
 
 # The current format version.  
 #
@@ -133,9 +150,16 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
       raise Pad.PadShort("not enough pad data available to finish encryption")
-    result = ''
+    result = bytearray()
     for i in range(string_len):
-      result = result + chr(ord(string[i]) ^ ord(pad_str[i]))
+      # Conditional for Python2 and Python3 simultaneous compatibility.
+      if type(string[i]) == str:
+        result = result + chr(ord(string[i]) ^ ord(pad_str[i]))
+      elif type(string[i]) == int:
+        result.append(string[i] ^ pad_str[i])
+      else:
+        # TODO: raise some kind of error
+        pass
     self._length += string_len
     self._begun = True
     return result
@@ -269,8 +293,18 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     # standard Python is a design goal, to make distribution easier.
 
     # (Since int.from_bytes() is only available in Python 3.2 or
-    # later, we do the conversion manually here.)
-    fuzz_skip_len = sum([ ord(x) for x in fuzz_source]) % 256
+    # later, we do the conversion manually here.
+    fuzz_skip_len = 0
+    for x in fuzz_source:
+      # Conditional for Python2 and Python3 simultaneous compatibility.
+      if type(x) == text_type:
+        fuzz_skip_len += ord(x)
+      elif type(x) == binary_type:
+        fuzz_skip_len += x
+      else:
+        # TODO: raise some kind of error
+        pass
+    fuzz_skip_len %= 256
     try:
       self.padfile.seek(self.padfile.tell() + fuzz_skip_len)
       self._length += fuzz_skip_len
@@ -814,7 +848,7 @@ def main():
       pad_file = value
     elif opt == '--output' or opt == '-o':
       if value == "-":
-        output = sys.stdout
+        output = binary_stdout
       else:
         output_name = value
         output = open(output_name, "wb")
@@ -852,7 +886,7 @@ def main():
     incoming = sys.stdin
     if output is None:
       # If incoming is stdin, output defaults to stdout.
-      output = sys.stdout
+      output = binary_stdout
   elif len(args) == 1:
     incoming = open(args[0], "rb")
     if output is None:
@@ -968,7 +1002,7 @@ def main():
   # format, if not, then we're using the new format.
 
   if encrypting:
-    output.write(onetime_header)
+    output.write(bytes(onetime_header, "UTF-8"))
     encoder = PadEncoder(pad, config)
     while 1:
       string = incoming.read(8192)
@@ -981,20 +1015,20 @@ def main():
         if result:
           output.write(result)
         break
-    output.write("\n")
-    output.write(onetime_end)
+    output.write(bytes("\n", "UTF-8"))
+    output.write(bytes(onetime_end, "UTF-8"))
 
   elif decrypting:
     decoder = None # Will set to a decoder when we know the incoming format.
     saw_end = None
     maybe_header_line = incoming.readline()
-    if (maybe_header_line != onetime_begin
-        and maybe_header_line != old_onetime_begin):
+    if (btos(maybe_header_line) != onetime_begin
+        and btos(maybe_header_line) != old_onetime_begin):
       sys.stderr.write("Error: malformed OneTime format: no begin line.\n")
       sys.exit(1)
-    while maybe_header_line != "\n":
+    while btos(maybe_header_line) != "\n":
       maybe_header_line = incoming.readline()
-      m = re.match("Offset: ([0-9]+)", maybe_header_line)
+      m = re.match("Offset: ([0-9]+)", btos(maybe_header_line))
       if m:
         # Note we don't have to adjust the received offset here to
         # compensate for the 32-byte Pad ID stretch, because the
@@ -1011,7 +1045,7 @@ def main():
         # that safeguard is probably redundant here.)
         pad.set_offset(int(m.group(1)))
         continue
-      m = re.match("Format: ([0-9]+) ", maybe_header_line)
+      m = re.match("Format: ([0-9]+) ", btos(maybe_header_line))
       if m:
         format_number = int(m.group(1))
         decoder = PadDecoder(pad, config, format_number)
