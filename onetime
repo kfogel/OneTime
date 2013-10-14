@@ -757,8 +757,8 @@ That command will place a 10 megabyte pad in ~/.onetime/to_foo.pad
 10 megabytes of data before it should be retired.  If you anticipate
 sending more than 10 megabytes of data with the same pad, you will
 want to replace 10 with a higher count.  On some computers, large pads
-may take a long time to generate.  Just let dd work while you do other
-things.
+may take a long time (even days) to generate.  Just let dd work while
+you do other things.
 
 To encrypt a file named WALLET.DAT with that pad:
 
