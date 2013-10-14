@@ -750,7 +750,7 @@ of random bytes at /dev/random and the ability to copy those bytes
 with the `dd` command.  Most GNU/Linux computers can do this.
 
   $ mkdir -p ~/.onetime
-  $ dd if=/dev/random of=~/.onetime/to_foo.pad bs=1000000 count=10
+  $ dd if=/dev/random of=~/.onetime/to_foo.pad bs=1000 count=10000
 
 That command will place a 10 megabyte pad in ~/.onetime/to_foo.pad
 (1000000 bytes is one megabyte).  That pad will be good for encrypting
