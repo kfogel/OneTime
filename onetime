@@ -206,6 +206,48 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     This must be called after the Pad has been initialized, and before
     self.convert() has consumed any pad to use for actual conversion
     of plaintext to ciphertext."""
+    # TODO:
+    #
+    # This code is going to become a generalized in-ciphertext header
+    # system, reminiscent of the "inner headers" experiment started on
+    # the 2.x branch but later dropped.  This time we can do it right.
+    # 
+    # We will first jump to the offset specified in the plaintext
+    # headers.  Then we'll read a set series of (pad-encrypted) bytes,
+    # some of which may specify that further bytes should be read.
+    # The bits will give flags for various options.  A rough plan --
+    # it might turn out to be different from this:
+    # 
+    #   First byte is internal format version, the "x" in format
+    #   "2.x" (the "2" is already in the plaintext headers).  Values
+    #   0-127 are interpreted as numbers; values > 128 mean combine
+    #   this byte with the next byte (recursively, big endian).
+    # 
+    #   In format 2.0, the next byte after the internal format version
+    #   holds flag bits:
+    # 
+    #     0b_______*: 0 means use default noise; 1 means look at next byte
+    #     0b______*_: reserved; must be 0 in format 2.0
+    #     0b_____*__: reserved; must be 0 in format 2.0
+    #     0b____*___: reserved; must be 0 in format 2.0
+    #     0b___*____: reserved; must be 0 in format 2.0
+    #     0b__*_____: reserved; must be 0 in format 2.0
+    #     0b_*______: reserved; must be 0 in format 2.0
+    #     0b*_______: reserved; must be 0 in format 2.0
+    # 
+    #   If the 1 bit was set, then the next byte indicates something
+    #   about the noise length.  That might either be a sender-chosen
+    #   definite length (still masked by the pad of course), or a
+    #   length partly determined by the pad (as per the current code
+    #   below) but with a sender-chosen minimum.  Details TBD.
+    # 
+    #   The meanings of the rest of the flag bits are not yet
+    #   determined, and their values must be zero in format 2.0.
+    # 
+    # None of the above is true yet.  Right now, we're just clumsily
+    # reading 4 bytes (more than is actually needed) and using them to
+    # determine the noise length for this message.
+
     fuzz_source_length = 4
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
