@@ -412,8 +412,8 @@ class PadDecoder:
 
   def __init__(self, pad, config, format_level):
     """Initialize a decoder for PAD with Configuration CONFIG.
-    FORMAT_LEVEL indicates the OneTime format version of the incoming
-    data, i.e., the value given in the crypttext's 'Format: ' header."""
+    FORMAT_LEVEL indicates the OneTime format level of the incoming
+    data, i.e., the value given in the output's "Format:" header."""
     self.pad = pad
     self.config = config
     self.unused_data = ""
@@ -422,7 +422,7 @@ class PadDecoder:
 
     if self.format_level != "original" and self.format_level != "modern":
       raise Pad.FormatLevel(
-        "impossible format version: \"%s\"" % self.format_level)
+        "impossible format level: \"%s\"" % self.format_level)
 
   def decode(self, string):
     """Return all available onetime-decoded data so far, including for STRING,
@@ -431,10 +431,10 @@ class PadDecoder:
     the end of decodable data.  Store any unused data in self.unused_data."""
     ret = ""
     if self.format_level == "original":
-      # Format "original" got the compression/encryption order wrong.
-      # Look, this is embarrassing.  I'm only telling you about it
-      # because we still need to support that mis-ordering for
-      # compatibility.
+      # Format level "original" got the compression/encryption order
+      # wrong.  Look, this is embarrassing.  I'm only telling you
+      # about it because we still need to support that mis-ordering
+      # for compatibility.
       ret = self.pad.convert((self.decompressor.decompress(
         base64.b64decode(string))), format_level="original")
     else: # must be format level "modern"
