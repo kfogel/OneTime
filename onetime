@@ -61,23 +61,46 @@ except:
   True = 1
   False = 0
 
-# The current format version.  
+# The current format level.
 #
-# The output format is only allowed to change when the major version
-# number of OneTime increments.  A major version increment does not
-# necessarily imply a format change, but in practice we probably
-# wouldn't bump the major version number unless there were a format
-# change, hence below we just compute the latter from the former.
+# Some background is needed to understand what this means:
 #
-# Format 1 was the format from the first release of OneTime through
-# the very end of 2011.  It did not include the "Format:" header in
-# output, and had a (rather embarrassing) bug whereby plaintext was
-# encrypted and then then compressed, instead of the other way around.
+# The first releases of OneTime (the 1.x series) did not include any
+# indication of the format, in the plaintext headers of the output.
+# This was deliberate: after all, if there *were* a format change in
+# the future, a "Format:" header could be added, and its presence
+# would indicate that the output was clearly from a later version than
+# the 1.x series.
 #
-# Format 2, introduced 2012-01-01, does include the "Format:" header
-# in the human-readable portion of the output, and gets the
-# compression/encryption order right.
-Format = int(__version__.split(".")[0])
+# Well, that has now happened -- but instead of specifying an exact
+# format version in the plaintext header, we just specify that the
+# format is "modern", and in the code we call this a "format level"
+# instead of a "format version".  We make a binary distinction between
+# this new "modern" level and the old level (now retroactively labeled
+# "original"), but beyond that the plaintext headers do not say
+# anything further about the format.
+#
+# There are a couple of reasons to do it this way.  One, so we get
+# away from the idea that the version of OneTime is relevant, since
+# that what really matters is just the format -- which can and often
+# will remain unchanged, or at least backward-compatible, from version
+# to version of OneTime.  Two, starting from OneTime 2.0, all detailed
+# format version information is embedded in the ciphertext (see the
+# Pad class for details), not in the plaintext headers.  This avoids
+# leaking information about the earliest possible date on which the
+# message could have been encrypted, because the encrypted message
+# will reveal nothing more than that the tool used to encrypt must
+# have been OneTime 2.0 or higher.
+#
+# Therefore, instead of using numbers for the format level, we use one
+# of two words: "modern" or "original".
+#
+# Note that the "original" format had a (rather embarrassing) bug
+# whereby plaintext was encrypted and then then compressed, instead of
+# the other way around.  This is fixed in all the "modern" level
+# formats, and of course any further format details are now embedded
+# in the cipthertext, in the manner described in the Pad class.
+Format_Level = "modern"
 
 class Pad:
   """An encoder/decoder associated with a specific pad at a specific offset.
@@ -104,7 +127,7 @@ but it still needs to be a new object due to certain initializations).
     self._offset = None  # where to start using pad bytes (must initialize)
     self._length = 0  # number of pad bytes used this time
     self._id = None
-    self._v1_id = None
+    self._original_format_level_id = None
     self._begun = False  # set to True on first call to self.convert()
     
   class PadUninitialized(Exception):
@@ -115,8 +138,8 @@ but it still needs to be a new object due to certain initializations).
     """Exception raised if Pad doesn't have enough data for this encryption."""
     pass
 
-  class FormatVersion(Exception):
-    """Exception raised if an unknown format version is specified."""
+  class FormatLevel(Exception):
+    """Exception raised if an unknown format level is specified."""
     pass
 
   def set_offset(self, offset):
@@ -126,17 +149,18 @@ but it still needs to be a new object due to certain initializations).
     self._offset = offset
     self.padfile.seek(self._offset)
 
-  def convert(self, string, format_version=2):
+  def convert(self, string, format_level="modern"):
     """If STRING is not empty or None, return it as XORed against the pad;
 else return the empty string.  Note STRING may be empty on intermediate
 calls simply because a compressor has not yet had enough incoming data to
 work with, not necessarily because input is ended yet.
 
-If FORMAT_VERSION is 1, then don't perform the random distance skip
-(the "fuzz") that is part of the encryption process for format 2."""
+If FORMAT_LEVEL is "original", then don't perform the random
+distance skip (the "fuzz") that is part of the encryption process for
+modern format levels."""
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
-    if format_version == 2 and not self._begun:
+    if format_level == "modern" and not self._begun:
       self._make_fuzz()
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
@@ -159,14 +183,14 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     self.padfile.seek(saved_posn)
     return sha1.hexdigest()
 
-  def _get_v1_id(self):
-    """Get the OneTime Version 1 ID for this pad.
-    In OneTime format version 1, Pad IDs were based on the first 1024
+  def _get_original_format_level_id(self):
+    """Get the OneTime \"original\" format level ID for this pad.
+    In that format level, Pad IDs were based on the first 1024
     (octet) bytes of the pad.  This was needlessly spendy, or rather,
-    it would have been needlessly spendy if version 1 of the program
-    had been paranoid enough to not use any of those bytes for
-    encryption.  Version 2 fixed this, reducing the number of bytes
-    used on ID but also making they are not used for encryption."""
+    it would have been needlessly spendy if OneTime 1.x had been
+    paranoid enough to not use any of those bytes for encryption.
+    Version 2.0 fixed this, reducing the number of bytes used on ID but
+    also making they are not used for encryption."""
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
     sha1 = hashlib.sha1()
@@ -175,19 +199,19 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     self.padfile.seek(saved_posn)
     return sha1.hexdigest()
 
-  def id(self, version=2):
+  def id(self, format_level="modern"):
     """Return the pad's ID.
-    If version is specified, return the ID according to that format version."""
-    if version == 2:
+    If FORMAT_LEVEL is specified, return ID according to that format level."""
+    if format_level == "modern":
       if self._id is None:
         self._id = self._get_id()
       return self._id
-    elif version == 1:
-      if self._v1_id is None:
-        self._v1_id = self._get_v1_id()
-      return self._v1_id
+    elif format_level == "original":
+      if self._original_format_level_id is None:
+        self._original_format_level_id = self._get_original_format_level_id()
+      return self._original_format_level_id
     else:
-      raise Pad.FormatVersion("unknown format version %d for ID" % version)
+      raise Pad.FormatLevel("unknown format \"%s\" for ID" % format_level)
 
   def path(self):
     """Return the pad's path."""
@@ -218,28 +242,29 @@ If FORMAT_VERSION is 1, then don't perform the random distance skip
     # The bits will give flags for various options.  A rough plan --
     # it might turn out to be different from this:
     # 
-    #   First byte is internal format version, the "x" in format
-    #   "2.x" (the "2" is already in the plaintext headers).  Values
-    #   0-127 are interpreted as numbers; values > 128 mean combine
-    #   this byte with the next byte (recursively, big endian).
+    #   First byte is internal format version -- think of it as the
+    #   "x" in "modern.x", where "modern" comes from the plaintext
+    #   "Format:" header.  Values 0-127 are interpreted as numbers;
+    #   values > 128 mean combine this byte with the next byte
+    #   (recursively, big endian).
     # 
-    #   In format 2.0, the next byte after the internal format version
-    #   holds flag bits:
+    #   In internal format 0, the next byte after the internal format
+    #   version holds flag bits:
     # 
     #     0b_______*: 0 means use default noise; 1 means look at next byte
-    #     0b______*_: reserved; must be 0 in format 2.0
-    #     0b_____*__: reserved; must be 0 in format 2.0
-    #     0b____*___: reserved; must be 0 in format 2.0
-    #     0b___*____: reserved; must be 0 in format 2.0
-    #     0b__*_____: reserved; must be 0 in format 2.0
-    #     0b_*______: reserved; must be 0 in format 2.0
-    #     0b*_______: reserved; must be 0 in format 2.0
+    #     0b______*_: reserved; must be 0 in internal format 0
+    #     0b_____*__: reserved; must be 0 in internal format 0
+    #     0b____*___: reserved; must be 0 in internal format 0
+    #     0b___*____: reserved; must be 0 in internal format 0
+    #     0b__*_____: reserved; must be 0 in internal format 0
+    #     0b_*______: reserved; must be 0 in internal format 0
+    #     0b*_______: reserved; must be 0 in internal format 0
     # 
-    #   If the 1 bit was set, then the next byte indicates something
-    #   about the noise length.  That might either be a sender-chosen
-    #   definite length (still masked by the pad of course), or a
-    #   length partly determined by the pad (as per the current code
-    #   below) but with a sender-chosen minimum.  Details TBD.
+    #   If the first bit was set, then the next byte indicates
+    #   something about the noise length.  That might either be a
+    #   sender-chosen definite length (still masked by the pad of
+    #   course), or a length partly determined by the pad (as per the
+    #   current code below) but with a sender-chosen minimum.  TBD.
     # 
     #   The meanings of the rest of the flag bits are not yet
     #   determined, and their values must be zero in format 2.0.
@@ -385,23 +410,19 @@ class PadDecoder:
     """Exception raised when something goes wrong decoding."""
     pass
 
-  def __init__(self, pad, config, input_format):
+  def __init__(self, pad, config, format_level):
     """Initialize a decoder for PAD with Configuration CONFIG.
-    INPUT_FORMAT indicates the OneTime format version of the incoming
+    FORMAT_LEVEL indicates the OneTime format version of the incoming
     data, i.e., the value given in the crypttext's 'Format: ' header."""
     self.pad = pad
     self.config = config
     self.unused_data = ""
-    self.input_format = input_format
+    self.format_level = format_level
     self.decompressor = bz2.BZ2Decompressor()
 
-    if self.input_format < 1:
-      raise Pad.FormatVersion(
-        "impossible format version: %d" % self.input_format)
-
-    if self.input_format > 2:
-      raise Pad.FormatVersion(
-        "unrecognized format version: %d" % self.input_format)
+    if self.format_level != "original" and self.format_level != "modern":
+      raise Pad.FormatLevel(
+        "impossible format version: \"%s\"" % self.format_level)
 
   def decode(self, string):
     """Return all available onetime-decoded data so far, including for STRING,
@@ -409,13 +430,14 @@ class PadDecoder:
     data is not decodable.  Throw EOFError exception if called past
     the end of decodable data.  Store any unused data in self.unused_data."""
     ret = ""
-    if self.input_format == 1:
-      # Format 1 got the compression/encryption order wrong.  Look,
-      # this is embarrassing.  I'm only telling you about it because
-      # we still need to support that mis-ordering for compatibility.
+    if self.format_level == "original":
+      # Format "original" got the compression/encryption order wrong.
+      # Look, this is embarrassing.  I'm only telling you about it
+      # because we still need to support that mis-ordering for
+      # compatibility.
       ret = self.pad.convert((self.decompressor.decompress(
-        base64.b64decode(string))), format_version=1)
-    else: # must be format 2
+        base64.b64decode(string))), format_level="original")
+    else: # must be format level "modern"
       ret = self.decompressor.decompress(self.pad.convert(
         base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
@@ -543,7 +565,7 @@ class Configuration:
     """Return the next free offset from USED, which assumed to be in
     consolidated form.  The minimum returned is Pad.id_source_length;
     that way the Pad ID stretch is always accounted for, even if USED
-    was initialized from an old v1 pad record."""
+    was initialized from an old original-format pad record."""
     cur_offset = None
     # We don't do anything fancy, just get the earliest available
     # offset past the last used tuple.  This means that any ranges in
@@ -663,23 +685,23 @@ class Configuration:
     offset based on previously used regions for that pad, if any."""
     next_offset = None
     # This is a little complicated only because we need; to look for
-    # old v1-style pad IDs and upgrade them if present.
+    # old original-style pad IDs and upgrade them if present.
     if not self.pad_records.has_key(pad.id()):
-      if self.pad_records.has_key(pad.id(version=1)):
-        # Upgrade v1 record to v2.
-        self.pad_records[pad.id()] = self.pad_records[pad.id(version=1)]
-        del self.pad_records[pad.id(version=1)]
+      if self.pad_records.has_key(pad.id(format_level="original")):
+        # Upgrade original-style record to modern style.
+        self.pad_records[pad.id()] = self.pad_records[pad.id(format_level="original")]
+        del self.pad_records[pad.id(format_level="original")]
       else:
-        # Initialize a new v2 record.
+        # Initialize a new modern-style record.
         self.pad_records[pad.id()] = { "used" : [ ] }
     else:
-      if self.pad_records.has_key(pad.id(version=1)):
+      if self.pad_records.has_key(pad.id(format_level="original")):
         raise Configuration.ConfigurationError(
           "Pad has both v2 and v1 IDs present in pad-records file:\n" \
           "  v2: %s\n"                                                \
           "  v1: %s\n"                                                \
           "This is supposed to be impossible.  Please resolve."       \
-          % (pad.id(), pad.id(version=1)))
+          % (pad.id(), pad.id(format_level="original")))
     # One way or another, we now have an up-to-date v2 pad record.
     # Set the next offset accordingly.
     next_offset = self._get_next_offset(self.pad_records[pad.id()]["used"])
@@ -947,7 +969,8 @@ def main():
     print pad.id()
     print "  Note that older versions of OneTime (v1 and before) " \
       + "would have reported"
-    print "  %s.  This v1 ID output may go away" % pad.id(version=1)
+    print "  %s.  This v1 ID output may go away" \
+      % pad.id(format_level="original")
     print "  in a future release, so please do not depend on its presence."
     sys.exit(0)
 
@@ -955,7 +978,7 @@ def main():
     pad.set_offset(offset)
     offset = None  # junk this; we'll rely on pad for offset from now on
 
-  # The first line of OneTime format 2 is the begin line.
+  # The first line of OneTime format level "modern" is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
   # Then comes the encoded body.
   # The last line indicates the end, and is distinguishable from
@@ -963,8 +986,8 @@ def main():
   onetime_begin = "-----BEGIN OneTime MESSAGE-----\n"
   old_onetime_begin = "-----BEGIN OTP MESSAGE-----\n"   # compat
   onetime_header = "%s" % onetime_begin                        \
-               + "Format: %d  " % Format                       \
-               + "   <<< NOTE: OneTime 1.x and older "         \
+               + "Format: %s" % Format_Level                   \
+               + "  <<< NOTE: OneTime 1.x and older "          \
                +              "cannot read this format. >>>\n" \
                + "Pad ID: %s\n" % pad.id()                     \
                + "Offset: %s\n" % pad.offset()                 \
@@ -1014,7 +1037,7 @@ def main():
   # terribly expensive either.  Asking users to occasionally spend
   # extra pad bits for the sake of code simplicity seems reasonable.
   #
-  # We can always add this format in the future, though.  If the
+  # We could always add this format in the future, though.  If the
   # 'Offset:' line appears in the headers, then we're using the old
   # format, if not, then we're using the new format.
 
@@ -1036,7 +1059,7 @@ def main():
     output.write(onetime_end)
 
   elif decrypting:
-    decoder = None # Will set to a decoder when we know the incoming format.
+    decoder = None # Will set to a decoder when know incoming format level.
     saw_end = None
     maybe_header_line = incoming.readline()
     if (maybe_header_line != onetime_begin
@@ -1049,11 +1072,12 @@ def main():
       if m:
         # Note we don't have to adjust the received offset here to
         # compensate for the 32-byte Pad ID stretch, because the
-        # recorded offset in *both* format version 1 and version 2
+        # recorded offset in *both* "original" and "modern" format
         # ciphertexts is an absolute offset from the true edge of the
-        # Pad.  The v2 Pad ID stretch is already reflected in the
-        # offset for v2 files, but if an incoming ciphertext is v1,
-        # then naturally we just use whatever offset it requests.
+        # Pad.  The "modern" format Pad ID stretch is already
+        # reflected in the offset for modenr files, but if an incoming
+        # ciphertext is in original format, then naturally we just use
+        # whatever offset it requests.
         #
         # (When the pad record is written back out, the 32 bytes for
         # the ID will be recorded as consumed no matter what, because
@@ -1062,15 +1086,15 @@ def main():
         # that safeguard is probably redundant here.)
         pad.set_offset(int(m.group(1)))
         continue
-      m = re.match("Format: ([0-9]+) ", maybe_header_line)
+      m = re.match("Format: ([a-zA-Z0-9-]+) ", maybe_header_line)
       if m:
-        format_number = int(m.group(1))
-        decoder = PadDecoder(pad, config, format_number)
+        format_level = m.group(1)
+        decoder = PadDecoder(pad, config, format_level)
         continue
 
     if decoder is None:
-      # If we saw no format, it must be the old format 1.
-      decoder = PadDecoder(pad, config, 1)
+      # If we saw no format header, it must be the old, original format.
+      decoder = PadDecoder(pad, config, "original")
 
     while 1:
       string = incoming.readline()
