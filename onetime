@@ -679,7 +679,7 @@ class Configuration:
           "  v2: %s\n"                                                \
           "  v1: %s\n"                                                \
           "This is supposed to be impossible.  Please resolve."       \
-          % (pad.id(), pad.id(version=2)))
+          % (pad.id(), pad.id(version=1)))
     # One way or another, we now have an up-to-date v2 pad record.
     # Set the next offset accordingly.
     next_offset = self._get_next_offset(self.pad_records[pad.id()]["used"])
