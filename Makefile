@@ -25,14 +25,7 @@ clean:
 	@rm -rf index.html test-msg.* *~ onetime-*.* onetime-*.tar.gz
 
 dist:
-	@git archive --format="tar.gz" -9                                   \
-           --prefix="onetime-`./onetime --version | cut -f 3 -d " "`/"      \
-                  -o onetime-`./onetime --version | cut -f 3 -d " "`.tar.gz \
-           HEAD
-	@git archive --format="zip" -9                                      \
-           --prefix="onetime-`./onetime --version | cut -f 3 -d " "`/"      \
-                  -o onetime-`./onetime --version | cut -f 3 -d " "`.zip    \
-           HEAD
+	@./make-dist.sh
 
 www: dist
 	@./onetime --intro     > intro.tmp
@@ -71,14 +64,15 @@ www: dist
              pad-help.tmp              \
              index.html-bottom         \
            > index.html
-	@# Substitute in the latest version number.
-	@./onetime --version | cut -f 3 -d " " > version.tmp
-	@sed -e "s/ONETIMEVERSION/`cat version.tmp`/g" \
+	@# Substitute in the release numbers.
+	@sed -e "s|1XVERSION|`./find-ver.sh 1`|g" \
            < index.html > index.html.tmp
-	@mv index.html.tmp index.html
-	@sed -e "s/ONETIMEVERSION/`cat version.tmp`/g" \
+	@sed -e "s|2XVERSION|`./find-ver.sh 2`|g" \
+           < index.html.tmp > index.html
+	@sed -e "s|1XVERSION|`./find-ver.sh 1`|g" \
            < get.html-tmpl > get.html.tmp
-	@mv get.html.tmp get.html
+	@sed -e "s|2XVERSION|`./find-ver.sh 2`|g" \
+           < get.html.tmp > get.html
 	@# Make the GPG link live.
 	@sed -e 's/GnuPG,/<a href="http:\/\/www.gnupg.org\/">GnuPG<\/a>,/g' \
            < index.html > index.html.tmp
@@ -103,7 +97,7 @@ www: dist
 	@sed -e 's| LICENSE | <a href="LICENSE">LICENSE</a> |g' \
            < index.html > index.html.tmp
 	@mv index.html.tmp index.html
-	@rm intro.tmp usage.tmp pad-help.tmp version.tmp
+	@rm intro.tmp usage.tmp pad-help.tmp
 
 debian: deb
 deb: dist

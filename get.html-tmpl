@@ -10,21 +10,30 @@
    <h2><center>Getting OneTime</center></h2>
 </div>
 
-<p>Various ways to get OneTime:</p>
+<p>We recommend you download OneTime <strong>1XVERSION</strong> right
+now.  When development on 2XVERSION is complete, this page will be
+updated.</p>
 
 <ul>
 
-<li><p>Download the full package as a .tar.gz file: <a href="onetime-ONETIMEVERSION.tar.gz"
-    >onetime-ONETIMEVERSION.tar.gz</a>.<br/>
+<li><p>Download the full package as a .tar.gz file:
+    <a href="onetime-1XVERSION.tar.gz"
+       >onetime-1XVERSION.tar.gz</a> 
+    (or <a href="onetime-2XVERSION.tar.gz"
+       >onetime-2XVERSION.tar.gz</a>).<br/>
     (This is the recommended way for non-Windows.)</p></li>
 
-<li><p>Download the full package as a zip file: <a href="onetime-ONETIMEVERSION.zip"
-    >onetime-ONETIMEVERSION.zip</a>.<br/>
+<li><p>Download the full package as a zip file:
+    <a href="onetime-1XVERSION.zip"
+       >onetime-1XVERSION.zip</a>
+    (or <a href="onetime-2XVERSION.zip"
+       >onetime-2XVERSION.zip</a>).<br/>
     (This is the recommended way for Windows.)</p></li>
 
-<li><p>You could just download the <a href="onetime" >standalone
-    script</a> directly, if you don't want the README, the test suite,
-    or other incidental files.</p></li>
+<li><p>You could just download the <a href="onetime-1XVERSION"
+    >standalone 1XVERSION script</a> (or <a href="onetime"
+    >2XVERSION</a> script) directly, if you don't want the README, the
+    test suite, or other incidental files.</p></li>
 
 <li><p>OneTime is packaged in <a href="http://debian.org/">Debian
     GNU/Linux</a> now.  If you run the "testing" distribution of
@@ -32,10 +41,9 @@
     <tt>'sudo&nbsp;apt-get&nbsp;update&nbsp;&amp;&amp;&nbsp;sudo&nbsp;apt-get&nbsp;install&nbsp;onetime'</tt>
     (or the equivalent in your preferred package management
     interface).</p>
-    <p><em>Note that as of 24 July 2013, the version of OneTime packaged
-    in Debian may be a major version number behind this upstream
-    release.  We'll try to get Debian updated as soon as
-    possible.</em></p></li>
+    <p><em>Note that as of Nov 2013, the version of OneTime packaged
+    in Debian is somewhat behind the upstream release.  We'll try to
+    get Debian updated soon after OneTime 2.0 comes out.</em></p></li>
 
 <li><p>GitHub: <a href="https://github.com/kfogel/OneTime"
                >github.com/kfogel/OneTime</a></p></li>
