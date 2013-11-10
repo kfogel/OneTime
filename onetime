@@ -380,27 +380,22 @@ class PadEncoder:
     # be trivially auditable.  So just use bz2.  The worst case is ok.
     self.compressor = bz2.BZ2Compressor()
 
-  def _output(self, string):
-    "Return encoding of STRING, or the empty string if STRING is empty."
-    if string:
-      return base64.encodestring(string)
-    else:
-      return ''
-
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
     out = ''
     compressed_plaintext = self.compressor.compress(string)
     if len(compressed_plaintext) > 0:
-      out = self._output(self.pad.convert(compressed_plaintext))
+      out = base64.encodestring(self.pad.convert(compressed_plaintext))
     return out
 
   def finish(self):
     "Return last remaining bits of crypttext, or None if none left."
-    last_bits = self._output(self.pad.convert(self.compressor.flush()))
+    remainder = self.pad.convert(self.compressor.flush())
+    if remainder:
+      remainder = base64.encodestring(remainder)
     self.config.record_consumed(self.pad, False)
-    return last_bits
+    return remainder
 
 
 class PadDecoder:
