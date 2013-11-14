@@ -1070,7 +1070,7 @@ def main():
         # recorded offset in *both* "original" and "modern" format
         # ciphertexts is an absolute offset from the true edge of the
         # Pad.  The "modern" format Pad ID stretch is already
-        # reflected in the offset for modenr files, but if an incoming
+        # reflected in the offset for modern files, and if an incoming
         # ciphertext is in original format, then naturally we just use
         # whatever offset it requests.
         #
