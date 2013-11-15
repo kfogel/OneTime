@@ -128,10 +128,26 @@ but it still needs to be a new object due to certain initializations).
     self._length = 0  # number of pad bytes used this time
     self._id = None
     self._original_format_level_id = None
-    self._begun = False  # set to True on first call to self.convert()
+
+    # Most of what a pad does is the same for encoding and decoding --
+    # after all, the conversion step is XOR, which is symmetrical.
+    #
+    # However, before conversion can happen, the pad needs to know
+    # whether to write or read the inner header flag bytes -- so for
+    # that it needs to know whether it's encoding or decoding.  When
+    # that step is done, the appropriate variable below is set;
+    # exactly one of them *must* be set before any conversion happens.
+    self._encoding = False
+    self._decoding = False
+    # False until conversion starts, True thereafter.
+    self._begun = False
     
   class PadUninitialized(Exception):
     """Exception raised if Pad hasn't been initialized yet."""
+    pass
+
+  class OverPrepared(Exception):
+    """Exception raised if a Pad is initialized or prepared twice."""
     pass
 
   class PadShort(Exception):
@@ -141,6 +157,24 @@ but it still needs to be a new object due to certain initializations).
   class FormatLevel(Exception):
     """Exception raised if an unknown format level is specified."""
     pass
+
+  def prepare_for_encoding(self):
+    """Mark this Pad as encoding.  This or prepare_for_decoding() must
+    be called exactly once, before any conversion happens."""
+    if self._encoding:
+      raise Pad.OverPrepared("already prepared for encoding")
+    if self._decoding:
+      raise Pad.OverPrepared("cannot prepare for both encoding and decoding")
+    self._encoding = True
+
+  def prepare_for_decoding(self):
+    """Mark this Pad as decoding.  This or prepare_for_encoding() must
+    be called exactly once, before any conversion happens."""
+    if self._decoding:
+      raise Pad.OverPrepared("already prepared for decoding")
+    if self._encoding:
+      raise Pad.OverPrepared("cannot prepare for both decoding and encoding")
+    self._decoding = True
 
   def set_offset(self, offset):
     """Set this pad's encoding/decoding offset to OFFSET."""
@@ -160,8 +194,23 @@ distance skip (the "fuzz") that is part of the encryption process for
 modern format levels."""
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
-    if format_level == "modern" and not self._begun:
-      self._make_fuzz()
+    if format_level == "modern":
+      if self._encoding and self._decoding:
+        raise Pad.OverPrepared(
+          "pad cannot encode and decode simultaneously")
+      elif not self._encoding and not self._decoding:
+        raise Pad.PadUninitialized(
+          "pad not yet prepared for either encoding or decoding")
+      elif not self._begun:
+        if self._encoding:
+          # TODO: when we actually make the format adjustment documented
+          # in the function below, this will change slightly.
+          self._make_inner_headers()
+        else: # self._decoding is set
+          # TODO: when we actually make the format adjustment documented
+          # in the function below, this will change slightly.
+          self._make_inner_headers()
+
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
@@ -225,22 +274,16 @@ modern format levels."""
     """Return the number of pad bytes used so far."""
     return self._length
 
-  def _make_fuzz(self):
-    """Set up fuzz for the conversion, before any conversion is done.
-    This must be called after the Pad has been initialized, and before
-    self.convert() has consumed any pad to use for actual conversion
-    of plaintext to ciphertext."""
-    # TODO:
-    #
-    # This code is going to become a generalized in-ciphertext header
-    # system, reminiscent of the "inner headers" experiment started on
-    # the 2.x branch but later dropped.  This time we can do it right.
-    # 
-    # We will first jump to the offset specified in the plaintext
-    # headers.  Then we'll read a set series of (pad-encrypted) bytes,
-    # some of which may specify that further bytes should be read.
-    # The bits will give flags for various options.  A rough plan --
-    # it might turn out to be different from this:
+  def _make_inner_headers(self):
+    """Set up inner headers to go in the output.
+    This must happen before any conversion of plaintext to ciphertext
+    is done, so it must be called after the Pad has been initialized
+    but before self.convert() has consumed any pad for actual conversion."""
+    # We first jump to the offset specified by the plaintext headers.
+    # Then we'll read a set series of (pad-encrypted) bytes, some of
+    # which may specify that further bytes should be read.  The bits
+    # will give flags for various options.  Here is the current list
+    # of flag bits:
     # 
     #   First byte is internal format version -- think of it as the
     #   "x" in "modern.x", where "modern" comes from the plaintext
@@ -269,9 +312,9 @@ modern format levels."""
     #   The meanings of the rest of the flag bits are not yet
     #   determined, and their values must be zero in format 2.0.
     # 
-    # None of the above is true yet.  Right now, we're just clumsily
-    # reading 4 bytes (more than is actually needed) and using them to
-    # determine the noise length for this message.
+    # None of the above is true yet.  Right now, we're just reading a
+    # tiny bit of pad to generate a small random number, and using
+    # that number to determine the noise length for this message.
 
     fuzz_source_length = 4
     if self._offset is None:
@@ -379,6 +422,7 @@ class PadEncoder:
     # defeat part of the point of this program: to be so simple as to
     # be trivially auditable.  So just use bz2.  The worst case is ok.
     self.compressor = bz2.BZ2Compressor()
+    self.pad.prepare_for_encoding()
 
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
@@ -418,6 +462,7 @@ class PadDecoder:
     if self.format_level != "original" and self.format_level != "modern":
       raise Pad.FormatLevel(
         "impossible format level: \"%s\"" % self.format_level)
+    self.pad.prepare_for_decoding()
 
   def decode(self, string):
     """Return all available onetime-decoded data so far, including for STRING,
