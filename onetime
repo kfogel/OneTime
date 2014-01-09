@@ -128,6 +128,8 @@ but it still needs to be a new object due to certain initializations).
     self._length = 0  # number of pad bytes used this time
     self._id = None
     self._original_format_level_id = None
+    self._default_fuzz_source_length = 2   # See _make_fuzz_length_from_pad()
+    self._default_fuzz_source_modulo = 512 # and _make_inner_headers().
 
     # Most of what a pad does is the same for encoding and decoding --
     # after all, the conversion step is XOR, which is symmetrical.
@@ -156,6 +158,10 @@ but it still needs to be a new object due to certain initializations).
 
   class FormatLevel(Exception):
     """Exception raised if an unknown format level is specified."""
+    pass
+
+  class InnerFormat(Exception):
+    """Exception raised if something is wrong with the inner format."""
     pass
 
   def prepare_for_encoding(self):
@@ -192,6 +198,7 @@ work with, not necessarily because input is ended yet.
 If FORMAT_LEVEL is "original", then don't perform the random
 distance skip (the "fuzz") that is part of the encryption process for
 modern format levels."""
+    result = ''
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
     if format_level == "modern":
@@ -203,24 +210,22 @@ modern format levels."""
           "pad not yet prepared for either encoding or decoding")
       elif not self._begun:
         if self._encoding:
-          # TODO: when we actually make the format adjustment documented
-          # in the function below, this will change slightly.
-          self._make_inner_headers()
+          inner_header_data = self._make_inner_header()
+          result += inner_header_data
+          self._length += len(inner_header_data)
         else: # self._decoding is set
-          # TODO: when we actually make the format adjustment documented
-          # in the function below, this will change slightly.
-          self._make_inner_headers()
+          string = self._handle_inner_header(string)
 
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
       raise Pad.PadShort("not enough pad data available to finish encryption")
-    result = ''
     for i in range(string_len):
-      result = result + chr(ord(string[i]) ^ ord(pad_str[i]))
+      result += chr(ord(string[i]) ^ ord(pad_str[i]))
     self._length += string_len
     self._begun = True
     return result
+
 
   def _get_id(self):
     """Get the ID for this pad."""
@@ -274,16 +279,76 @@ modern format levels."""
     """Return the number of pad bytes used so far."""
     return self._length
 
-  def _make_inner_headers(self):
-    """Set up inner headers to go in the output.
+  def _make_fuzz_length_from_pad(self, num_bytes, modulo):
+    """Return a fuzz skip len based on the next NUM_BYTES bytes % MODULO,
+    advancing the pad accordingly."""
+    # What's going on here?
+    #
+    # First we read num_bytes bytes from the pad.  This is before any
+    # of the pad has been used for encoding or decoding.
+    #
+    # We then portably convert that sequence of bytes to a number
+    # modulo MODULO.  The resulting number is the number of bytes
+    # forward to skip in the pad before starting to consume pad data
+    # for use in actual conversion, that is, in encoding or decoding.
+    #
+    # Two possible improvements would be: skip by bits instead of
+    # bytes, so we get 8 times the variability for the amount of pad
+    # used up, or just go all the way and use some constant number of
+    # pad bytes as the key in a standard (e.g., block cipher) symmetric
+    # encryption algorithm run on the data before it is pad-encrypted.
+    # 
+    # Skipping by bits would complicate the code, however, since all
+    # the seeking and I/O is natively aligned on 8-bit boundaries.  As
+    # for doing full symmetric encryption "underneath" the pad, that's
+    # not a bad idea, but there isn't any library for that in the core
+    # Python distribution, and sticking to stuff available in standard
+    # Python is a design goal, to make distribution easier.
+    fuzz_length_source = self.padfile.read(num_bytes)
+    self._length += num_bytes
+    if len(fuzz_length_source) < num_bytes:
+      raise Pad.PadShort("not enough pad available to supply fuzz source")
+    fuzz_skip_len = 1
+    for x in fuzz_length_source:
+      # We don't use int.from_bytes(), as it's only available in
+      # Python >= 3.2.  Instead, we just multiply the bytes together
+      # (as eight-bit values) and take the modulo of that.  It would
+      # be more space-efficient to convert multiple bytes together as
+      # a word-sized number of some kind, but that's harder to do
+      # portably -- this has to work everywhere consistently.
+      #
+      # Since the current modulo is 512 and the default fuzz source
+      # length is 2, we could just do
+      #
+      #   sum([ord(x) for x in fuzz_length_source]) % 512
+      #
+      # But we may want to increase modulo and/or default fuzz source
+      # length later; multiplying all the bytes together is as
+      # efficient as we can be while maintaining portability.
+      fuzz_skip_len *= ord(x)
+    return fuzz_skip_len % modulo
+
+  def _skip_bytes(self, num_bytes):
+    """Skip NUM_BYTES bytes forward in this pad."""
+    try:
+      self.padfile.seek(self.padfile.tell() + num_bytes)
+      self._length += num_bytes
+    except EOFError:
+      raise Pad.PadShort("not enough pad available to supply fuzz")
+
+  def _make_inner_header(self):
+    """Return inner header data to be encoded in the output.
     This must happen before any conversion of plaintext to ciphertext
     is done, so it must be called after the Pad has been initialized
     but before self.convert() has consumed any pad for actual conversion."""
+    inner_header = ''
+    if self._offset is None:
+      raise Pad.PadUninitialized("pad not yet initialized (no offset)")
     # We first jump to the offset specified by the plaintext headers.
     # Then we'll read a set series of (pad-encrypted) bytes, some of
     # which may specify that further bytes should be read.  The bits
-    # will give flags for various options.  Here is the current list
-    # of flag bits:
+    # will give flags for various options.  Here is the list of the
+    # byte(s) and flag bits:
     # 
     #   First byte is internal format version -- think of it as the
     #   "x" in "modern.x", where "modern" comes from the plaintext
@@ -294,7 +359,8 @@ modern format levels."""
     #   In internal format 0, the next byte after the internal format
     #   version holds flag bits:
     # 
-    #     0b_______*: 0 means use default noise; 1 means look at next byte
+    #     0b_______*: 0 means use the default fuzz length
+    #                 1 means look at next byte for fuzz length
     #     0b______*_: reserved; must be 0 in internal format 0
     #     0b_____*__: reserved; must be 0 in internal format 0
     #     0b____*___: reserved; must be 0 in internal format 0
@@ -311,54 +377,46 @@ modern format levels."""
     # 
     #   The meanings of the rest of the flag bits are not yet
     #   determined, and their values must be zero in format 2.0.
-    # 
-    # None of the above is true yet.  Right now, we're just reading a
-    # tiny bit of pad to generate a small random number, and using
-    # that number to determine the noise length for this message.
-
-    fuzz_source_length = 4
-    if self._offset is None:
-      raise Pad.PadUninitialized("pad not yet initialized (no offset)")
-    fuzz_source = self.padfile.read(fuzz_source_length)
-    self._length += 4
-    if len(fuzz_source) < fuzz_source_length:
-      raise Pad.PadShort("not enough pad available to supply fuzz source")
-    # What's going on here?
     #
-    # First we read a small number of bytes (4) from the pad.  This is
-    # before any of the pad has been used for encoding or decoding.
+    # First byte is inner format version (currently 0), next byte
+    # indicates how to determine fuzz_source length.  Of course, both
+    # bytes need to be encoded by the pad.
+    next_pad_byte = ord(self.padfile.read(1))
+    self._length += 1
+    inner_header_format_version = 0 ^ next_pad_byte
+    next_pad_byte = ord(self.padfile.read(1))
+    self._length += 1
+    fuzz_source_length_indicator = 0 ^ next_pad_byte
+    # Now that we've taken care of the start of the header, we can
+    # figure out how far to skip in the pad, and then do the skip.
     #
-    # We then portably convert that sequence of bytes to a number
-    # modulo 256 (see a bit further down below for why we read 4 bytes
-    # when 1 would do).  The resulting number is the number of bytes
-    # forward to skip in the pad before starting to consume pad data
-    # for use in actual conversion, that is, in encoding or decoding.
+    # Explanations for the numbers below, starting with a
+    # justification of the modulo, then justifying the bytes fooo.
     #
     # Even in a known-plaintext case, an attacker does not know the
     # pad, so skipping a random distance based on pad data ensures the
     # attacker can't reliably substitute some other plaintext for the
-    # original: they'd have only a 1-in-256 chance of guessing the
+    # original: they'd have only a 1-in-512 chance of guessing the
     # right distance to skip.
     #
-    # Why modulo 256?  We don't want to skip too far forward -- that
-    # would be wasteful of pad, and pad might be expensive.  So we'll
-    # skip forward 0 <= N <= 255 bytes, N having been determined by
-    # the small bit of pad data we just read.  It's tempting to set a
-    # higher modulus and make it a 1-in-512 chance or 1-in-1024 or
-    # something, but given the rate at which I at least can generate
-    # new pad data, those feel too costly.  256 feels like the right
-    # point in the tradeoff slider -- but if anyone has data to
-    # support a different number, please speak up.
+    # Why 512?  We don't want to skip too far forward -- that would be
+    # wasteful of pad, and pad might be expensive.  So we'll skip
+    # forward 0 <= N <= 511 bytes, N having been determined by the
+    # small bit of pad data we just read.  It's tempting to set a
+    # higher modulus and make it a 1-in-1024 chance or something, but
+    # given the rate at which I at least can generate new pad data,
+    # those feel too costly.  512 feels like the right point in the
+    # tradeoff slider -- but if anyone has data to support a different
+    # number, please speak up.
     #
-    # We read 4 bytes for the source len, even though 1 byte would be
-    # enough for a range of 0-255, because that way most of this code
-    # can stay the same if we later decide to expand the range; I'm
-    # not worried about the three extra bytes.  (There's no particular
-    # reason the modulus has to be a power of two, either.)
+    # Of course, two bytes means we could go all the way up to 65535,
+    # so most of this code can stay the same if we later decide to
+    # expand the range.  (There's no particular reason the modulus has
+    # to be a power of two, either.)
     #
     # These precautions greatly reduce the effectiveness of the
     # known-plaintext message authentication attack.  Still, even now
-    # if you were to send the same message to, say, 256 people who are
+    # if you were to send the same message to, say, 512 people who are
     # all using the same pad, and that exact plaintext were known to
     # the attacker, and the attacker were to have active intercept
     # capability with the recipients, then for some small number of
@@ -371,30 +429,39 @@ modern format levels."""
     # this does not seem like a serious weakness to me, but comments
     # always welcome of course.
     #
-    # Remember that the 256 should not be thought of as a key length.
-    # The number of possibilities here is 1-in-256, not 1-in-(2^256).
-    #
-    # Two possible improvements would be: skip by bits instead of
-    # bytes, so we get 8 times the variability for the amount of pad
-    # used up, or just go all the way and use some constant number of
-    # pad bytes as a key in a standard (e.g., block cipher) symmetric
-    # encryption algorithm on the data before it is pad-encrypted.
-    # 
-    # Skipping by bits would complicate the code, however, since all
-    # the seeking and I/O is natively aligned on 8-bit boundaries.
-    # And as for doing full symmetric encryption "underneath" the pad,
-    # that's not a bad idea, but there isn't a library for that in the
-    # core Python distribution, and sticking to stuff available in
-    # standard Python is a design goal, to make distribution easier.
+    # Remember that the 512 should not be thought of as a key length.
+    # The number of possibilities here is 1-in-512, not 1-in-(2^512).
+    fuzz_skip_len = self._make_fuzz_length_from_pad(
+      self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    self._skip_bytes(fuzz_skip_len)
+    return chr(inner_header_format_version) + chr(fuzz_source_length_indicator)
 
-    # (Since int.from_bytes() is only available in Python 3.2 or
-    # later, we do the conversion manually here.)
-    fuzz_skip_len = sum([ ord(x) for x in fuzz_source]) % 256
-    try:
-      self.padfile.seek(self.padfile.tell() + fuzz_skip_len)
-      self._length += fuzz_skip_len
-    except EOFError:
-      raise Pad.PadShort("not enough pad available to supply fuzz")
+  def _handle_inner_header(self, string):
+    """Handle inner header data at front of STRING, return remainder of STRING.
+    This must happen before any conversion of ciphertext to plaintext
+    is done, so it must be called after the Pad has been initialized
+    but before self.convert() has consumed any pad for actual conversion."""
+    # See self._make_inner_header() for inner header documentation.
+    inner_format_version = None
+    if self._offset is None:
+      raise Pad.PadUninitialized("pad not yet initialized (no offset)")
+    next_pad_byte = ord(self.padfile.read(1))
+    self._length += 1
+    pad_encoded_byte = ord(string[0])
+    inner_format_version = pad_encoded_byte ^ next_pad_byte
+    if inner_format_version == 0:
+      fuzz_source_length_indicator = ord(string[1]) ^ ord(self.padfile.read(1))
+      self._length += 1
+      if fuzz_source_length_indicator & 1 == 0:
+        fuzz_skip_len = self._make_fuzz_length_from_pad(
+          self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+        self._skip_bytes(fuzz_skip_len)
+      else:
+        raise Pad.InnerFormat("cannot yet handle custom fuzz_source length")
+    else:
+      raise Pad.InnerFormat("unknown inner format version \"%d\""
+                            % inner_format_version)
+    return string[2:]
 
   def __str__(self):
     """Return a string representation of this pad."""
@@ -1117,7 +1184,8 @@ def main():
           output.close()
           if output_name is not None:
             os.remove(output_name)
-          raise PadDecoder.DecodingError("unable to decode (wrong pad?)")
+          raise PadDecoder.DecodingError(
+            "unable to decode (wrong pad or wrong offset?)")
         except EOFError:
           if string == "\n":
             # It's just the blank line between the end of the base64
