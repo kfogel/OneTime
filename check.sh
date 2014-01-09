@@ -193,7 +193,7 @@ start_new_test "failed decryption should give an error and create no output"
          -o tmp-ciphertext-b-1 < ../test-plaintext-b
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-2  \
          -o tmp-plaintext-b-1 tmp-ciphertext-b-1 2>err.out
-if ! grep -q "DecodingError: inner format error while decoding" err.out
+if ! grep -q "InnerFormat: unknown inner format version" err.out
 then
   echo ""
   echo "ERROR: did not see expected error on failed decryption"
