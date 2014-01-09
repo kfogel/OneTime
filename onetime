@@ -283,15 +283,34 @@ internal format levels."""
   def _make_fuzz_length_from_pad(self, num_bytes, modulo):
     """Return a fuzz skip len based on the next NUM_BYTES bytes % MODULO,
     advancing the pad accordingly."""
-    # What's going on here?
+    # What's going on here?  What is "fuzz"?
     #
-    # First we read num_bytes bytes from the pad.  This is before any
+    # "Fuzz" is a distance we skip forward in the pad before
+    # starting to use pad data for encryption or decryption; the
+    # exact distance can only be known by those who know the pad.
+    #
+    # The distance skipped may be determined in two ways:
+    #
+    #   1) Read some bytes from the current location in the pad, use
+    #      those bytes to calculate (in some deterministic way) the
+    #      fuzz distance to skip.
+    #
+    #   2) Read a sender-specified distance that is encrypted in the
+    #      pad right here ("here" being right after the inner header
+    #      bytes), and then skip that distance.
+    #
+    # Right now we only use method (1), but support for method (2) is
+    # built into the internal format.
+    #
+    # Here's how method (1) works:
+    #
+    # First we read NUM_BYTES bytes from the pad.  This is before any
     # of the pad has been used for encoding or decoding.
     #
     # We then portably convert that sequence of bytes to a number
-    # modulo MODULO.  The resulting number is the number of bytes
-    # forward to skip in the pad before starting to consume pad data
-    # for use in actual conversion, that is, in encoding or decoding.
+    # modulo MODULO.  The result is the number of bytes forward to
+    # skip in the pad before starting to consume pad data for use in
+    # actual conversion, that is, in encoding or decoding.
     #
     # Two possible improvements would be: skip by bits instead of
     # bytes, so we get 8 times the variability for the amount of pad
@@ -316,10 +335,10 @@ internal format levels."""
       # (as eight-bit values) and take the modulo of that.  It would
       # be more space-efficient to convert multiple bytes together as
       # a word-sized number of some kind, but that's harder to do
-      # portably -- this has to work everywhere consistently.
+      # portably, and this has to work everywhere consistently.
       #
       # Since the current modulo is 512 and the default fuzz source
-      # length is 2, we could just do
+      # length is 2, we could have just done
       #
       #   sum([ord(x) for x in fuzz_length_source]) % 512
       #
@@ -371,7 +390,7 @@ internal format levels."""
     #     0b*_______: reserved; must be 0 in internal format 0
     # 
     #   If the first bit were set, then the next byte would indicate
-    #   something about the noise length.  That might either be a
+    #   something about the fuzz length.  That might either be a
     #   sender-chosen definite length (still masked by the pad of
     #   course), or a length partly determined by the pad (as per the
     #   current code below) but with a sender-chosen minimum.  That's
