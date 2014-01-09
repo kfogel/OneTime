@@ -130,7 +130,7 @@ but it still needs to be a new object due to certain initializations).
     self._id = None
     self._original_format_level_id = None
     self._default_fuzz_source_length = 2   # See _make_fuzz_length_from_pad()
-    self._default_fuzz_source_modulo = 512 # and _make_inner_headers().
+    self._default_fuzz_source_modulo = 512 # and see _make_inner_header().
 
     # Most of what a pad does is the same for encoding and decoding --
     # after all, the conversion step is XOR, which is symmetrical.
@@ -412,8 +412,7 @@ internal format levels."""
     # Now that we've taken care of the start of the header, we can
     # figure out how far to skip in the pad, and then do the skip.
     #
-    # Explanations for the numbers below, starting with a
-    # justification of the modulo, then justifying the bytes fooo.
+    # self._default_fuzz_source_modulo is 512.  Why 512?
     #
     # Even in a known-plaintext case, an attacker does not know the
     # pad, so skipping a random distance based on pad data ensures the
@@ -421,15 +420,15 @@ internal format levels."""
     # original: they'd have only a 1-in-512 chance of guessing the
     # right distance to skip.
     #
-    # Why 512?  We don't want to skip too far forward -- that would be
-    # wasteful of pad, and pad might be expensive.  So we'll skip
-    # forward 0 <= N <= 511 bytes, N having been determined by the
-    # small bit of pad data we just read.  It's tempting to set a
-    # higher modulus and make it a 1-in-1024 chance or something, but
-    # given the rate at which I at least can generate new pad data,
-    # those feel too costly.  512 feels like the right point in the
-    # tradeoff slider -- but if anyone has data to support a different
-    # number, please speak up.
+    # We don't want to skip too far forward -- that would be wasteful
+    # of pad, and pad might be expensive.  So we'll skip forward
+    # 0 <= N <= 511 bytes, N having been determined by the small bit
+    # of pad data we just read.  It's tempting to set a higher modulus
+    # and make it a 1-in-1024 chance or something, but given the rate
+    # at which I at least can generate new pad data, that feels too
+    # costly.  512 feels like the right point in the tradeoff slider
+    # -- but if anyone has data to support a different number, please
+    # speak up.
     #
     # Of course, two bytes means we could go all the way up to 65535,
     # so most of this code can stay the same if we later decide to
