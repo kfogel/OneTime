@@ -193,7 +193,7 @@ start_new_test "failed decryption should give an error and create no output"
          -o tmp-ciphertext-b-1 < ../test-plaintext-b
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-2  \
          -o tmp-plaintext-b-1 tmp-ciphertext-b-1 2>err.out
-if ! grep -q "InnerFormat: unknown inner format version" err.out
+if ! grep -q "DecodingError: inner format error while decoding" err.out
 then
   echo ""
   echo "ERROR: did not see expected error on failed decryption"
@@ -228,7 +228,7 @@ start_new_test "decryption should not shrink pad usage"
 #     ==> pad-records says length reverted to 27340!
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-1.onetime ../test-plaintext-b
-if ! grep -q "<length>12651</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>12265</length>" dot-onetime/pad-records; then
   echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 1."
   cat dot-onetime/pad-records
@@ -237,7 +237,7 @@ fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-2.onetime ../test-plaintext-b
-if ! grep -q "<length>24858</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>24695</length>" dot-onetime/pad-records; then
   echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 2."
   cat dot-onetime/pad-records
@@ -246,7 +246,7 @@ fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-3.onetime ../test-plaintext-b
-if ! grep -q "<length>37124</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>36962</length>" dot-onetime/pad-records; then
   echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 3."
   cat dot-onetime/pad-records
@@ -255,7 +255,7 @@ fi
 
 ../../onetime -C dot-onetime -d -p ../test-pad-1 \
               -o tmp-plaintext-b-1 tmp-ciphertext-b-1.onetime
-if ! grep -q "<length>37124</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>36962</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
   if grep -q "<length>12372</length>" dot-onetime/pad-records; then
     echo ""
@@ -638,10 +638,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>469</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>484</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to use length 469 in pad-records"
+  echo "ERROR: decoding v2 input failed to use length 484 in pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -714,10 +714,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>437</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>452</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to add length 437 to pad-records"
+  echo "ERROR: decoding v2 input failed to add length 452 to pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -836,14 +836,14 @@ then
 fi
 
 # Expect the new length on the 7th line, in second range of first entry.
-if ! grep -q "<length>12433</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>12450</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: failed to insert expected new length 12433 into pad-records"
+  echo "ERROR: failed to insert expected new length 12450 into pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
-elif grep -q "<length>12433</length></used>" v1-dot-onetime/pad-records && \
-     [ `grep -n "<length>12433</length></used>" v1-dot-onetime/pad-records \
+elif grep -q "<length>12450</length></used>" v1-dot-onetime/pad-records && \
+     [ `grep -n "<length>12450</length></used>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 7 ]
 then
   echo ""

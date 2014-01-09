@@ -537,16 +537,21 @@ class PadDecoder:
     data is not decodable.  Throw EOFError exception if called past
     the end of decodable data.  Store any unused data in self.unused_data."""
     ret = ""
-    if self.format_level == "original":
-      # Format level "original" got the compression/encryption order
-      # wrong.  Look, this is embarrassing.  I'm only telling you
-      # about it because we still need to support that mis-ordering
-      # for compatibility.
-      ret = self.pad.convert((self.decompressor.decompress(
+    try:
+      if self.format_level == "original":
+        # Format level "original" got the compression/encryption order
+        # wrong.  Look, this is embarrassing.  I'm only telling you
+        # about it because we still need to support that mis-ordering
+        # for compatibility.
+        ret = self.pad.convert((self.decompressor.decompress(
         base64.b64decode(string))), format_level="original")
-    else: # must be format level "modern"
-      ret = self.decompressor.decompress(self.pad.convert(
-        base64.b64decode(string)))
+      else: # must be format level "modern"
+        ret = self.decompressor.decompress(self.pad.convert(
+          base64.b64decode(string)))
+    except IOError:
+      raise PadDecoder.DecodingError("got an I/O error while decoding")
+    except Pad.InnerFormat:
+      raise PadDecoder.DecodingError("inner format error while decoding")
     self.unused_data += self.decompressor.unused_data
     return ret
 
@@ -1180,12 +1185,11 @@ def main():
       if len(string) > 0:
         try:
           result = decoder.decode(string)
-        except IOError:
+        except PadDecoder.DecodingError, e:
           output.close()
           if output_name is not None:
             os.remove(output_name)
-          raise PadDecoder.DecodingError(
-            "unable to decode (wrong pad or wrong offset?)")
+          raise e
         except EOFError:
           if string == "\n":
             # It's just the blank line between the end of the base64
