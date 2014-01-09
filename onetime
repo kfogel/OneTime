@@ -1126,8 +1126,8 @@ def main():
   old_onetime_begin = "-----BEGIN OTP MESSAGE-----\n"   # compat
   onetime_header = "%s" % onetime_begin                        \
                + "Format: %s" % Format_Level                   \
-               + "  <<< NOTE: OneTime 1.x and older "          \
-               +              "cannot read this format. >>>\n" \
+               + "  << NOTE: OneTime 1.x and older "           \
+               +              "cannot read this format. >>\n"  \
                + "Pad ID: %s\n" % pad.id()                     \
                + "Offset: %s\n" % pad.offset()                 \
                + "\n"
