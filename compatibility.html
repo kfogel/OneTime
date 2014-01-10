@@ -26,14 +26,18 @@ with 2.x are <em>not</em> decryptable by 1.x versions.</p>
 
 <p style="margin-left: 10%; margin-right: 10%; color: red;" ><em>Note
 that there have been incompatible format changes during the course of
-2.x development and beta period.</em> Messages encrypted with
-<strong>2.0-beta</strong>, <strong>2.0-beta1</strong>, and
-<strong>2.0-beta2</strong> are not decryptable by
-<strong>2.0-beta3</strong> and higher (including 2.0 proper, when it
-comes out).  This is due to a <a
+2.x development and beta testing.</em> Messages encrypted with
+<strong>2.0-beta</strong> and <strong>2.0-beta2</strong> are not
+decryptable by <strong>2.0-beta3</strong> and higher (including 2.0
+proper, when it comes out).  This is due to a <a
 href="https://github.com/kfogel/OneTime/issues/2#issuecomment-24194528"
 >change</a> in how the encryption offset is chosen, to avoid a minor
 message-authentication weakness discovered during beta testing.</p>
+
+<p style="margin-left: 10%; margin-right: 10%;" >If you have messages
+encrypted with one of the previous beta versions and now you're having
+trouble decrypting, try it with <a href="onetime-2.0-beta2"
+>2.0-beta2</a> or <a href="onetime-2.0-beta" >2.0-beta</a>.</p>
 
 <hr/>
 
