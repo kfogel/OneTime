@@ -2,29 +2,32 @@
 
 TMP_DIR=dist-$$
 
-mkdir ${TMP_DIR}
-cd ${TMP_DIR}
+# We're still rolling 1.x releases for a while
+for branch in master 1.x; do
+  mkdir ${TMP_DIR}
+  cd ${TMP_DIR}
 
-# Until 2.0 is done, we're rolling 1.x releases.
-git clone -q -b 1.x .. .
+  git clone -q -b ${branch} .. .
 
-# Make a .tar.gz.
-git archive --format="tar.gz" -9                              \
-  --prefix="onetime-`./onetime --version | cut -f 3 -d " "`/" \
-  -o onetime-`./onetime --version | cut -f 3 -d " "`.tar.gz   \
-  1.x
+  # Make a .tar.gz.
+  git archive --format="tar.gz" -9                              \
+    --prefix="onetime-`./onetime --version | cut -f 3 -d " "`/" \
+    -o onetime-`./onetime --version | cut -f 3 -d " "`.tar.gz   \
+    ${branch}
 
-# Make a .zip.
-git archive --format="zip" -9                                 \
-  --prefix="onetime-`./onetime --version | cut -f 3 -d " "`/" \
-  -o onetime-`./onetime --version | cut -f 3 -d " "`.zip      \
-  1.x
+  # Make a .zip.
+  git archive --format="zip" -9                                 \
+    --prefix="onetime-`./onetime --version | cut -f 3 -d " "`/" \
+    -o onetime-`./onetime --version | cut -f 3 -d " "`.zip      \
+    ${branch}
 
-for name in tar.gz zip; do
-  mv onetime-`./onetime --version | cut -f 3 -d " "`.${name} ..
+  for name in tar.gz zip; do
+    mv onetime-`./onetime --version | cut -f 3 -d " "`.${name} ..
+  done
+
+  cp ./onetime ../onetime-`./onetime --version | cut -f 3 -d " "`
+
+  cd ..
+  rm -rf ${TMP_DIR}
 done
 
-cp ./onetime ../onetime-`./onetime --version | cut -f 3 -d " "`
-
-cd ..
-rm -rf ${TMP_DIR}

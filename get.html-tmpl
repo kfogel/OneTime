@@ -10,9 +10,8 @@
    <h2><center>Getting OneTime</center></h2>
 </div>
 
-<p>We recommend you download OneTime <strong>1XVERSION</strong> right
-now.  When development on 2XVERSION is complete, this page will be
-updated.</p>
+<p>I recommend OneTime <strong>1XVERSION</strong> right now.  When
+development on 2XVERSION is complete, this page will be updated.</p>
 
 <ul>
 
@@ -32,29 +31,32 @@ updated.</p>
 
 <li><p>You could just download the <a href="onetime-1XVERSION"
     >standalone 1XVERSION script</a> (or <a href="onetime"
-    >2XVERSION</a> script) directly, if you don't want the README, the
+    >2XVERSION script</a>) directly, if you don't want the README, the
     test suite, or other incidental files.</p></li>
 
-<li><p>OneTime is packaged in <a href="http://debian.org/">Debian
+<li><p>OneTime 1.x is packaged in <a href="http://debian.org/">Debian
     GNU/Linux</a> now.  If you run the "testing" distribution of
     Debian or higher, do
     <tt>'sudo&nbsp;apt-get&nbsp;update&nbsp;&amp;&amp;&nbsp;sudo&nbsp;apt-get&nbsp;install&nbsp;onetime'</tt>
     (or the equivalent in your preferred package management
-    interface).</p>
-    <p><em>Note that as of Nov 2013, the version of OneTime packaged
+    interface).<br />
+    <em>Note that as of Nov 2013, the version of OneTime packaged
     in Debian is somewhat behind the upstream release.  We'll try to
     get Debian updated soon after OneTime 2.0 comes out.</em></p></li>
 
-<li><p>GitHub: <a href="https://github.com/kfogel/OneTime"
-               >github.com/kfogel/OneTime</a></p></li>
-
 <li><p>Gitorious: <a href="https://gitorious.org/onetime"
                   >gitorious.org/onetime</a></p></li>
+
+<li><p>GitHub: <a href="https://github.com/kfogel/OneTime"
+               >github.com/kfogel/OneTime</a></p></li>
 </ul>
 
 <hr/>
 
-<center><p>Back to the <a href="index.html" >OneTime home page</a>.</p></center>
+<center><p>Back to the <a href="index.html" >OneTime home page</a>.</p>
+<a href="index.html" ><img src="images/logo/onetime-logo-color-225x225.png" 
+                           alt="OneTime logo" /></a>
+</center>
 
 </body>
 </html>

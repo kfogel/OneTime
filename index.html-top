@@ -19,16 +19,8 @@
 
 <h4><p style="margin-left: 10%; margin-right: 10%; color: red;
 font-size: 80%;" >Note (2013-09-10): OneTime is currently in <em>beta
-testing</em> for a 2.0 release.  There will be an incompatible format
-change before 2.0 comes out, meaning that messages encrypted with
-2.0-beta won't be decryptable with 2.0 proper, and vice versa.  This
-is due to a
-<a href="https://github.com/kfogel/OneTime/issues/2#issuecomment-24194528"
->change</a> in how the encryption offset is chosen, to avoid a minor
-message-authentication weakness discovered during beta testing.  Sorry
-for the inconvenience.  After 2.0 comes out, this page will continue
-to provide a link to a 2.0-beta version of the program, in case anyone
-has 2.0-beta messages they need to decrypt.</p></h4>
+testing</em> for a 2.0 release.  See the <a href="compatibility.html"
+>compatibility notes</a> for details.</p></h4>
 
 <table style="border: 0;">
 <tr style="border-top: 0; border-bottom: 0;">
@@ -61,6 +53,9 @@ has 2.0-beta messages they need to decrypt.</p></h4>
 </ul>
 </td>
 <td style="border-right: 1px solid grey; padding-left: 3%; padding-right: 3%; width: 62%; vertical-align: top;">
+<a href="get.html" ><img style="float: left;"
+                         src="images/logo/onetime-logo-color-225x225.png" 
+                         alt="OneTime logo" /></a>
 <p><a href="onetime">OneTime</a> is an <a href="LICENSE" >open
 source</a> encryption program that uses
 the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time

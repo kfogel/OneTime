@@ -1,0 +1,46 @@
+<html>
+<head>
+<title>OneTime 1.x &rarr; 2.x Compatibility Notes</title>
+<style type="text/css">
+  body { background: white; margin-left: 5%; margin-right: 5%; }
+  h1, h2, h3 { text-align: center; }
+  :target { border: 2px solid red; }
+  a, img { border: none; }
+</style>
+</head>
+
+<div style="background: lightblue; font-style: italic;">
+   <h2><center>OneTime 1.x &rarr; 2.x Compatibility Notes</center></h2>
+</div>
+
+<div id="content">
+
+<p style="margin-left: 10%; margin-right: 10%;" >As of 2014-01-09, OneTime is in <em>beta testing</em> for a 2.0 release.</p>
+
+<p style="margin-left: 10%; margin-right: 10%;" >Messages
+encrypted with OneTime 1.x will always be decryptable by 2.x and
+higher versions.</p>
+
+<p style="margin-left: 10%; margin-right: 10%;" >Message encrypted
+with 2.x are <em>not</em> decryptable by 1.x versions.</p>
+
+<p style="margin-left: 10%; margin-right: 10%; color: red;" ><em>Note
+that there have been incompatible format changes during the course of
+2.x development and beta period.</em> Messages encrypted with
+<strong>2.0-beta</strong>, <strong>2.0-beta1</strong>, and
+<strong>2.0-beta2</strong> are not decryptable by
+<strong>2.0-beta3</strong> and higher (including 2.0 proper, when it
+comes out).  This is due to a <a
+href="https://github.com/kfogel/OneTime/issues/2#issuecomment-24194528"
+>change</a> in how the encryption offset is chosen, to avoid a minor
+message-authentication weakness discovered during beta testing.</p>
+
+<hr/>
+
+<center><p>Back to the <a href="index.html" >OneTime home page</a>.</p>
+<a href="index.html" ><img src="images/logo/onetime-logo-color-225x225.png" 
+                           alt="OneTime logo" /></a>
+</center>
+
+</body>
+</html>
