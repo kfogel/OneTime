@@ -69,7 +69,7 @@ programming language and requires a Python interpreter to run.</p>
 
 <p>In Debian GNU/Linux or Ubuntu, you can just use the package manager
 to install the "<a href="http://packages.debian.org/sid/onetime"
->onetime</a>" package.  (But as of July 2013, the version of OneTime
+>onetime</a>" package.  (But as of January 2014, the version of OneTime
 packaged in Debian and Ubuntu is a major version number behind this
 upstream release.  We'll try to get the distros updated as soon as
 beta testing is done and the 2.0 release is out.)</p>

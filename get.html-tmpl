@@ -40,7 +40,7 @@ development on 2XVERSION is complete, this page will be updated.</p>
     <tt>'sudo&nbsp;apt-get&nbsp;update&nbsp;&amp;&amp;&nbsp;sudo&nbsp;apt-get&nbsp;install&nbsp;onetime'</tt>
     (or the equivalent in your preferred package management
     interface).<br />
-    <em>Note that as of Nov 2013, the version of OneTime packaged
+    <em>Note that as of January 2014, the version of OneTime packaged
     in Debian is somewhat behind the upstream release.  We'll try to
     get Debian updated soon after OneTime 2.0 comes out.</em></p></li>
 
