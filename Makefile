@@ -22,7 +22,7 @@ uninstall:
 
 distclean: clean
 clean:
-	@rm -rf home test-msg.* *~ onetime-*.* onetime-*.tar.gz
+	@rm -rf home test-msg.* *~ onetime-*.* onetime-*.tar.gz onetime-*.zip
 
 dist:
 	@./make-dist.sh
