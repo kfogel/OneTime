@@ -15,11 +15,11 @@
    <h2>OneTime: An Encryption Program Using The "One-Time Pad" Method</h2>
 </div>
 
-<h3><a href="get.html" >Download OneTime</a> (version 1XVERSION or 2XVERSION)</h3>
+<h3><a href="get" >Download OneTime</a> (version 1XVERSION or 2XVERSION)</h3>
 
 <h4><p style="margin-left: 10%; margin-right: 10%; color: red;
 font-size: 80%;" >Note (2014-01-09): OneTime is currently in <em>beta
-testing</em> for a 2.0 release.  See the <a href="compatibility.html"
+testing</em> for a 2.0 release.  See the <a href="compatibility"
 >compatibility notes</a> for details.</p></h4>
 
 <table style="border: 0;">
@@ -53,9 +53,9 @@ testing</em> for a 2.0 release.  See the <a href="compatibility.html"
 </ul>
 </td>
 <td style="border-right: 1px solid grey; padding-left: 3%; padding-right: 3%; width: 62%; vertical-align: top;">
-<a href="get.html" ><img style="float: left;"
-                         src="images/logo/onetime-logo-color-225x225.png" 
-                         alt="OneTime logo" /></a>
+<a href="get" ><img style="float: left;"
+                    src="images/logo/onetime-logo-color-225x225.png" 
+                    alt="OneTime logo" /></a>
 <p><a href="onetime">OneTime</a> is an <a href="LICENSE" >open
 source</a> encryption program that uses
 the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time

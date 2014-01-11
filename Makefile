@@ -22,7 +22,7 @@ uninstall:
 
 distclean: clean
 clean:
-	@rm -rf index.html test-msg.* *~ onetime-*.* onetime-*.tar.gz
+	@rm -rf home test-msg.* *~ onetime-*.* onetime-*.tar.gz
 
 dist:
 	@./make-dist.sh
@@ -56,47 +56,48 @@ www: dist
 	@mv pad-help.tmp.tmp pad-help.tmp
 	@sed -e 's/^\(.*\)/   \1/g' < pad-help.tmp > pad-help.tmp.tmp
 	@mv pad-help.tmp.tmp pad-help.tmp
-	@cat index.html-top            \
+	@cat home-top            \
              intro.tmp                 \
-             index.html-middle-top     \
+             home-middle-top     \
              usage.tmp                 \
-             index.html-middle-bottom  \
+             home-middle-bottom  \
              pad-help.tmp              \
-             index.html-bottom         \
-           > index.html
+             home-bottom         \
+           > home
 	@# Substitute in the release numbers.
 	@sed -e "s|1XVERSION|`./find-ver.sh 1`|g" \
-           < index.html > index.html.tmp
+           < home > home.tmp
 	@sed -e "s|2XVERSION|`./find-ver.sh 2`|g" \
-           < index.html.tmp > index.html
+           < home.tmp > home
 	@sed -e "s|1XVERSION|`./find-ver.sh 1`|g" \
-           < get.html-tmpl > get.html.tmp
+           < get-tmpl > get.tmp
 	@sed -e "s|2XVERSION|`./find-ver.sh 2`|g" \
-           < get.html.tmp > get.html
+           < get.tmp > get
+	@rm get.tmp
 	@# Make the GPG link live.
 	@sed -e 's/GnuPG,/<a href="http:\/\/www.gnupg.org\/">GnuPG<\/a>,/g' \
-           < index.html > index.html.tmp
-	@mv index.html.tmp index.html
+           < home > home.tmp
+	@mv home.tmp home
 	@# Make the Wikipedia link live.
 	@sed -e 's| http://en.wikipedia.org/wiki/One-time_pad | <a href="http://en.wikipedia.org/wiki/One-time_pad">http://en.wikipedia.org/wiki/One-time_pad</a> |g' \
-           < index.html > index.html.tmp
-	@mv index.html.tmp index.html
+           < home > home.tmp
+	@mv home.tmp home
 	@# Make the SVN and CVS links live.
 	@sed -e 's|Subversion or CVS,|<a href="http://subversion.tigris.org/">Subversion</a> or <a href="http://www.nongnu.org/cvs/">CVS</a>,|g' \
-           < index.html > index.html.tmp
-	@mv index.html.tmp index.html
+           < home > home.tmp
+	@mv home.tmp home
 	@# Make the author name link live.
 	@sed -e 's|Karl Fogel|<a href="http://red-bean.com/kfogel">Karl Fogel</a>|g' \
-           < index.html > index.html.tmp
-	@mv index.html.tmp index.html
+           < home > home.tmp
+	@mv home.tmp home
 	@# Make the home page link live.
 	@sed -e 's| http://www.red-bean.com/onetime/| <a href="http://www.red-bean.com/onetime/">http://www.red-bean.com/onetime/</a>|g' \
-           < index.html > index.html.tmp
-	@mv index.html.tmp index.html
+           < home > home.tmp
+	@mv home.tmp home
 	@# Make the license link live.
 	@sed -e 's| LICENSE | <a href="LICENSE">LICENSE</a> |g' \
-           < index.html > index.html.tmp
-	@mv index.html.tmp index.html
+           < home > home.tmp
+	@mv home.tmp home
 	@rm intro.tmp usage.tmp pad-help.tmp
 
 debian: deb
