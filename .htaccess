@@ -1,3 +1,4 @@
+DirectoryIndex home
 <FilesMatch "^(get|compatibility)$">
   ForceType 'text/html; charset=UTF-8'
 </FilesMatch>
