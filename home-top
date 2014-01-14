@@ -22,7 +22,7 @@ font-size: 80%;" >Note (2014-01-09): OneTime 2.0 is currently
 in beta testing.  See the <a href="compatibility"
 >compatibility notes</a> for details.</p></h4>
 
-<a href="get" ><img style="float: left;" 
+<a href="get" ><img style="float: left; margin-right: 3.5%;"
                     src="images/logo/onetime-logo-color-225x225.png" 
                     alt="OneTime logo" /></a>
 
@@ -31,7 +31,8 @@ source</a> encryption program that uses
 the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time
 pad</a> algorithm to allow two parties to communicate privately.  It
 has features to assist with the bureaucracy of pad management, and
-comes with built-in <a href="#help" >help</a>.</p>
+comes with built-in <a href="#help" >help</a>.  OneTime is for users
+who are comfortable running command-line programs.</p>
 
 <p>
 <ul style="margin-left: 20%;" >
