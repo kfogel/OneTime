@@ -1,109 +1,53 @@
 <html>
 <head>
-<title>OneTime: An Encryption Program Using The "One-Time Pad" Method</title>
+<title>OneTime&nbsp;&nbsp;&mdash;&nbsp;&nbsp;Encryption with One-Time Pads</title>
 <style type="text/css">
-  body { background: white; margin-left: 5%; margin-right: 5%; }
-  h1, h2, h3 { text-align: center; }
+  body { background: white; margin-left: 10%; margin-right: 10%; }
+  h1, h2 { text-align: center; }
   :target { border: 2px solid red; }
   a, img { border: none; }
 </style>
 </head>
 
+<body>
+
 <div id="content">
 
 <div style="background: lightblue; font-style: italic;">
-   <h2>OneTime: An Encryption Program Using The "One-Time Pad" Method</h2>
+   <h2>OneTime&nbsp;&nbsp;&mdash;&nbsp;&nbsp;Encryption with One-Time Pads</h2>
 </div>
 
-<h3><a href="get" >Download OneTime</a> (version 1XVERSION or 2XVERSION)</h3>
-
 <h4><p style="margin-left: 10%; margin-right: 10%; color: red;
-font-size: 80%;" >Note (2014-01-09): OneTime is currently in <em>beta
-testing</em> for a 2.0 release.  See the <a href="compatibility"
+font-size: 80%;" >Note (2014-01-09): OneTime 2.0 is currently
+in beta testing.  See the <a href="compatibility"
 >compatibility notes</a> for details.</p></h4>
 
-<table style="border: 0;">
-<tr style="border-top: 0; border-bottom: 0;">
-<td style="border-right: 1px solid grey; padding-left: 3%; padding-right: 3%; width: 19%; vertical-align: top; font-size: 85%;">
-<p style="text-align: center; font-style: italic; text-decoration: underline;"
-   >Changes in 2.0</p>
-<ul style="padding-left: 3%; list-style-type: circle; ">
-<li><p>New output format, to allow more efficient pad usage.
-    OneTime 2.x can still read 1.x output, but 1.x and older versions
-    cannot read 2.x output.</p></li>
-<li><p>Pad IDs have changed, because they are calculated differently
-    now.  The IDs in your <tt>pad-records</tt> file will be upgraded
-    automatically; you do not need to do anything.</p></li>
-<li><p>New <tt>--show-id</tt> option displays a pad's ID.</p></li>
-<li><p>New <tt>--pad-help</tt> option tells how to generate pads.</p></li>
-<li><p>Regression <a href="check.sh" >test suite</a> added.</p></li>
-<li><p>There is no more automated version control of pad metadata.
-    This is for many
-    <a href="https://github.com/kfogel/OneTime/commit/e343a860123a01c6ddb3f7ce2537325efe17238f
-    " >reasons</a>, among them code simplicity and the
-    <a href="https://en.wikipedia.org/wiki/Principle_of_least_astonishment"
-    >Principle of Least Astonishment</a>.  You can still keep your
-    <tt>~/.onetime/</tt> area under VC manually, of course.</p></li>
-<li><p>The <tt>--no-vc</tt> option is therefore removed.</p></li>
-<li><p>OneTime's license is now an <a href="LICENSE" >MIT-style open
-    source license</a>, to avoid various
-    <a href="http://opensource.org/faq#public-domain" >problems</a>
-    with the public domain.</p></li>
-<li><p>New <tt>--license</tt> option displays the license.</p></li>
-</ul>
-</td>
-<td style="border-right: 1px solid grey; padding-left: 3%; padding-right: 3%; width: 62%; vertical-align: top;">
-<a href="get" ><img style="float: left;"
+<a href="get" ><img style="float: left;" 
                     src="images/logo/onetime-logo-color-225x225.png" 
                     alt="OneTime logo" /></a>
+
 <p><a href="onetime">OneTime</a> is an <a href="LICENSE" >open
 source</a> encryption program that uses
 the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time
-pad</a> algorithm to allow two parties to communicate securely,
-without worrying about
-<a href="http://en.wikipedia.org/wiki/NSA_electronic_surveillance_program"
->unauthorized people listening in</a>.  OneTime has features to assist
-with the bureaucracy of pad management and comes with built-in help.
-It is written in the <a href="http://www.python.org/" >Python</a>
-programming language and requires a Python interpreter to run.</p>
+pad</a> algorithm to allow two parties to communicate privately.  It
+has features to assist with the bureaucracy of pad management, and
+comes with built-in <a href="#help" >help</a>.</p>
 
-<p>In Debian GNU/Linux or Ubuntu, you can just use the package manager
-to install the "<a href="http://packages.debian.org/sid/onetime"
->onetime</a>" package.  (But as of January 2014, the version of OneTime
-packaged in Debian and Ubuntu is a major version number behind this
-upstream release.  We'll try to get the distros updated as soon as
-beta testing is done and the 2.0 release is out.)</p>
+<p>
+<ul style="margin-left: 20%;" >
+<li><a href="get" >Get OneTime</a></li>
+<li><a href="#help" >Documentation</a></li>
+<li><a href="#pad-generation" >How to generate random pads</a></li> 
+<li><a href="example.onetime" >Sample output</a></li>
+<li><a href="dev" >Development</a></li>
+<li><a href="why" >Motivation</a></li>
+</ul>
+</p>
 
-<p>Note that the one-time pad method depends completely on the quality
-of the pad data: if the pad is not truly random, the security of your
-messages cannot be guaranteed.  So to use OneTime reliably, you need a
-source of good random data to create pad files.  On modern Linux
-systems, the <tt>/dev/random</tt> device is probably good enough
-(<a href="#pad-generation" >here's how</a> to do
-it, but note I haven't done the math myself&nbsp;&mdash;&nbsp;I'm just
-taking other people's <a
-href="http://en.wikipedia.org/wiki//dev/random#Linux" >word</a>
-for it).  Elsewhere, you're on your own.</p>
+<hr style="clear: both; text-align: center; margin-top: 3em; margin-bottom: 2em;" />
 
-<p>Also, if the same pad data is used to encrypt different
-messages&nbsp;&mdash;&nbsp;no matter how similar or different those
-messages are&nbsp;&mdash;&nbsp;then the security of the system can be
-greatly compromised.  Never encrypt different messages with the same
-stretch of pad!  Doing so could reveal some or all of the used pad to
-eavesdroppers.  OneTime's default behavior is to always avoid reusing
-pad data, unless you tell it otherwise.</p>
+<div id="help" title="help" >
 
-<p><span style="text-decoration: underline;">Recommended
-practice:</span> if you are Alice communicating with Bob, then keep
-two different pads, <tt>alice_to_bob.pad</tt>
-and <tt>bob_to_alice.pad</tt>, as opposed to sharing the same pad for
-both directions of communication.  With two separate pads, even if you
-each send a message simultaneously to the other with no advance
-planning, you still won't accidentally use any of the same pad data
-twice, assuming you let OneTime do its bookkeeping naturally.</p>
-
-<hr style="text-align: center; margin-top: 2em; margin-bottom: 2em; width: 95%;" />
-
-<p>Here is the output of '<b>onetime&nbsp;--intro</b>':</p>
+<p>This is the output of '<b>onetime&nbsp;--intro</b>':</p>
 
 <pre><i>

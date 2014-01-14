@@ -2,46 +2,34 @@
 </td>
 <td style="padding-left: 3%; padding-right: 3%; width: 19%; vertical-align: top; font-size: 85%;" >
 
-<p style="text-align: center; font-style: italic; text-decoration: underline;"
-  >What's it look like?</p>
+<p>Note that the one-time pad method depends completely on the quality
+of the pad data: if the pad is not truly random, the security of your
+messages cannot be guaranteed.  So to use OneTime reliably, you need a
+source of good random data to create pad files.  On modern Linux
+systems, the <tt>/dev/random</tt> device is probably good enough
+(<a href="#pad-generation" >here's how</a> to do
+it, but note I haven't done the math myself&nbsp;&mdash;&nbsp;I'm just
+taking other people's <a
+href="http://en.wikipedia.org/wiki//dev/random#Linux" >word</a>
+for it).  Elsewhere, you're on your own.</p>
 
-<p style="text-align: center;"
-  >See <a href="example.onetime" >this example.</a></p>
+<p>Also, if the same pad data is used to encrypt different
+messages&nbsp;&mdash;&nbsp;no matter how similar or different those
+messages are&nbsp;&mdash;&nbsp;then the security of the system can be
+greatly compromised.  Never encrypt different messages with the same
+stretch of pad!  Doing so could reveal some or all of the used pad to
+eavesdroppers.  OneTime's default behavior is to always avoid reusing
+pad data, unless you tell it otherwise.</p>
 
-<p style="text-align: center; font-style: italic; text-decoration: underline;"
-  >Why use OneTime?</p>
-
-<p>You might not need to.  One-time pad systems are inconvenient,
-because of the difficulty of pad generation and exchange, and there
-are plenty of other easier cryptography programs out there.  But
-OneTime could be handy in a few rare situations:</p>
-
-<ul style="padding-left: 3%; list-style-type: circle; ">
-<li><p>You're not completely confident about the provenance of <a href="http://www.gnupg.org/" >GnuPG</a> on your system;</p></li>
-<li><p>To bootstrap trust: i.e., to have a reliable fallback method for
-  exchanging other, more convenient keys;</p></li>
-<li><p>To have an encryption program whose code is small and simple
-  enough that you can inspect it and understand it;</p></li>
-<li><p>To throw a little diversity into the surveillance stream.
-  Bots are watching for &amp; saving messages in the popular
-  encryption formats.  OneTime makes 'em work a little harder! :-)</p> </li>
-</ul>
-</td></tr></table>
-
-<hr />
-
-<center>
-<p>OneTime is under version control at <a
-href="https://github.com/kfogel/OneTime"
->github.com/kfogel/OneTime</a> and at
-<a href="https://gitorious.org/onetime"
->gitorious.org/onetime</a>.
-<br />
-The two are usually in sync, but treat the one at GitHub as the master
-for pull requests, issues, etc.</p> 
-</center>
-
-<hr />
+<p><span style="text-decoration: underline;">Recommended
+practice:</span> if you are Alice communicating with Bob, then keep
+two different pads, <tt>alice_to_bob.pad</tt>
+and <tt>bob_to_alice.pad</tt>, as opposed to sharing the same pad for
+both directions of communication.  With two separate pads, even if you
+each send a message simultaneously to the other with no advance
+planning, you still won't accidentally use any of the same pad data
+twice, assuming you let OneTime do its bookkeeping naturally.</p>
+</div>
 
 </body>
 </html>

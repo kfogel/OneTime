@@ -1,49 +1,84 @@
 <html>
 <head>
-<title>OneTime 1.x &rarr; 2.x Compatibility Notes</title>
+<title>OneTime 2.x Changes and Compatibility Notes</title>
 <style type="text/css">
-  body { background: white; margin-left: 5%; margin-right: 5%; }
-  h1, h2, h3 { text-align: center; }
+  body { background: white; margin-left: 10%; margin-right: 10%; }
+  h1, h2 { text-align: center; }
   :target { border: 2px solid red; }
   a, img { border: none; }
 </style>
 </head>
 
+<body>
 <div style="background: lightblue; font-style: italic;">
-   <h2><center>OneTime 1.x &rarr; 2.x Compatibility Notes</center></h2>
+   <h1><center>OneTime 2.x Changes and Compatibility Notes</center></h1>
 </div>
 
 <div id="content">
 
-<p style="margin-left: 10%; margin-right: 10%;" >As of 2014-01-09, OneTime is in <em>beta testing</em> for a 2.0 release.</p>
+<h4><p style="text-align: center; margin-left: 10%; margin-right: 10%;
+color: red; font-size: 80%;" >As of 2014-01-09, OneTime 2.0 is
+in <em>beta testing</em>.</p></h4>
 
-<p style="margin-left: 10%; margin-right: 10%;" >Messages
-encrypted with OneTime 1.x will always be decryptable by 2.x and
-higher versions.</p>
+<h3 style="text-decoration: underline;" >Compatibility between OneTime 1.x and 2.x</h3>
 
-<p style="margin-left: 10%; margin-right: 10%;" >Message encrypted
-with 2.x are <em>not</em> decryptable by 1.x versions.</p>
+<ul style="list-style-type: circle;">
 
-<p style="margin-left: 10%; margin-right: 10%; color: red;" ><em>Note
-that there have been incompatible format changes during the course of
-2.x development and beta testing.</em> Messages encrypted with
-<strong>2.0-beta</strong> and <strong>2.0-beta2</strong> are not
-decryptable by <strong>2.0-beta3</strong> and higher (including 2.0
-proper, when it comes out).  This is due to a <a
-href="https://github.com/kfogel/OneTime/issues/2#issuecomment-24194528"
+<li><p>Messages encrypted with OneTime 1.x will always be decryptable
+by 2.x and higher versions.</p></li>
+
+<li><p>Message encrypted with 2.x are <em>not</em> decryptable by 1.x
+versions.</p></li>
+
+<li><p><span style="font-style: italic; color: red;">Note that there
+have been incompatible format changes during the course of 2.x
+development and beta testing.</span> Messages encrypted
+with <strong>2.0-beta</strong> and <strong>2.0-beta2</strong>
+are <em>not</em> decryptable by <strong>2.0-beta3</strong> and higher
+(including 2.0 proper, when it comes out).  This is due to
+a <a href="https://github.com/kfogel/OneTime/issues/2#issuecomment-24194528"
 >change</a> in how the encryption offset is chosen, to avoid a minor
-message-authentication weakness discovered during beta testing.</p>
+message-authentication weakness discovered during beta testing.  If
+you have messages encrypted with one of the previous beta versions,
+and now you're having trouble decrypting, try using
+<a href="onetime-2.0-beta2" >2.0-beta2</a>
+or <a href="onetime-2.0-beta" >2.0-beta</a>.</p></li>
 
-<p style="margin-left: 10%; margin-right: 10%;" >If you have messages
-encrypted with one of the previous beta versions and now you're having
-trouble decrypting, try it with <a href="onetime-2.0-beta2"
->2.0-beta2</a> or <a href="onetime-2.0-beta" >2.0-beta</a>.</p>
+</ul>
+
+<h3 style="text-decoration: underline;" >Changes in 2.0</h3>
+
+<ul style="list-style-type: circle; ">
+<li><p>New <a href="example.onetime" >output format</a>, to allow more
+    efficient pad usage.  (OneTime 2.x can still read 1.x output,
+    but 1.x and older versions cannot read 2.x output.)</p></li>
+<li><p>Pad IDs have changed, because they are calculated differently
+    now.  The IDs in your <tt>pad-records</tt> file will be upgraded
+    automatically; you do not need to do anything.</p></li>
+<li><p>New <tt>--show-id</tt> option displays a pad's ID.</p></li>
+<li><p>New <tt>--pad-help</tt> option tells how to generate pads.</p></li>
+<li><p>There is no more automated version control of pad metadata.
+    This is for many
+    <a href="https://github.com/kfogel/OneTime/commit/e343a860123a01c6ddb3f7ce2537325efe17238f
+    " >reasons</a>, among them code simplicity and the
+    <a href="https://en.wikipedia.org/wiki/Principle_of_least_astonishment"
+    >Principle of Least Astonishment</a>.  You can still keep your
+    <tt>~/.onetime/</tt> area under VC manually, of course.</p></li>
+<li><p>The <tt>--no-vc</tt> option is therefore removed.</p></li>
+<li><p>OneTime's license is now an <a href="LICENSE" >MIT-style open
+    source license</a>, to avoid various
+    <a href="http://opensource.org/faq#public-domain" >problems</a>
+    with the public domain.</p></li>
+<li><p>New <tt>--license</tt> option displays the license.</p></li>
+<li><p>For developers: <a href="check.sh" >regression test suite</a>
+    added.</p></li>
+</ul>
 
 <hr/>
 
 <center><p>Back to the <a href="./" >OneTime home page</a>.</p>
-<a href="index.html" ><img src="images/logo/onetime-logo-color-225x225.png" 
-                           alt="OneTime logo" /></a>
+<a href="./" ><img src="images/logo/onetime-logo-color-225x225.png" 
+                   alt="OneTime logo" /></a>
 </center>
 
 </body>

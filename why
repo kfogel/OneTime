@@ -1,0 +1,49 @@
+<html>
+<head>
+<title>Why Use OneTime?</title>
+<style type="text/css">
+  body { background: white; margin-left: 10%; margin-right: 10%; }
+  h1, h2 { text-align: center; }
+  :target { border: 2px solid red; }
+  a, img { border: none; }
+</style>
+</head>
+
+<body>
+<div style="background: lightblue; font-style: italic;">
+   <h1><center>Why Use OneTime?</center></h1>
+</div>
+
+<div id="content">
+
+<p>You might not need to use this.  One-time pad systems are
+inconvenient, because of the difficulty of pad generation and
+exchange.  There are many easier cryptography systems out there.  If
+you don't have a reason to use this, then don't.</p>
+
+<p>OneTime could be handy in a few rare situations:</p>
+
+<ul style="padding-left: 3%; list-style-type: circle; ">
+<li><p>You're not completely confident about the provenance of <a href="http://www.gnupg.org/" >GnuPG</a> on your system.</p></li>
+<li><p>To bootstrap trust: i.e., to have a reliable fallback method for
+  exchanging other, more convenient keys.</p></li>
+<li><p>To have an encryption program whose code is small and simple
+  enough that you can inspect it and understand it.</p></li>
+<li><p>To throw a little diversity into the surveillance stream.
+  Bots are watching for &amp; saving messages in the popular
+  encryption formats.  OneTime makes 'em work a little harder! :-)</p> </li>
+</ul>
+
+<p>I'm not really sure who's using this program nor why they're using
+it.  I get enough bug reports and feature requests to be confident
+that there is a user base, though, so I continue to maintain it.</p>
+
+<hr/>
+
+<center><p>Back to the <a href="./" >OneTime home page</a>.</p>
+<a href="./" ><img src="images/logo/onetime-logo-color-225x225.png" 
+                   alt="OneTime logo" /></a>
+</center>
+
+</body>
+</html>

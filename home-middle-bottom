@@ -1,7 +1,9 @@
 </i></pre>
 
-<hr style="text-align: center; margin-top: 2em; margin-bottom: 2em; width: 95%;" />
+</div>
+
+<hr style="text-align: center; margin-top: 2em; margin-bottom: 2em;" />
 
 <p>And here is how to generate a one-time pad (this is the output of '<b>onetime&nbsp;--pad-help</b>'):</p>
 
-<pre id="pad-generation" title="pad-generation"><i>
+<div id="pad-generation" title="pad-generation"><pre><i>
