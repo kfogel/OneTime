@@ -33,10 +33,11 @@ design or implementation is probably answered there.</p>
 
 <hr/>
 
-<center><p>Back to the <a href="./" >OneTime home page</a>.</p>
-<a href="./" ><img src="images/logo/onetime-logo-color-225x225.png" 
-                   alt="OneTime logo" /></a>
-</center>
+<center><a href="./" ><img style="vertical-align: middle;"
+                           src="images/logo/onetime-logo-color-32x32.png" 
+                           alt="OneTime logo" /></a>&nbsp;&nbsp;Back
+                           to the <a href="./" 
+                           >OneTime home page</a>.</p></center>
 
 </body>
 </html>
