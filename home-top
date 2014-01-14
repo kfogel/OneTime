@@ -35,7 +35,7 @@ comes with built-in <a href="#help" >help</a>.  OneTime is for users
 who are comfortable running command-line programs.</p>
 
 <p>
-<ul style="margin-left: 20%;" >
+<ul style="margin-left: 20%; list-style-type: circle;" >
 <li><a href="get" >Get OneTime</a></li>
 <li><a href="#help" >Documentation</a></li>
 <li><a href="#pad-generation" >How to generate random pads</a></li> 
