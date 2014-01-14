@@ -26,10 +26,10 @@ href="https://github.com/kfogel/OneTime"
 either location.  Please use the GitHub repository for filing
 issues.</p>
 
-<p>OneTime is written in <a href="http://www.python.org/" >Python</a>.
-Its <a href="onetime" >source code</a> is heavily commented; any
-question you might have about design or implementation is probably
-answered there.</p>
+<p>OneTime is written in <a href="http://www.python.org/" >Python</a>,
+and requires Python 2.6 or higher.  Its <a href="onetime" >source
+code</a> is heavily commented; any question you might have about
+design or implementation is probably answered there.</p>
 
 <hr/>
 

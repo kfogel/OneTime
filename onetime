@@ -54,12 +54,11 @@ import xml.dom
 import xml.dom.minidom
 
 
-# Set up booleans that older Pythons didn't have, if necessary.
-try:
-  True
-except:
-  True = 1
-  False = 0
+# Check Python version.
+if sys.version_info.major < 2 or sys.version_info.minor < 6:
+  sys.stderr.write("ERROR: OneTime requires Python version >= 2.6\n")
+  sys.exit(1)
+
 
 # The current format level.
 #

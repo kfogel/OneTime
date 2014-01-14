@@ -31,8 +31,9 @@ source</a> encryption program that uses
 the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time
 pad</a> algorithm to allow two parties to communicate privately.  It
 has features to assist with the bureaucracy of pad management, and
-comes with built-in <a href="#help" >help</a>.  OneTime is for users
-who are comfortable running command-line programs.</p>
+comes with built-in <a href="#help" >help</a>.  OneTime requires
+Python 2.6 or higher, and is for users who are comfortable running
+command-line programs.</p>
 
 <p>
 <ul style="margin-left: 20%; list-style-type: circle;" >
