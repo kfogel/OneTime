@@ -2,7 +2,7 @@
 
 __version__ = "2.0-beta3"
 
-__doc__ = """OneTime: an open source encryption program that uses one-time pads.
+__doc__ = """OneTime: an open source encryption program that uses the one-time pad method.
 
 (Run 'onetime --help' for usage information.)
 
@@ -10,19 +10,19 @@ The usual public-key encryption programs, such as GnuPG, are probably
 secure for everyday purposes, but their implementations are too
 complex for all but the most knowledgeable programmers to vet, and
 in some cases there may be vulnerable steps in the supply chain
-between GnuPG's authors and the end user.  When bootstrapping trust,
+between their authors and the end user.  When bootstrapping trust,
 it helps to start with something you can trust by inspection.
 
-Hence this script, OneTime, a simple encryption program that works
-with one-time pads.  If you don't know what one-time pads are, this
+Hence this script, OneTime, a simple program that encrypts plaintexts
+against one-time pads.  If you don't know what one-time pads are, this
 program may not be right for you.  If you do know what they are and
 how to use them, this program can make using them more convenient.
 
-OneTime takes care of some of the pad-management bureacracy for you.
-It avoids re-using pad data -- except when decrypting the same
-encrypted message twice, of course -- by maintaining records of pad
-usage in ~/.onetime/pad-records.  (The pads themselves are not stored
-there, just records about pad usage.)  
+OneTime handles some of the pad-management bureacracy for you.  It
+avoids re-using pad data -- except when decrypting the same message
+twice -- by maintaining records of pad usage in ~/.onetime/pad-records.
+(The pads themselves are not typically stored there, just records
+about pad usage.)
 
 Recommended practice: if you are Alice communicating with Bob, then
 keep two different pads, 'alice_to_bob.pad' and 'bob_to_alice.pad', as
@@ -65,7 +65,7 @@ if sys.version_info.major < 2 or sys.version_info.minor < 6:
 # Some background is needed to understand what this means:
 #
 # The first releases of OneTime (the 1.x series) did not include any
-# indication of the format, in the plaintext headers of the output.
+# indication of the format in the plaintext headers of the output.
 # This was deliberate: after all, if there *were* a format change in
 # the future, a "Format:" header could be added, and its presence
 # would indicate that the output was clearly from a later version than
@@ -73,33 +73,33 @@ if sys.version_info.major < 2 or sys.version_info.minor < 6:
 #
 # Well, that has now happened -- but instead of specifying an exact
 # format version in the plaintext header, we just specify that the
-# format is "internal", and in the code we call this a "format level"
+# format is "internal", and in the code we call that a "format level"
 # instead of a "format version".  We distinguish between this new
 # "internal" level and the old level (now retroactively labeled
 # "original"), for the purpose of supporting OneTime 1.x and earlier,
-# but beyond that the plaintext headers do not say anything further
-# about the format.
+# but beyond that the plaintext header does not say anything about the
+# format other than that label "internal".
 #
-# There are a couple of reasons to do it this way.  One, so we get
-# away from the idea that the version of OneTime is relevant, since
-# that what really matters is just the format -- which can and often
+# There are a couple of reasons to do it this way.  One, to get away
+# from the idea that the version of OneTime is relevant, since that
+# what really matters is just the output format -- which can and often
 # will remain unchanged, or at least backward-compatible, from version
 # to version of OneTime.  Two, starting from OneTime 2.0, all detailed
 # format version information is embedded in "inner headers" in the
 # ciphertext (see the Pad class for details), not in the plaintext
 # headers.  This avoids leaking information about the earliest
 # possible date on which the message could have been encrypted,
-# because the encrypted message will reveal nothing more than that the
-# tool used to encrypt must have been OneTime 2.0 or higher.
+# because the crypttext will reveal only that the message must have
+# been encrypted with OneTime 2.0 or higher.
 #
-# Therefore, instead of using numbers for the format level, we use one
-# of two words: "internal" or "original".
+# Therefore, in OneTime's code, instead of using numbers for the
+# format level, we use one of two words: "internal" or "original".
 #
-# Note that the "original" format had a (rather embarrassing) bug
-# whereby plaintext was encrypted and then then compressed, instead of
-# the other way around.  This is fixed in all the "internal" level
+# Note also that the "original" format had a (rather embarrassing) bug
+# whereby plaintext was encrypted and then compressed, instead of the
+# other way around.  This is fixed in all the "internal" level
 # formats, and of course any further format details are now embedded
-# in the cipthertext, in the manner described in the Pad class.
+# in the inner headers in the cipthertext, as described in class Pad.
 Format_Level = "internal"
 
 class Pad:
@@ -284,45 +284,36 @@ internal format levels."""
     advancing the pad accordingly."""
     # What's going on here?  What is "fuzz"?
     #
-    # "Fuzz" is a distance we skip forward in the pad before
-    # starting to use pad data for encryption or decryption; the
-    # exact distance can only be known by those who know the pad.
+    # "Fuzz" is a distance we skip forward in the pad before starting
+    # to use pad data for encryption or decryption.  Because the
+    # distance to skip is based on data in the pad, it can only be
+    # known by those who have the pad.
     #
     # The distance skipped may be determined in two ways:
     #
-    #   1) Read some bytes from the current location in the pad, use
-    #      those bytes to calculate (in some deterministic way) the
-    #      fuzz distance to skip.
+    #   1) Read NUM_BYTES from the current location in the pad, and
+    #      use those bytes to calculate (in some deterministic way)
+    #      the fuzz distance to skip.
     #
     #   2) Read a sender-specified distance that is encrypted in the
     #      pad right here ("here" being right after the inner header
     #      bytes), and then skip that distance.
     #
     # Right now we only use method (1), but support for method (2) is
-    # built into the internal format.
+    # built into the inner header format; see _make_inner_header().
     #
     # Here's how method (1) works:
     #
-    # First we read NUM_BYTES bytes from the pad.  This is before any
-    # of the pad has been used for encoding or decoding.
+    # First we read NUM_BYTES bytes from the pad (the bytes are
+    # consumed -- they won't be used for encoding data, and therefore
+    # this happens before any pad gets used for encoding/decoding).
     #
     # We then portably convert that sequence of bytes to a number
     # modulo MODULO.  The result is the number of bytes forward to
-    # skip in the pad before starting to consume pad data for use in
-    # actual conversion, that is, in encoding or decoding.
+    # skip in the pad before starting to consume pad data for use by
+    # convert() in encoding or decoding.
     #
-    # Two possible improvements would be: skip by bits instead of
-    # bytes, so we get 8 times the variability for the amount of pad
-    # used up, or just go all the way and use some constant number of
-    # pad bytes as the key in a standard (e.g., block cipher) symmetric
-    # encryption algorithm run on the data before it is pad-encrypted.
-    # 
-    # Skipping by bits would complicate the code, however, since all
-    # the seeking and I/O is natively aligned on 8-bit boundaries.  As
-    # for doing full symmetric encryption "underneath" the pad, that's
-    # not a bad idea, but there isn't any library for that in the core
-    # Python distribution, and sticking to stuff available in standard
-    # Python is a design goal, to make distribution easier.
+    # See _make_inner_header() for why we do things this way.
     fuzz_length_source = self.padfile.read(num_bytes)
     self._length += num_bytes
     if len(fuzz_length_source) < num_bytes:
@@ -364,60 +355,98 @@ internal format levels."""
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
     # We first jump to the offset specified by the plaintext headers.
-    # Then we'll read a set series of (pad-encrypted) bytes, some of
-    # which may specify that further bytes should be read.  The bits
-    # will give flags for various options.  Here is the list of the
-    # byte(s) and flag bits:
     # 
-    #   First byte is internal format version -- think of it as the
-    #   "x" in "internal.x", where "internal" comes from the plaintext
-    #   "Format:" header.  Values 0-127 are interpreted as numbers;
-    #   values > 128 mean combine this byte with the next byte
-    #   (recursively, big endian).
-    # 
-    #   In internal format 0, the next byte after the internal format
-    #   version holds flag bits:
-    # 
-    #     0b_______*: 0 means use the default fuzz length
-    #                 1 means look at next byte for fuzz length
-    #     0b______*_: reserved; must be 0 in internal format 0
-    #     0b_____*__: reserved; must be 0 in internal format 0
-    #     0b____*___: reserved; must be 0 in internal format 0
-    #     0b___*____: reserved; must be 0 in internal format 0
-    #     0b__*_____: reserved; must be 0 in internal format 0
-    #     0b_*______: reserved; must be 0 in internal format 0
-    #     0b*_______: reserved; must be 0 in internal format 0
-    # 
-    #   If the first bit were set, then the next byte would indicate
-    #   something about the fuzz length.  That might either be a
-    #   sender-chosen definite length (still masked by the pad of
-    #   course), or a length partly determined by the pad (as per the
-    #   current code below) but with a sender-chosen minimum.  That's
-    #   all TBD: we don't support internal format 1 yet, only 0, and
-    #   in 0 the skip-distance comes entirely from pad data.
-    # 
-    #   The meanings of the rest of the flag bits are not yet
-    #   determined, and their values must be zero in format 2.0.
+    # Then we generating the inner header bytes: a series of bytes
+    # that various things about the encryption of the plaintext.  The
+    # inner header bytes are themselves encrypted against the pad, so
+    # for each byte of inner header we have to consume a byte of pad.
     #
-    # First byte is inner format version (currently 0), next byte
-    # indicates how to determine fuzz_source length.  Of course, both
-    # bytes need to be encoded by the pad.
+    # The (plaintext) format of the inner headers is given below.
+    # Some bytes are flag bytes, where each bit gives flags for
+    # various options.  Depending on what those flags say, some of
+    # the subsequent bytes indicate length or have other meanings.
+    #
+    #   BYTE 1:
+    #     The first byte indicates the internal format version --
+    #     think of it as the "x" in "internal.x", where "internal"
+    #     comes from the plaintext "Format:" header.  Values 0-127 are
+    #     interpreted as numbers; values > 128 mean combine this byte
+    #     with the next byte (recursively, big endian).  The internal
+    #     format version will probably never get that high, of course,
+    #     but if it does, we're prepared :-).
+    # 
+    #   BYTE 2:
+    #     In internal format 0, the second byte holds flag bits:
+    # 
+    #       0b_______*: 0 means use the default fuzz length
+    #                   1 means look at next byte(s) for fuzz length
+    #       0b______*_: reserved; must be 0 in internal format 0
+    #       0b_____*__: reserved; must be 0 in internal format 0
+    #       0b____*___: reserved; must be 0 in internal format 0
+    #       0b___*____: reserved; must be 0 in internal format 0
+    #       0b__*_____: reserved; must be 0 in internal format 0
+    #       0b_*______: reserved; must be 0 in internal format 0
+    #       0b*_______: reserved; must be 0 in internal format 0
+    # 
+    #     If the first bit were set, then the next byte would indicate
+    #     something about the fuzz length.  That might either be a
+    #     sender-chosen definite length (still masked by the pad of
+    #     course), or a length partly determined by the pad (similarly
+    #     to the current code below) but with a sender-chosen minimum.
+    #     That's all TBD: we don't support internal format 1 yet, only
+    #     0, and in 0 the skip-distance comes entirely from pad data.
+    # 
+    #     The meanings of the rest of the flag bits are not yet
+    #     determined, and their values must be zero in format 2.0.
+    #     (The value of the first bit must be zero right now, too,
+    #     since sender-chosen lengths are not yet implemented, but at
+    #     least we know more or less what that bit means already.)
     next_pad_byte = ord(self.padfile.read(1))
     self._length += 1
+    # First byte is inner format version (currently 0):
     inner_header_format_version = 0 ^ next_pad_byte
     next_pad_byte = ord(self.padfile.read(1))
     self._length += 1
+    # Next byte indicates how to determine fuzz_source length:
     fuzz_source_length_indicator = 0 ^ next_pad_byte
     # Now that we've taken care of the start of the header, we can
     # figure out how far to skip in the pad, and then do the skip.
     #
-    # self._default_fuzz_source_modulo is 512.  Why 512?
+    # You may be wondering, why do we skip at all?
     #
-    # Even in a known-plaintext case, an attacker does not know the
-    # pad, so skipping a random distance based on pad data ensures the
-    # attacker can't reliably substitute some other plaintext for the
-    # original: they'd have only a 1-in-512 chance of guessing the
-    # right distance to skip.
+    # There's a known-plaintext message authentication attack whereby
+    # if the attacker knows the exact plaintext sent, and can actively
+    # intercept messages, she could substitute some other plaintext
+    # for it (since the relevant pad data could be derived).
+    #
+    # By skipping a distance determined by some pad data, we make it
+    # impossible for the attacker to know exactly *where* the real
+    # encrypted text starts -- so she can't derive the pad, so she
+    # can't do the substitution.
+    #
+    # Okay, but why not instead use a few bytes of pad data as a key
+    # by which to encrypt the plaintext input with some standard block
+    # cipher and then encode the result of *that* against the pad?
+    # Wouldn't that protect against a known-plaintext attack better?
+    #
+    # True, but the problem with doing full symmetric encryption
+    # "underneath" the pad is that there isn't any library for that in
+    # the standard Python distribution.  Using only stuff available in
+    # core Python is a design goal, to make distribution easier.
+    # (Also, adding a pad-keyed block-cipher would make maintenance
+    # and debugging slightly harder, though not drastically so.)
+    #
+    # Skipping a "random" distance -- that is, a distance known only
+    # to those with the pad -- is portable and simple.  It also
+    # disguises the length of the compressed plaintext a bit.  (We
+    # can't afford to disguise it by very much, because we don't want
+    # to use up a lot of pad by skipping very far; pad isn't cheap.)
+    #
+    # Hence, self._default_fuzz_source_modulo is currently 512.
+    #
+    # Now the attacker can't reliably substitute some other plaintext
+    # for the original: she'd have only a 1-in-512 chance of guessing
+    # the right distance to skip.
     #
     # We don't want to skip too far forward -- that would be wasteful
     # of pad, and pad might be expensive.  So we'll skip forward
@@ -425,14 +454,14 @@ internal format levels."""
     # of pad data we just read.  It's tempting to set a higher modulus
     # and make it a 1-in-1024 chance or something, but given the rate
     # at which I at least can generate new pad data, that feels too
-    # costly.  512 feels like the right point in the tradeoff slider
-    # -- but if anyone has data to support a different number, please
+    # costly.  512 feels like the right point in the tradeoff slider.
+    # If anyone has data to support a different number, I hope they'll
     # speak up.
     #
-    # Of course, two bytes means we could go all the way up to 65535,
-    # so most of this code can stay the same if we later decide to
-    # expand the range.  (There's no particular reason the modulus has
-    # to be a power of two, either.)
+    # Of course, two bytes (self._default_fuzz_source_length) means we
+    # could go all the way up to 65535, so most of this code can stay
+    # the same if we later decide to expand the range.  (There's no
+    # particular reason the modulus has to be a power of two, either.)
     #
     # These precautions greatly reduce the effectiveness of the
     # known-plaintext message authentication attack.  Still, even now
@@ -451,6 +480,11 @@ internal format levels."""
     #
     # Remember that the 512 should not be thought of as a key length.
     # The number of possibilities here is 1-in-512, not 1-in-(2^512).
+    #
+    # A possible improvement would be to skip by bits instead of
+    # bytes, so we get 8 times the variability for the amount of pad
+    # used up.  But skipping by bits would complicate the code, since
+    # all the seeking and I/O is natively aligned on 8-bit boundaries.
     fuzz_skip_len = self._make_fuzz_length_from_pad(
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
     self._skip_bytes(fuzz_skip_len)
@@ -512,12 +546,13 @@ class PadEncoder:
     # We use bz2 compression unconditionally.  If we offered a choice,
     # we'd have to name that choice somewhere for use in decryption.
     # But if we were to list the choice in the open headers, then we
-    # would reveal something about the plaintext.  On the other hand,
-    # if we were to name it in "inner headers" that are also masked by
-    # the pad, that would complexify the code a great deal (we know
-    # because we tried -- see the 2.x branch history) and that would
-    # defeat part of the point of this program: to be so simple as to
-    # be trivially auditable.  So just use bz2.  The worst case is ok.
+    # would reveal something about the plaintext.  So we'd list it in
+    # the inner headers, which would be fine, but it complicates the
+    # code for no convincing reason: bz2 compression applied to
+    # something non-compressible is more or less a no-op, give or take
+    # a few bytes here and there.  Part of the point of this program
+    # to be so simple as to be trivially auditable.  So we just use
+    # bz2 unconditionally; the worst case is ok.
     self.compressor = bz2.BZ2Compressor()
     self.pad.prepare_for_encoding()
 
@@ -1133,12 +1168,12 @@ def main():
   old_onetime_end = "-----END OTP MESSAGE-----\n"       # compat
 
   # We could use pads more efficiently, by encrypting with multiple
-  # discontinuous ranges to avoid the "sparse wasted space" problem.
+  # discontinuous ranges to avoid the sparse-wasted-space problem.
   # However, the common case is that someone uses the same pad
   # successively with one interlocutor, and in that case there would
   # be no benefit to seeking out small unused ranges and consuming
   # them -- we'd pay a price in code complexity but the extra code
-  # would in practice rarely or never be exercised.  Random numbers
+  # would in practice be rarely or never exercised.  Random numbers
   # aren't so expensive that they're worth that extra complexity.
   # However, we could add it in a future format rev if it ever looks
   # like a good idea.  Note that the discontinuous encrypted sections
