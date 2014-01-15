@@ -50,8 +50,10 @@ or <a href="onetime-2.0-beta" >2.0-beta</a>.</p></li>
 
 <ul style="list-style-type: circle; ">
 <li><p>New <a href="example.onetime" >output format</a>, to allow more
-    efficient pad usage.  (OneTime 2.x can still read 1.x output,
-    but 1.x and older versions cannot read 2.x output.)</p></li>
+    efficient pad usage and to protect against 
+    <a href="https://github.com/kfogel/OneTime/issues/2" >this
+    problem</a>.  (OneTime 2.x can still read 1.x output, but 1.x and
+    older versions cannot read 2.x output.)</p></li>
 <li><p>Pad IDs have changed, because they are calculated differently
     now.  The IDs in your <tt>pad-records</tt> file will be upgraded
     automatically; you do not need to do anything.</p></li>
