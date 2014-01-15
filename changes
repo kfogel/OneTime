@@ -44,6 +44,11 @@ and now you're having trouble decrypting, try using
 <a href="onetime-2.0-beta2" >2.0-beta2</a>
 or <a href="onetime-2.0-beta" >2.0-beta</a>.</p></li>
 
+<li><p>There will probably be another format-incompatible change in the
+2.0-beta series before 2.0 is released, because of
+<a href="https://github.com/kfogel/OneTime/issues/2#issuecomment-32337718"
+   >this problem</a> caught in 2.0-beta3.</p></li>
+
 </ul>
 
 <h3 style="text-decoration: underline;" >Changes in 2.0</h3>
