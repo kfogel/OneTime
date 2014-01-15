@@ -31,8 +31,7 @@ for branch in master 1.x; do
   rm -rf ${TMP_DIR}
 done
 
-# Also, we're providing people links to all previous beta versions,
-# as per the promise in compatibility.html.
+# For now we're providing links to previous beta versions.
 for tag in 2.0-beta2 2.0-beta; do
   git show ${tag}:onetime > onetime-${tag}
   chmod a+x onetime-${tag}
