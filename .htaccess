@@ -5,5 +5,5 @@ DirectoryIndex home
 </FilesMatch>
 
 <FilesMatch "^check\.sh$">
-  ForceType 'text/x-shellscript; charset=UTF-8'
+  ForceType 'text/plain; charset=UTF-8'
 </FilesMatch>
