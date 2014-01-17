@@ -54,12 +54,6 @@ import xml.dom
 import xml.dom.minidom
 
 
-# Check Python version.
-if sys.version_info.major < 2 or sys.version_info.minor < 6:
-  sys.stderr.write("ERROR: OneTime requires Python version >= 2.6\n")
-  sys.exit(1)
-
-
 # The current format level.
 #
 # Some background is needed to understand what this means:
