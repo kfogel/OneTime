@@ -99,7 +99,7 @@ www: dist
            < home > home.tmp
 	@mv home.tmp home
 	@# Make the random-vs-urandom discussion link live.
-	@sed -e 's|http://www.2uo.de/myths-about-urandom/|<a href="http://www.2uo.de/myths-about-urandom/">http://www.2uo.de/myths-about-urandom/</a> |g' \
+	@sed -e 's|http://www.2uo.de/myths-about-urandom/|<a href="http://www.2uo.de/myths-about-urandom/">http://www.2uo.de/myths-about-urandom/</a>|g' \
            < home > home.tmp
 	@mv home.tmp home
 	@rm intro.tmp usage.tmp pad-help.tmp
