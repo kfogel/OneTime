@@ -1,5 +1,8 @@
 # Makefile for OTP.
 
+prefix = /usr/local
+bindir = $(prefix)/bin
+
 all: check
 
 test: check
@@ -15,10 +18,11 @@ quickcheck:
           | ./onetime -d -n -p tests/random-data-1 -o -
 
 install:
-	@install -m755 onetime $(DESTDIR)/usr/bin/
+	@install -d -m 0755 $(bindir)
+	@install -m755 onetime $(bindir)
 
 uninstall:
-	@rm -v $(DESTDIR)/usr/bin/onetime
+	@rm -v $(prefix)/bin/onetime
 
 distclean: clean
 clean:
