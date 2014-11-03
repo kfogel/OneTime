@@ -80,7 +80,7 @@ import xml.dom.minidom
 # will remain unchanged, or at least backward-compatible, from version
 # to version of OneTime.  Two, starting from OneTime 2.0, all detailed
 # format version information is embedded in "inner headers" in the
-# ciphertext (see the Pad class for details), not in the plaintext
+# ciphertext (see the PadSession class for details), not in the plaintext
 # headers.  This avoids leaking information about the earliest
 # possible date on which the message could have been encrypted,
 # because the crypttext will reveal only that the message must have
@@ -93,15 +93,15 @@ import xml.dom.minidom
 # whereby plaintext was encrypted and then compressed, instead of the
 # other way around.  This is fixed in all the "internal" level
 # formats, and of course any further format details are now embedded
-# in the inner headers in the cipthertext, as described in class Pad.
+# in the inner headers in the cipthertext, as described in class PadSession.
 Format_Level = "internal"
 
-class Pad:
+class PadSession:
   """An encoder/decoder associated with a specific pad at a specific offset.
 Feed bytes through convert() to XOR them against the pad.
 
-A Pad is used for a single encryption or decryption session; it should
-not be used for subsequent sessions -- instead, a new Pad object
+A PadSession is used for a single encryption or decryption session; it should
+not be used for subsequent sessions -- instead, a new PadSession object
 should be generated (it might refer to the same underlying pad file,
 but it still needs to be a new object due to certain initializations).
   """
@@ -113,8 +113,8 @@ but it still needs to be a new object due to certain initializations).
   id_source_length = 32
 
   def __init__(self, pad_path):
-    """Initialize a new pad, using padfile PAD_PATH.  The pad cannot be
-  used for encoding or decoding until set_offset() is called."""
+    """Initialize a new pad session, using padfile PAD_PATH.  The pad session
+    cannot be used for encoding or decoding until set_offset() is called."""
     self.pad_path = pad_path
     self.padfile = open(self.pad_path, "rb")
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
@@ -137,10 +137,10 @@ but it still needs to be a new object due to certain initializations).
     # fuzz length we use (skip across) the moment we learn it.
     self._tail_fuzz_length = None
 
-    # Most of what a pad does is the same for encoding and decoding --
+    # Most of what a pad session does is the same for encoding and decoding --
     # after all, the conversion step is XOR, which is symmetrical.
     #
-    # However, before conversion can happen, the pad needs to know
+    # However, before conversion can happen, the pad session needs to know
     # whether to write or read the inner header flag bytes -- so for
     # that it needs to know whether it's encoding or decoding.  When
     # that step is done, the appropriate variable below is set;
@@ -150,16 +150,16 @@ but it still needs to be a new object due to certain initializations).
     # False until conversion starts, True thereafter.
     self._begun = False
     
-  class PadUninitialized(Exception):
-    """Exception raised if Pad hasn't been initialized yet."""
+  class PadSessionUninitialized(Exception):
+    """Exception raised if PadSession hasn't been initialized yet."""
     pass
 
   class OverPrepared(Exception):
-    """Exception raised if a Pad is initialized or prepared twice."""
+    """Exception raised if a PadSession is initialized or prepared twice."""
     pass
 
   class PadShort(Exception):
-    """Exception raised if Pad doesn't have enough data for this encryption."""
+    """Exception raised if pad doesn't have enough data for this encryption."""
     pass
 
   class FormatLevel(Exception):
@@ -171,27 +171,29 @@ but it still needs to be a new object due to certain initializations).
     pass
 
   def prepare_for_encoding(self):
-    """Mark this Pad as encoding.  This or prepare_for_decoding() must
+    """Mark this PadSession as encoding.  This or prepare_for_decoding() must
     be called exactly once, before any conversion happens."""
     if self._encoding:
-      raise Pad.OverPrepared("already prepared for encoding")
+      raise PadSession.OverPrepared("already prepared for encoding")
     if self._decoding:
-      raise Pad.OverPrepared("cannot prepare for both encoding and decoding")
+      raise PadSession.OverPrepared(
+        "cannot prepare for both encoding and decoding")
     self._encoding = True
 
   def prepare_for_decoding(self):
-    """Mark this Pad as decoding.  This or prepare_for_encoding() must
+    """Mark this PadSession as decoding.  This or prepare_for_encoding() must
     be called exactly once, before any conversion happens."""
     if self._decoding:
-      raise Pad.OverPrepared("already prepared for decoding")
+      raise PadSession.OverPrepared("already prepared for decoding")
     if self._encoding:
-      raise Pad.OverPrepared("cannot prepare for both decoding and encoding")
+      raise PadSession.OverPrepared(
+        "cannot prepare for both decoding and encoding")
     self._decoding = True
 
   def set_offset(self, offset):
-    """Set this pad's encoding/decoding offset to OFFSET."""
+    """Set this pad session's encoding/decoding offset to OFFSET."""
     if offset >= self.pad_size:
-      raise Pad.PadShort("offset exceeds pad size, need more pad")
+      raise PadSession.PadShort("offset exceeds pad size, need more pad")
     self._offset = offset
     self.padfile.seek(self._offset)
 
@@ -206,23 +208,26 @@ distance skip (the "fuzz") that is part of the encryption process for
 internal format levels.
 
 It is an error to call this multiple times with different FORMAT_LEVEL
-values, for a given Pad instance.  Whatever you pass the first time
+values, for a given PadSession instance.  Whatever you pass the first time
 must be used for all subsequent calls with that instance.
 """
     result = ''
     if self._offset is None:
-      raise Pad.PadUninitialized("pad not yet initialized (no offset)")
+      raise PadSession.PadSessionUninitialized(
+        "pad session not yet initialized (no offset)")
     if self._format_level is None:
       self._format_level = format_level
     elif self._format_level != format_level:
-      raise Pad.FormatLevel("inconsistent format levels requested: '%s' and '%s'" % (self._format_level, format_level))
+      raise PadSession.FormatLevel(
+        "inconsistent format levels requested: '%s' and '%s'"
+        % (self._format_level, format_level))
     if format_level == "internal":
       if self._encoding and self._decoding:
-        raise Pad.OverPrepared(
-          "pad cannot encode and decode simultaneously")
+        raise PadSession.OverPrepared(
+          "pad session cannot encode and decode simultaneously")
       elif not self._encoding and not self._decoding:
-        raise Pad.PadUninitialized(
-          "pad not yet prepared for either encoding or decoding")
+        raise PadSession.PadSessionUninitialized(
+          "pad session not yet prepared for either encoding or decoding")
       elif not self._begun:
         if self._encoding:
           inner_header_data = self._make_inner_header()
@@ -234,7 +239,8 @@ must be used for all subsequent calls with that instance.
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
-      raise Pad.PadShort("not enough pad data available to finish encryption")
+      raise PadSession.PadShort(
+        "not enough pad data available to finish encryption")
     for i in range(string_len):
       result += chr(ord(string[i]) ^ ord(pad_str[i]))
     self._length += string_len
@@ -243,18 +249,18 @@ must be used for all subsequent calls with that instance.
 
 
   def _get_id(self):
-    """Get the ID for this pad."""
+    """Get the ID for this session's underlying pad."""
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
     sha1 = hashlib.sha1()
-    string = self.padfile.read(Pad.id_source_length)
+    string = self.padfile.read(PadSession.id_source_length)
     sha1.update(string)
     self.padfile.seek(saved_posn)
     return sha1.hexdigest()
 
   def _get_original_format_level_id(self):
-    """Get the OneTime \"original\" format level ID for this pad.
-    In that format level, Pad IDs were based on the first 1024
+    """Get the OneTime \"original\" format level ID for the session pad.
+    In that format level, pad IDs were based on the first 1024
     (octet) bytes of the pad.  This was needlessly spendy, or rather,
     it would have been needlessly spendy if OneTime 1.x had been
     paranoid enough to not use any of those bytes for encryption.
@@ -269,7 +275,7 @@ must be used for all subsequent calls with that instance.
     return sha1.hexdigest()
 
   def id(self, format_level="internal"):
-    """Return the pad's ID.
+    """Return the pad ID of the pad belonging to this pad session.
     If FORMAT_LEVEL is specified, return ID according to that format level."""
     if format_level == "internal":
       if self._id is None:
@@ -280,7 +286,8 @@ must be used for all subsequent calls with that instance.
         self._original_format_level_id = self._get_original_format_level_id()
       return self._original_format_level_id
     else:
-      raise Pad.FormatLevel("unknown format \"%s\" for ID" % format_level)
+      raise PadSession.FormatLevel("unknown format \"%s\" for ID"
+                                   % format_level)
 
   def path(self):
     """Return the pad's path."""
@@ -334,7 +341,8 @@ must be used for all subsequent calls with that instance.
     fuzz_length_source = self.padfile.read(num_bytes)
     self._length += num_bytes
     if len(fuzz_length_source) < num_bytes:
-      raise Pad.PadShort("not enough pad available to supply fuzz source")
+      raise PadSession.PadShort(
+        "not enough pad available to supply fuzz source")
     fuzz_skip_len = 1
     for x in fuzz_length_source:
       # We don't use int.from_bytes(), as it's only available in
@@ -356,21 +364,22 @@ must be used for all subsequent calls with that instance.
     return fuzz_skip_len % modulo
 
   def _skip_bytes(self, num_bytes):
-    """Skip NUM_BYTES bytes forward in this pad."""
+    """Skip NUM_BYTES bytes forward in this session's pad."""
     try:
       self.padfile.seek(self.padfile.tell() + num_bytes)
       self._length += num_bytes
     except EOFError:
-      raise Pad.PadShort("not enough pad available to supply fuzz")
+      raise PadSession.PadShort("not enough pad available to supply fuzz")
 
   def _make_inner_header(self):
     """Return inner header data to be encoded in the output.
     This must happen before any conversion of plaintext to ciphertext
-    is done, so it must be called after the Pad has been initialized
+    is done, so it must be called after the PadSession has been initialized
     but before self.convert() has consumed any pad for actual conversion."""
     inner_header = ''
     if self._offset is None:
-      raise Pad.PadUninitialized("pad not yet initialized (no offset)")
+      raise PadSession.PadSessionUninitialized(
+        "pad session not yet initialized (no offset)")
     # We first jump to the offset specified by the plaintext headers.
     # 
     # Then we generating the inner header bytes: a series of bytes
@@ -518,12 +527,13 @@ must be used for all subsequent calls with that instance.
   def _handle_inner_header(self, string):
     """Handle inner header data at front of STRING, return remainder of STRING.
     This must happen before any conversion of ciphertext to plaintext
-    is done, so it must be called after the Pad has been initialized
+    is done, so it must be called after the PadSession has been initialized
     but before self.convert() has consumed any pad for actual conversion."""
     # See self._make_inner_header() for inner header documentation.
     inner_format_version = None
     if self._offset is None:
-      raise Pad.PadUninitialized("pad not yet initialized (no offset)")
+      raise PadSession.PadSessionUninitialized(
+        "pad session not yet initialized (no offset)")
     next_pad_byte = ord(self.padfile.read(1))
     self._length += 1
     pad_encoded_byte = ord(string[0])
@@ -538,7 +548,8 @@ must be used for all subsequent calls with that instance.
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
         self._skip_bytes(head_fuzz_length)
       else:
-        raise Pad.InnerFormat("cannot yet handle custom fuzz_source length")
+        raise PadSession.InnerFormat(
+          "cannot yet handle custom fuzz_source length")
       # Enforce the fact that we don't use any of the other flag bits yet.
       if (   first_flag_byte &   2 != 0
           or first_flag_byte &   4 != 0
@@ -547,38 +558,39 @@ must be used for all subsequent calls with that instance.
           or first_flag_byte &  32 != 0
           or first_flag_byte &  64 != 0
           or first_flag_byte & 128 != 0):
-        raise Pad.InnerFormat("first flag byte has unknown flags set (%s)"
-                              % bin(first_flag_byte))
+        raise PadSession.InnerFormat(
+          "first flag byte has unknown flags set (%s)"
+          % bin(first_flag_byte))
     else:
-      raise Pad.InnerFormat("unknown inner format version \"%d\""
+      raise PadSession.InnerFormat("unknown inner format version \"%d\""
                             % inner_format_version)
     return string[2:]
 
   def finish(self):
     """Close out this pad session."""
-    # todo: it's clearly finally time to rename Pad to PadSession
     if self._format_level == "internal":
       action = "encoding"
       if self._decoding:
         action = "decoding"
       if self._tail_fuzz_length is None:
-        raise Pad.PadUninitialized("tail fuzz length never initialized")
+        raise PadSession.PadSessionUninitialized(
+          "tail fuzz length never initialized")
 
   def __str__(self):
-    """Return a string representation of this pad."""
-    return "Pad '%s' (%s):\n   Offset: %d\n   Length: %d\n" \
+    """Return a string representation of this pad session."""
+    return "PadSession '%s' (%s):\n   Offset: %d\n   Length: %d\n" \
            % (self.path(), self.id(), self.offset(), self.length())
 
-class PadEncoder:
+class PadSessionEncoder:
   """Class for encoding raw data to OneTime output."""
 
   class UnknownCompressionException(Exception):
     """Exception raised when an unknown compression method is requested."""
     pass
 
-  def __init__(self, pad, config):
-    """Initialize an encoder for PAD with Configuration CONFIG."""
-    self.pad = pad
+  def __init__(self, pad_sess, config):
+    """Initialize an encoder for PAD_SESS with Configuration CONFIG."""
+    self.pad_sess = pad_sess
     self.config = config
     # We use bz2 compression unconditionally.  If we offered a choice,
     # we'd have to name that choice somewhere for use in decryption.
@@ -591,7 +603,7 @@ class PadEncoder:
     # to be so simple as to be trivially auditable.  So we just use
     # bz2 unconditionally; the worst case is ok.
     self.compressor = bz2.BZ2Compressor()
-    self.pad.prepare_for_encoding()
+    self.pad_sess.prepare_for_encoding()
 
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
@@ -599,39 +611,39 @@ class PadEncoder:
     out = ''
     compressed_plaintext = self.compressor.compress(string)
     if len(compressed_plaintext) > 0:
-      out = base64.encodestring(self.pad.convert(compressed_plaintext))
+      out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
     return out
 
   def finish(self):
     "Return last remaining bits of crypttext, or None if none left."
-    remainder = self.pad.convert(self.compressor.flush())
+    remainder = self.pad_sess.convert(self.compressor.flush())
     if remainder:
       remainder = base64.encodestring(remainder)
-    self.config.record_consumed(self.pad, False)
+    self.config.record_consumed(self.pad_sess, False)
     return remainder
 
 
-class PadDecoder:
+class PadSessionDecoder:
   """Class for decoding OneTime output back to plaintext."""
 
   class DecodingError(Exception):
     """Exception raised when something goes wrong decoding."""
     pass
 
-  def __init__(self, pad, config, format_level):
-    """Initialize a decoder for PAD with Configuration CONFIG.
+  def __init__(self, pad_sess, config, format_level):
+    """Initialize a decoder for PAD_SESS with Configuration CONFIG.
     FORMAT_LEVEL indicates the OneTime format level of the incoming
     data, i.e., the value given in the output's "Format:" header."""
-    self.pad = pad
+    self.pad_sess = pad_sess
     self.config = config
     self.unused_data = ""
     self.format_level = format_level
     self.decompressor = bz2.BZ2Decompressor()
 
     if self.format_level != "original" and self.format_level != "internal":
-      raise Pad.FormatLevel(
+      raise PadSession.FormatLevel(
         "impossible format level: \"%s\"" % self.format_level)
-    self.pad.prepare_for_decoding()
+    self.pad_sess.prepare_for_decoding()
 
   def decode(self, string):
     """Return all available onetime-decoded data so far, including for STRING,
@@ -644,17 +656,17 @@ class PadDecoder:
       # wrong.  Look, this is embarrassing.  I'm only telling you
       # about it because we still need to support that mis-ordering
       # for compatibility.
-      ret = self.pad.convert((self.decompressor.decompress(
+      ret = self.pad_sess.convert((self.decompressor.decompress(
       base64.b64decode(string))), format_level="original")
     else: # must be format level "internal"
-      ret = self.decompressor.decompress(self.pad.convert(
+      ret = self.decompressor.decompress(self.pad_sess.convert(
         base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
     return ret
 
   def finalize(self):
-    """Finalize pad usage with the configuration."""
-    self.config.record_consumed(self.pad, True)
+    """Finalize this session's pad usage with the configuration."""
+    self.config.record_consumed(self.pad_sess, True)
 
 
 class Configuration:
@@ -772,8 +784,8 @@ class Configuration:
 
   def _get_next_offset(self, used):
     """Return the next free offset from USED, which assumed to be in
-    consolidated form.  The minimum returned is Pad.id_source_length;
-    that way the Pad ID stretch is always accounted for, even if USED
+    consolidated form.  The minimum returned is PadSession.id_source_length;
+    that way the pad ID stretch is always accounted for, even if USED
     was initialized from an old original-format pad record."""
     cur_offset = None
     # We don't do anything fancy, just get the earliest available
@@ -783,8 +795,8 @@ class Configuration:
     for tup in used:
       (this_offset, this_length) = tup
       cur_offset = this_offset + this_length
-    if cur_offset is None or cur_offset < Pad.id_source_length:
-      return Pad.id_source_length
+    if cur_offset is None or cur_offset < PadSession.id_source_length:
+      return PadSession.id_source_length
     else:
       return cur_offset
     
@@ -889,35 +901,36 @@ class Configuration:
     fp.close()
     os.rename(tempfile, self.pad_records_file)
 
-  def register(self, pad):
-    """Register PAD if it is not already registered, and set its
-    offset based on previously used regions for that pad, if any."""
+  def register(self, pad_sess):
+    """Register PAD_SESS's pad if it is not already registered, and
+    set its offset based on previously used regions for that pad, if any."""
     next_offset = None
     # This is a little complicated only because we need; to look for
     # old original-style pad IDs and upgrade them if present.
-    if not self.pad_records.has_key(pad.id()):
-      if self.pad_records.has_key(pad.id(format_level="original")):
+    if not self.pad_records.has_key(pad_sess.id()):
+      if self.pad_records.has_key(pad_sess.id(format_level="original")):
         # Upgrade original-style record to internal style.
-        self.pad_records[pad.id()] = self.pad_records[pad.id(format_level="original")]
-        del self.pad_records[pad.id(format_level="original")]
+        self.pad_records[pad_sess.id()] = self.pad_records[pad_sess.id(format_level="original")]
+        del self.pad_records[pad_sess.id(format_level="original")]
       else:
         # Initialize a new internal-style record.
-        self.pad_records[pad.id()] = { "used" : [ ] }
+        self.pad_records[pad_sess.id()] = { "used" : [ ] }
     else:
-      if self.pad_records.has_key(pad.id(format_level="original")):
+      if self.pad_records.has_key(pad_sess.id(format_level="original")):
         raise Configuration.ConfigurationError(
           "Pad has both v2 and v1 IDs present in pad-records file:\n" \
           "  v2: %s\n"                                                \
           "  v1: %s\n"                                                \
           "This is supposed to be impossible.  Please resolve."       \
-          % (pad.id(), pad.id(format_level="original")))
+          % (pad_sess.id(), pad_sess.id(format_level="original")))
     # One way or another, we now have an up-to-date v2 pad record.
     # Set the next offset accordingly.
-    next_offset = self._get_next_offset(self.pad_records[pad.id()]["used"])
-    pad.set_offset(next_offset)
+    next_offset = self._get_next_offset(self.pad_records[pad_sess.id()]["used"])
+    pad_sess.set_offset(next_offset)
 
-  def record_consumed(self, pad, allow_reconsumption):
-    """Record that PAD has used PAD.length() bytes starting at PAD.offset().
+  def record_consumed(self, pad_sess, allow_reconsumption):
+    """Record that PAD_SESS has used PAD_SESS.length() bytes starting
+    at PAD_SESS.offset().
 
     If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
     if reconsuming any part of a range that has been consumed previously.
@@ -925,16 +938,16 @@ class Configuration:
     Typically, it is False when encoding and True when decoding,
     because it's okay to decode a message multiple times, but not to
     re-use a range for encoding."""
-    used = self.pad_records[pad.id()]["used"]
-    used.append((pad.offset(), pad.length()))
-    self.pad_records[pad.id()]["used"] = self._consolidate_used_ranges(
+    used = self.pad_records[pad_sess.id()]["used"]
+    used.append((pad_sess.offset(), pad_sess.length()))
+    self.pad_records[pad_sess.id()]["used"] = self._consolidate_used_ranges(
       used, allow_reconsumption)
-    pad.finish() # todo: or should callers do this?
+    pad_sess.finish() # todo: or should callers do this?
 
   def show_pad_records(self):
     """Print pad records, presumably for debugging."""
     for pad_id in self.pad_records.keys():
-      print "Pad %s:" % pad_id
+      print "PadSession %s:" % pad_id
       print "  used:", self.pad_records[pad_id]["used"]
 
 
@@ -1163,32 +1176,32 @@ def main():
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
     error_exit = True
 
-  if offset is not None and offset < Pad.id_source_length:
+  if offset is not None and offset < PadSession.id_source_length:
       sys.stderr.write("Error: argument to --offset must be >= %d\n"
-                       % Pad.id_source_length)
+                       % PadSession.id_source_length)
       error_exit = True
 
   if error_exit:
     usage(sys.stderr)
     sys.exit(1)
 
-  pad = Pad(pad_file)
+  pad_sess = PadSession(pad_file)
 
   config = Configuration(config_area)
-  config.register(pad)
+  config.register(pad_sess)
 
   if show_pad_id:
-    print pad.id()
+    print pad_sess.id()
     print "  Note that older versions of OneTime (v1 and before) " \
       + "would have reported"
     print "  %s.  This v1 ID output may go away" \
-      % pad.id(format_level="original")
+      % pad_sess.id(format_level="original")
     print "  in a future release, so please do not depend on its presence."
     sys.exit(0)
 
   if offset is not None:
-    pad.set_offset(offset)
-    offset = None  # junk this; we'll rely on pad for offset from now on
+    pad_sess.set_offset(offset)
+    offset = None  # junk this; we'll rely on pad_sess for offset from now on
 
   # The first line of OneTime format level "internal" is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
@@ -1201,8 +1214,8 @@ def main():
                + "Format: %s" % Format_Level                   \
                + "  << NOTE: OneTime 1.x and older "           \
                +              "cannot read this format. >>\n"  \
-               + "Pad ID: %s\n" % pad.id()                     \
-               + "Offset: %s\n" % pad.offset()                 \
+               + "Pad ID: %s\n" % pad_sess.id()                     \
+               + "Offset: %s\n" % pad_sess.offset()                 \
                + "\n"
   onetime_end = "-----END OneTime MESSAGE-----\n"
   old_onetime_end = "-----END OTP MESSAGE-----\n"       # compat
@@ -1224,7 +1237,7 @@ def main():
 
   if encrypting:
     output.write(onetime_header)
-    encoder = PadEncoder(pad, config)
+    encoder = PadSessionEncoder(pad_sess, config)
     while 1:
       string = incoming.read(8192)
       if len(string) > 0:
@@ -1252,10 +1265,10 @@ def main():
       m = re.match("Offset: ([0-9]+)", maybe_header_line)
       if m:
         # Note we don't have to adjust the received offset here to
-        # compensate for the 32-byte Pad ID stretch, because the
+        # compensate for the 32-byte pad ID stretch, because the
         # recorded offset in *both* "original" and "internal" format
         # ciphertexts is an absolute offset from the true edge of the
-        # Pad.  The "internal" format Pad ID stretch is already
+        # pad.  The "internal" format pad ID stretch is already
         # reflected in the offset for modern files, and if an incoming
         # ciphertext is in original format, then naturally we just use
         # whatever offset it requests.
@@ -1265,17 +1278,17 @@ def main():
         # config.register() takes care of that.  But in practice, most
         # plaintexts will have already used more than that anyway, so
         # that safeguard is probably redundant here.)
-        pad.set_offset(int(m.group(1)))
+        pad_sess.set_offset(int(m.group(1)))
         continue
       m = re.match("Format: ([a-zA-Z0-9-]+) ", maybe_header_line)
       if m:
         format_level = m.group(1)
-        decoder = PadDecoder(pad, config, format_level)
+        decoder = PadSessionDecoder(pad_sess, config, format_level)
         continue
 
     if decoder is None:
       # If we saw no format header, it must be the old, original format.
-      decoder = PadDecoder(pad, config, "original")
+      decoder = PadSessionDecoder(pad_sess, config, "original")
 
     while 1:
       string = incoming.readline()
@@ -1285,7 +1298,8 @@ def main():
       if len(string) > 0:
         try:
           result = decoder.decode(string)
-        except (IOError, Pad.InnerFormat, PadDecoder.DecodingError) as e:
+        except (IOError, PadSession.InnerFormat,
+                PadSessionDecoder.DecodingError) as e:
           output.close()
           if output_name is not None:
             os.remove(output_name)
@@ -1300,7 +1314,7 @@ def main():
             output.close()
             if output_name is not None:
               os.remove(output_name)
-            raise PadDecoder.DecodingError(
+            raise PadSessionDecoder.DecodingError(
               "unexpected input: '%s'" % string)
         if result:
           output.write(result)
