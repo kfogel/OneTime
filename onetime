@@ -127,6 +127,16 @@ but it still needs to be a new object due to certain initializations).
     self._id = None
     self._original_format_level_id = None
 
+    # If this encoding/decoding session saw a particular format level,
+    # record it so we can check that it remains consistent.
+    self._format_level = None
+
+    # There are both head and tail fuzz lengths, but we only need to
+    # remember the tail fuzz length, because we learn it at the start
+    # of processing but wait till the end to use it, whereas the head
+    # fuzz length we use (skip across) the moment we learn it.
+    self._tail_fuzz_length = None
+
     # Most of what a pad does is the same for encoding and decoding --
     # after all, the conversion step is XOR, which is symmetrical.
     #
@@ -153,7 +163,7 @@ but it still needs to be a new object due to certain initializations).
     pass
 
   class FormatLevel(Exception):
-    """Exception raised if an unknown format level is specified."""
+    """Exception raised for an unknown or inconsistent format level."""
     pass
 
   class InnerFormat(Exception):
@@ -193,10 +203,19 @@ work with, not necessarily because input is ended yet.
 
 If FORMAT_LEVEL is "original", then don't perform the random
 distance skip (the "fuzz") that is part of the encryption process for
-internal format levels."""
+internal format levels.
+
+It is an error to call this multiple times with different FORMAT_LEVEL
+values, for a given Pad instance.  Whatever you pass the first time
+must be used for all subsequent calls with that instance.
+"""
     result = ''
     if self._offset is None:
       raise Pad.PadUninitialized("pad not yet initialized (no offset)")
+    if self._format_level is None:
+      self._format_level = format_level
+    elif self._format_level != format_level:
+      raise Pad.FormatLevel("inconsistent format levels requested: '%s' and '%s'" % (self._format_level, format_level))
     if format_level == "internal":
       if self._encoding and self._decoding:
         raise Pad.OverPrepared(
@@ -280,9 +299,11 @@ internal format levels."""
     advancing the pad accordingly."""
     # What's going on here?  What is "fuzz"?
     #
-    # "Fuzz" is a distance we skip forward in the pad before starting
-    # to use pad data for encryption or decryption.  Because the
-    # distance to skip is based on data in the pad, it can only be
+    # "Fuzz" is a distance we skip forward in the pad.  If the skip
+    # happens before any pad data is used for encryption or
+    # decryption, it is "head fuzz"; if the skip happens after all
+    # encryption or decryption is done, it is "tail fuzz".  Because
+    # the distance to skip is based on data in the pad, it can only be
     # known by those who have the pad.
     #
     # The distance skipped may be determined in two ways:
@@ -390,7 +411,7 @@ internal format levels."""
     #     course), or a length partly determined by the pad (similarly
     #     to the current code below) but with a sender-chosen minimum.
     #     That's all TBD: we don't support internal format 1 yet, only
-    #     0, and in 0 the skip-distance comes entirely from pad data.
+    #     0, and in 0 the fuzz lengths come entirely from pad data.
     # 
     #     The meanings of the rest of the flag bits are not yet
     #     determined, and their values must be zero in format 2.0.
@@ -406,19 +427,22 @@ internal format levels."""
     # Next byte indicates how to determine fuzz_source length:
     fuzz_source_length_indicator = 0 ^ next_pad_byte
     # Now that we've taken care of the start of the header, we can
-    # figure out how far to skip in the pad, and then do the skip.
+    # figure out how far to skip in the pad to make head fuzz, and
+    # then do the skip.
     #
-    # You may be wondering, why do we skip at all?
+    # You may be wondering, why do we do a fuzz skip at all?
     #
     # There's a known-plaintext message authentication attack whereby
     # if the attacker knows the exact plaintext sent, and can actively
     # intercept messages, she could substitute some other plaintext
     # for it (since the relevant pad data could be derived).
     #
-    # By skipping a distance determined by some pad data, we make it
+    # By prepending and appending random amounts of pad data (the
+    # head fuzz distance and tail fuzz distance), we make it
     # impossible for the attacker to know exactly *where* the real
-    # encrypted text starts -- so she can't derive the pad, so she
-    # can't do the substitution.
+    # encrypted text starts and ends, which means she can't derive the
+    # relevant part of the pad, so she can't substitute another
+    # plaintext.
     #
     # Okay, but why not instead use a few bytes of pad data as a key
     # by which to encrypt the plaintext input with some standard block
@@ -429,39 +453,42 @@ internal format levels."""
     # "underneath" the pad is that there isn't any library for that in
     # the standard Python distribution.  Using only stuff available in
     # core Python is a design goal, to make distribution easier.
-    # (Also, adding a pad-keyed block-cipher would make maintenance
-    # and debugging slightly harder, though not drastically so.)
+    # Also, adding a pad-keyed block-cipher would make the code more
+    # complex and thus maintenance and debugging harder; simplicity
+    # and inspectability are important goals for OneTime.
     #
-    # Skipping a "random" distance -- that is, a distance known only
+    # Skipping "random" distances -- that is, distances known only
     # to those with the pad -- is portable and simple.  It also
     # disguises the length of the compressed plaintext a bit.  (We
     # can't afford to disguise it by very much, because we don't want
     # to use up a lot of pad by skipping very far; pad isn't cheap.)
     #
-    # Hence, self._default_fuzz_source_modulo is currently 512.
+    # Hence, self._default_fuzz_source_modulo is currently 512.  We
+    # will read two bytes two determine the head fuzz distance (i.e.,
+    # the head skip distance will be 0 <= N <= 511), and read the
+    # next two bytes to determine the tail fuzz distance (ditto).
     #
     # Now the attacker can't reliably substitute some other plaintext
     # for the original: she'd have only a 1-in-512 chance of guessing
-    # the right distance to skip.
+    # the right distance for the head fuzz.  Even if she knows the
+    # exact plaintext, she doesn't know where in the crypttext the
+    # compressed plaintext starts -- and the tail fuzz distance means
+    # she can't just count backwards from the end of the crypttext.
+    # Thus a plaintext-substitution attack is prevented.
     #
-    # We don't want to skip too far forward -- that would be wasteful
-    # of pad, and pad might be expensive.  So we'll skip forward
-    # 0 <= N <= 511 bytes, N having been determined by the small bit
-    # of pad data we just read.  It's tempting to set a higher modulus
-    # and make it a 1-in-1024 chance or something, but given the rate
-    # at which I at least can generate new pad data, that feels too
-    # costly.  512 feels like the right point in the tradeoff slider.
-    # If anyone has data to support a different number, I hope they'll
-    # speak up.
-    #
-    # Of course, two bytes (self._default_fuzz_source_length) means we
-    # could go all the way up to 65535, so most of this code can stay
-    # the same if we later decide to expand the range.  (There's no
-    # particular reason the modulus has to be a power of two, either.)
+    # It's tempting to set a higher modulus than 512, but given the
+    # rate at which I at least can generate new pad data, that feels
+    # too costly.  512 feels like the right point in the tradeoff
+    # slider.  If anyone has data to support a different number, I
+    # hope they'll speak up.  With self._default_fuzz_source_length at
+    # two bytes, we could go all the way up to 65535, so most of this
+    # code can stay the same if we later decide to expand the range.
+    # (There's no particular reason the modulus has to be a power of
+    # two, either, other than good taste.)
     #
     # These precautions greatly reduce the effectiveness of the
     # known-plaintext message authentication attack.  Still, even now
-    # if you were to send the same message to, say, 512 people who are
+    # if you were to send the same message to, say, 1024 people who are
     # all using the same pad, and that exact plaintext were known to
     # the attacker, and the attacker were to have active intercept
     # capability with the recipients, then for some small number of
@@ -481,9 +508,11 @@ internal format levels."""
     # bytes, so we get 8 times the variability for the amount of pad
     # used up.  But skipping by bits would complicate the code, since
     # all the seeking and I/O is natively aligned on 8-bit boundaries.
-    fuzz_skip_len = self._make_fuzz_length_from_pad(
+    head_fuzz_length = self._make_fuzz_length_from_pad(
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    self._skip_bytes(fuzz_skip_len)
+    self._tail_fuzz_length = self._make_fuzz_length_from_pad(
+      self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    self._skip_bytes(head_fuzz_length)
     return chr(inner_header_format_version) + chr(fuzz_source_length_indicator)
 
   def _handle_inner_header(self, string):
@@ -503,9 +532,11 @@ internal format levels."""
       first_flag_byte = ord(string[1]) ^ ord(self.padfile.read(1))
       self._length += 1
       if first_flag_byte & 1 == 0:
-        fuzz_skip_len = self._make_fuzz_length_from_pad(
+        head_fuzz_length = self._make_fuzz_length_from_pad(
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-        self._skip_bytes(fuzz_skip_len)
+        self._tail_fuzz_length  = self._make_fuzz_length_from_pad(
+          self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+        self._skip_bytes(head_fuzz_length)
       else:
         raise Pad.InnerFormat("cannot yet handle custom fuzz_source length")
       # Enforce the fact that we don't use any of the other flag bits yet.
@@ -522,6 +553,16 @@ internal format levels."""
       raise Pad.InnerFormat("unknown inner format version \"%d\""
                             % inner_format_version)
     return string[2:]
+
+  def finish(self):
+    """Close out this pad session."""
+    # todo: it's clearly finally time to rename Pad to PadSession
+    if self._format_level == "internal":
+      action = "encoding"
+      if self._decoding:
+        action = "decoding"
+      if self._tail_fuzz_length is None:
+        raise Pad.PadUninitialized("tail fuzz length never initialized")
 
   def __str__(self):
     """Return a string representation of this pad."""
@@ -888,7 +929,7 @@ class Configuration:
     used.append((pad.offset(), pad.length()))
     self.pad_records[pad.id()]["used"] = self._consolidate_used_ranges(
       used, allow_reconsumption)
-    pass
+    pad.finish() # todo: or should callers do this?
 
   def show_pad_records(self):
     """Print pad records, presumably for debugging."""
