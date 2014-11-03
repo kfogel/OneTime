@@ -120,10 +120,12 @@ but it still needs to be a new object due to certain initializations).
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._offset = None  # where to start using pad bytes (must initialize)
     self._length = 0  # number of pad bytes used this time
-    self._id = None
-    self._original_format_level_id = None
     self._default_fuzz_source_length = 2   # See _make_fuzz_length_from_pad()
     self._default_fuzz_source_modulo = 512 # and see _make_inner_header().
+
+    # These are just caches for self.id(), which see.
+    self._id = None
+    self._original_format_level_id = None
 
     # Most of what a pad does is the same for encoding and decoding --
     # after all, the conversion step is XOR, which is symmetrical.
