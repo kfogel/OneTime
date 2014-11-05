@@ -137,6 +137,14 @@ but it still needs to be a new object due to certain initializations).
     # fuzz length we use (skip across) the moment we learn it.
     self._tail_fuzz_length = None
 
+    # When decoding, we have to buffer enough input to be able to
+    # refrain from decrypting the tail fuzz.  Once this buffer is
+    # initialized, it always holds the latest input, and must always
+    # be at least as long as the tail fuzz length, so that we can
+    # decrypt everything but the last self._tail_fuzz_length bytes in
+    # the buffer.
+    self._decoding_buffer = None
+
     # Most of what a pad session does is the same for encoding and decoding --
     # after all, the conversion step is XOR, which is symmetrical.
     #
@@ -203,14 +211,16 @@ else return the empty string.  Note STRING may be empty on intermediate
 calls simply because a compressor has not yet had enough incoming data to
 work with, not necessarily because input is ended yet.
 
-If FORMAT_LEVEL is "original", then don't perform the random
-distance skip (the "fuzz") that is part of the encryption process for
-internal format levels.
+If FORMAT_LEVEL is "original", then don't handle the random distance
+skips (the "fuzz") used by the later format levels.  Otherwise, do
+handle the fuzz: for head fuzz, skip over it; for tail fuzz, remember
+its length so we can ignore it later.
 
 It is an error to call this multiple times with different FORMAT_LEVEL
 values, for a given PadSession instance.  Whatever you pass the first time
 must be used for all subsequent calls with that instance.
-"""
+
+    """
     result = ''
     if self._offset is None:
       raise PadSession.PadSessionUninitialized(
@@ -235,6 +245,18 @@ must be used for all subsequent calls with that instance.
           self._length += len(inner_header_data)
         else: # self._decoding is set
           string = self._handle_inner_header(string)
+      # Once we've handled any inner headers, buffer for decoding.
+      if self._decoding:
+        if self._decoding_buffer is None:
+          self._decoding_buffer = string
+        else:
+          self._decoding_buffer += string
+        if len(self._decoding_buffer) < self._tail_fuzz_length:
+          string = ''   # wait until we have more or are done
+        else:
+          string = self._decoding_buffer[:(0 - self._tail_fuzz_length)]
+          self._decoding_buffer = self._decoding_buffer[
+            (0 - self._tail_fuzz_length):]
 
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
@@ -617,8 +639,12 @@ class PadSessionEncoder:
   def finish(self):
     "Return last remaining bits of crypttext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
+    if self.pad_sess._tail_fuzz_length:
+      remainder += self.pad_sess.convert(
+        u'\u0000' * self.pad_sess._tail_fuzz_length)
     if remainder:
       remainder = base64.encodestring(remainder)
+    self.pad_sess.finish()
     self.config.record_consumed(self.pad_sess, False)
     return remainder
 
@@ -646,10 +672,11 @@ class PadSessionDecoder:
     self.pad_sess.prepare_for_decoding()
 
   def decode(self, string):
-    """Return all available onetime-decoded data so far, including for STRING,
-    or return None if no decoded data is ready yet.  Throw IOError if
-    data is not decodable.  Throw EOFError exception if called past
-    the end of decodable data.  Store any unused data in self.unused_data."""
+    """Return all available unreturned onetime-decoded data so far,
+    including for STRING, or return None if no decoded data is ready yet.  
+    Throw IOError if data is not decodable.  Throw EOFError exception
+    if called past the end of decodable data.  Store any unused data
+    in self.unused_data."""
     ret = ""
     if self.format_level == "original":
       # Format level "original" got the compression/encryption order
@@ -666,6 +693,7 @@ class PadSessionDecoder:
 
   def finalize(self):
     """Finalize this session's pad usage with the configuration."""
+    self.pad_sess.finish()
     self.config.record_consumed(self.pad_sess, True)
 
 
@@ -942,7 +970,6 @@ class Configuration:
     used.append((pad_sess.offset(), pad_sess.length()))
     self.pad_records[pad_sess.id()]["used"] = self._consolidate_used_ranges(
       used, allow_reconsumption)
-    pad_sess.finish() # todo: or should callers do this?
 
   def show_pad_records(self):
     """Print pad records, presumably for debugging."""
