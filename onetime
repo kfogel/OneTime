@@ -131,11 +131,17 @@ but it still needs to be a new object due to certain initializations).
     # record it so we can check that it remains consistent.
     self._format_level = None
 
-    # There are both head and tail fuzz lengths, but we only need to
-    # remember the tail fuzz length, because we learn it at the start
-    # of processing but wait till the end to use it, whereas the head
-    # fuzz length we use (skip across) the moment we learn it.
+    # On decoding, a given call to convert() might not supply enough
+    # string to use up the inner headers.  Therefore we must remember
+    # how much of the head_fuzz distance still needs to be used up.
+    self._amount_left_to_skip = 0
+
+    # There are both head and tail fuzz, but we only need to remember
+    # the tail fuzz length (and the raw bytes used to compute it),
+    # because we learn it at the start of processing but wait till the
+    # end to use it, whereas the head fuzz we use the moment we learn it.
     self._tail_fuzz_length = None
+    self._tail_fuzz_length_source_bytes = None
 
     # When decoding, we have to buffer enough input to be able to
     # refrain from decrypting the tail fuzz.  Once this buffer is
@@ -242,9 +248,14 @@ must be used for all subsequent calls with that instance.
         if self._encoding:
           inner_header_data = self._make_inner_header()
           result += inner_header_data
-          self._length += len(inner_header_data)
         else: # self._decoding is set
-          string = self._handle_inner_header(string)
+          string, self._amount_left_to_skip = self._handle_inner_header(string)
+      if self._amount_left_to_skip > 0:
+        new_amt_left = 0
+        if self._amount_left_to_skip > len(string):
+          new_amt_left = self._amount_left_to_skip - len(string)
+        string = string[self._amount_left_to_skip:]
+        self._amount_left_to_skip = new_amt_left
       # Once we've handled any inner headers, buffer for decoding.
       if self._decoding:
         if self._decoding_buffer is None:
@@ -324,8 +335,12 @@ must be used for all subsequent calls with that instance.
     return self._length
 
   def _make_fuzz_length_from_pad(self, num_bytes, modulo):
-    """Return a fuzz skip len based on the next NUM_BYTES bytes % MODULO,
-    advancing the pad accordingly."""
+    """Calculate a fuzz skip length based on the next NUM_BYTES bytes % MODULO,
+    advancing the pad accordingly.  Return that length and the raw pad
+    data used to calculate it in a tuple of the form:
+
+      [calculated_length, source_bytes]
+    """
     # What's going on here?  What is "fuzz"?
     #
     # "Fuzz" is a distance we skip forward in the pad.  If the skip
@@ -364,7 +379,7 @@ must be used for all subsequent calls with that instance.
     self._length += num_bytes
     if len(fuzz_length_source) < num_bytes:
       raise PadSession.PadShort(
-        "not enough pad available to supply fuzz source")
+        "not enough pad available to supply fuzz length source bytes")
     fuzz_skip_len = 1
     for x in fuzz_length_source:
       # We don't use int.from_bytes(), as it's only available in
@@ -383,7 +398,7 @@ must be used for all subsequent calls with that instance.
       # length later; multiplying all the bytes together is as
       # efficient as we can be while maintaining portability.
       fuzz_skip_len *= ord(x)
-    return fuzz_skip_len % modulo
+    return [fuzz_skip_len % modulo, fuzz_length_source]
 
   def _skip_bytes(self, num_bytes):
     """Skip NUM_BYTES bytes forward in this session's pad."""
@@ -392,6 +407,16 @@ must be used for all subsequent calls with that instance.
       self._length += num_bytes
     except EOFError:
       raise PadSession.PadShort("not enough pad available to supply fuzz")
+
+  def _get_pad_bytes(self, num_bytes):
+    """Return NUM_BYTES worth of raw pad data, advancing the pad."""
+    data = None
+    try:
+      data = self.padfile.read(num_bytes)
+      self._length += num_bytes
+    except EOFError:
+      raise PadSession.PadShort("not enough pad available to supply raw data")
+    return data
 
   def _make_inner_header(self):
     """Return inner header data to be encoded in the output.
@@ -404,10 +429,12 @@ must be used for all subsequent calls with that instance.
         "pad session not yet initialized (no offset)")
     # We first jump to the offset specified by the plaintext headers.
     # 
-    # Then we generating the inner header bytes: a series of bytes
-    # that various things about the encryption of the plaintext.  The
-    # inner header bytes are themselves encrypted against the pad, so
-    # for each byte of inner header we have to consume a byte of pad.
+    # Then we generate the inner header bytes: a series of bytes
+    # that indicate various things about the encryption of the plaintext.  
+    # The inner header bytes are themselves encrypted against the pad,
+    # or for the portion of the inner headers comprising the fuzz are
+    # made of raw pad data, so for each byte of inner header we have
+    # to consume a byte of pad.
     #
     # The (plaintext) format of the inner headers is given below.
     # Some bytes are flag bytes, where each bit gives flags for
@@ -539,36 +566,53 @@ must be used for all subsequent calls with that instance.
     # bytes, so we get 8 times the variability for the amount of pad
     # used up.  But skipping by bits would complicate the code, since
     # all the seeking and I/O is natively aligned on 8-bit boundaries.
-    head_fuzz_length = self._make_fuzz_length_from_pad(
+    head_fuzz_length, head_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    self._tail_fuzz_length = self._make_fuzz_length_from_pad(
+    self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    self._skip_bytes(head_fuzz_length)
-    return chr(inner_header_format_version) + chr(fuzz_source_length_indicator)
+    head_fuzz = self._get_pad_bytes(head_fuzz_length)
+    result = chr(inner_header_format_version)       \
+             + chr(fuzz_source_length_indicator)    \
+             + head_fuzz_length_source_bytes        \
+             + self._tail_fuzz_length_source_bytes  \
+             + head_fuzz
+    return result
 
   def _handle_inner_header(self, string):
-    """Handle inner header data at front of STRING, return remainder of STRING.
-    This must happen before any conversion of ciphertext to plaintext
+    """Handle inner header data at front of STRING.
+    Return remainder of STRING, and amount left to skip if STRING
+    is shorter than the inner headers, as a tuple:
+
+      [remainder_if_any, amount_left_to_skip_if_any]
+
+    If the amount left to skip is zero, then the string remainder must
+    be empty.
+
+    This all must happen before any conversion of ciphertext to plaintext
     is done, so it must be called after the PadSession has been initialized
     but before self.convert() has consumed any pad for actual conversion."""
     # See self._make_inner_header() for inner header documentation.
     inner_format_version = None
+    length_to_skip = 0
     if self._offset is None:
       raise PadSession.PadSessionUninitialized(
         "pad session not yet initialized (no offset)")
     next_pad_byte = ord(self.padfile.read(1))
     self._length += 1
+    length_to_skip += 1
     pad_encoded_byte = ord(string[0])
     inner_format_version = pad_encoded_byte ^ next_pad_byte
     if inner_format_version == 0:
       first_flag_byte = ord(string[1]) ^ ord(self.padfile.read(1))
       self._length += 1
+      length_to_skip += 1
       if first_flag_byte & 1 == 0:
-        head_fuzz_length = self._make_fuzz_length_from_pad(
+        head_fuzz_length, head_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-        self._tail_fuzz_length  = self._make_fuzz_length_from_pad(
+        self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
         self._skip_bytes(head_fuzz_length)
+        length_to_skip += (self._default_fuzz_source_length * 2) + head_fuzz_length
       else:
         raise PadSession.InnerFormat(
           "cannot yet handle custom fuzz_source length")
@@ -586,7 +630,11 @@ must be used for all subsequent calls with that instance.
     else:
       raise PadSession.InnerFormat("unknown inner format version \"%d\""
                             % inner_format_version)
-    return string[2:]
+    amount_left_to_skip = 0;
+    if len(string) < length_to_skip:
+      amount_left_to_skip = length_to_skip - len(string);
+    remaining_string = string[length_to_skip:]
+    return [remaining_string, amount_left_to_skip]
 
   def finish(self):
     """Close out this pad session."""
