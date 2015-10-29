@@ -123,6 +123,9 @@ but it still needs to be a new object due to certain initializations).
     self._default_fuzz_source_length = 2   # See _make_fuzz_length_from_pad()
     self._default_fuzz_source_modulo = 512 # and see _make_inner_header().
 
+    # KFF: For debugging purposes only.
+    self._kff_debug_compressed_input_len = 0
+
     # These are just caches for self.id(), which see.
     self._id = None
     self._original_format_level_id = None
@@ -270,6 +273,7 @@ must be used for all subsequent calls with that instance.
             (0 - self._tail_fuzz_length):]
 
     string_len = len(string)
+    self._kff_debug_compressed_input_len += string_len
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
       raise PadSession.PadShort(
@@ -688,6 +692,8 @@ class PadSessionEncoder:
     "Return last remaining bits of crypttext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
     if self.pad_sess._tail_fuzz_length:
+      self.pad_sess._kff_debug_compressed_input_len -= self.pad_sess._tail_fuzz_length
+      # print("KFF: encoding: tail fuzz length: %d" % self.pad_sess._tail_fuzz_length)
       remainder += self.pad_sess.convert(
         u'\u0000' * self.pad_sess._tail_fuzz_length)
     if remainder:
@@ -742,6 +748,10 @@ class PadSessionDecoder:
   def finalize(self):
     """Finalize this session's pad usage with the configuration."""
     self.pad_sess.finish()
+    # print("KFF: decoding: tail fuzz length: %d" % self.pad_sess._tail_fuzz_length)
+    # TODO: Verify that the encountered tail fuzz equals what's in the
+    # pad; same with head fuzz.  Part of the point of the fuzz is
+    # message authentication, after all.
     self.config.record_consumed(self.pad_sess, True)
 
 
@@ -1399,6 +1409,8 @@ def main():
     if not saw_end:
       sys.stderr.write("Error: malformed OneTime format: no end line.\n")
       sys.exit(1)
+
+  # print("KFF: compressed input len: %d" % pad_sess._kff_debug_compressed_input_len)
 
   if (encrypting or decrypting) and not no_trace:
     config.save()
