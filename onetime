@@ -18,7 +18,7 @@ against one-time pads.  If you don't know what one-time pads are, this
 program may not be right for you.  If you do know what they are and
 how to use them, this program can make using them more convenient.
 
-OneTime handles some of the pad-management bureacracy for you.  It
+OneTime handles some of the pad-management bureaucracy for you.  It
 avoids re-using pad data -- except when decrypting the same message
 twice -- by maintaining records of pad usage in ~/.onetime/pad-records.
 (The pads themselves are not typically stored there, just records
@@ -93,7 +93,7 @@ import xml.dom.minidom
 # whereby plaintext was encrypted and then compressed, instead of the
 # other way around.  This is fixed in all the "internal" level
 # formats, and of course any further format details are now embedded
-# in the inner headers in the cipthertext, as described in class Pad.
+# in the inner headers in the ciphertext, as described in class Pad.
 Format_Level = "internal"
 
 class Pad:
