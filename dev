@@ -18,13 +18,7 @@
 
 <p>OneTime is under version control at <a
 href="https://github.com/kfogel/OneTime"
->github.com/kfogel/OneTime</a> and at
-<a href="https://gitorious.org/onetime"
->gitorious.org/onetime</a>.</p>
-
-<p>The two are kept in sync; you can submit pull/merge requests at
-either location.  Please use the GitHub repository for filing
-issues.</p>
+>github.com/kfogel/OneTime</a>.  Please file isses or submit pull requests there.</p>
 
 <p>OneTime is written in <a href="http://www.python.org/" >Python</a>,
 and requires Python 2.6 or higher.  Its <a href="onetime" >source
