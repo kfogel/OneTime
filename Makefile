@@ -22,7 +22,7 @@ install:
 	@install -m755 onetime $(bindir)
 
 uninstall:
-	@rm -v $(prefix)/bin/onetime
+	@rm -v $(bindir)/onetime
 
 distclean: clean
 clean:
