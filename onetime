@@ -123,9 +123,6 @@ but it still needs to be a new object due to certain initializations).
     self._default_fuzz_source_length = 2   # See _make_fuzz_length_from_pad()
     self._default_fuzz_source_modulo = 512 # and see _make_inner_header().
 
-    # KFF: For debugging purposes only.
-    self._kff_debug_compressed_input_len = 0
-
     # These are just caches for self.id(), which see.
     self._id = None
     self._original_format_level_id = None
@@ -136,8 +133,8 @@ but it still needs to be a new object due to certain initializations).
 
     # On decoding, a given call to convert() might not supply enough
     # string to use up the inner headers.  Therefore we must remember
-    # how much of the head_fuzz distance still needs to be used up.
-    self._amount_left_to_skip = 0
+    # how much of the head_fuzz still needs to be used up.
+    self._pad_remaining_to_skip = 0
 
     # There are both head and tail fuzz, but we only need to remember
     # the tail fuzz length (and the raw bytes used to compute it),
@@ -164,7 +161,8 @@ but it still needs to be a new object due to certain initializations).
     # exactly one of them *must* be set before any conversion happens.
     self._encoding = False
     self._decoding = False
-    # False until conversion starts, True thereafter.
+    # False until conversion starts, True thereafter.  (Conversion
+    # starts after all the head fuzz has been verified.)
     self._begun = False
     
   class PadSessionUninitialized(Exception):
@@ -185,6 +183,10 @@ but it still needs to be a new object due to certain initializations).
 
   class InnerFormat(Exception):
     """Exception raised if something is wrong with the inner format."""
+    pass
+
+  class FuzzMismatch(Exception):
+    """Exception raised if pad and input fuzz don't match."""
     pass
 
   def prepare_for_encoding(self):
@@ -252,13 +254,33 @@ must be used for all subsequent calls with that instance.
           inner_header_data = self._make_inner_header()
           result += inner_header_data
         else: # self._decoding is set
-          string, self._amount_left_to_skip = self._handle_inner_header(string)
-      if self._amount_left_to_skip > 0:
-        new_amt_left = 0
-        if self._amount_left_to_skip > len(string):
-          new_amt_left = self._amount_left_to_skip - len(string)
-        string = string[self._amount_left_to_skip:]
-        self._amount_left_to_skip = new_amt_left
+          # TODO (minor): It's possibile string might be so short that
+          # it doesn't even contain enough information to know the fuzz
+          # length yet.  The solution is easy: if we haven't yet begun,
+          # then just accumulate string to prepend to the next call(s),
+          # until a call comes when we have enough to work with.
+          #
+          # This is not an urgent problem, as in practice no I/O system
+          # is likely to deliver string in chunks so small.  So, saving
+          # it to solve later.
+          string, pad_remaining = self._handle_inner_header(string)
+          if string != "" and pad_remaining != 0:
+            raise PadSession.InnerFormat(
+              "Got both a result string and a pad remainder")
+          if pad_remaining > 0:
+            self._pad_remaining_to_skip = pad_remaining
+      if self._pad_remaining_to_skip > 0:
+        new_pad_remaining = 0
+        bytes_to_verify_now = 0
+        if self._pad_remaining_to_skip > len(string):
+          new_pad_remaining = self._pad_remaining_to_skip - len(string)
+          num_bytes_to_verify_now = len(string)
+        else:
+          num_bytes_to_verify_now = self._pad_remaining_to_skip
+        self._pad_remaining_to_skip = new_pad_remaining
+        bytes_unverified, string = self._verify_fuzz_bytes(num_bytes_to_verify_now, string)
+        self._pad_remaining_to_skip += bytes_unverified
+
       # Once we've handled any inner headers, buffer for decoding.
       if self._decoding:
         if self._decoding_buffer is None:
@@ -273,7 +295,6 @@ must be used for all subsequent calls with that instance.
             (0 - self._tail_fuzz_length):]
 
     string_len = len(string)
-    self._kff_debug_compressed_input_len += string_len
     pad_str = self.padfile.read(string_len)
     if len(pad_str) < string_len:
       raise PadSession.PadShort(
@@ -404,11 +425,26 @@ must be used for all subsequent calls with that instance.
       fuzz_skip_len *= ord(x)
     return [fuzz_skip_len % modulo, fuzz_length_source]
 
-  def _skip_bytes(self, num_bytes):
-    """Skip NUM_BYTES bytes forward in this session's pad."""
+  def _verify_fuzz_bytes(self, num_bytes, string):
+    """Verify that the next NUM_BYTES in this session's pad match STRING
+    (a window of source material that starts with fuzz, but may
+    continue on into non-fuzz.)  If STRING is shorter than NUM_BYTES,
+    verify as much as possible.
+
+    Return a tuple of [num_bytes_remaining, string_remaining].  (When all
+    fuzz has been verified, the first element in that tuple will be 0.)
+
+    If there is any mismatch between the pad and STRING, raise a
+    FuzzMismatch exception."""
     try:
-      self.padfile.seek(self.padfile.tell() + num_bytes)
-      self._length += num_bytes
+      # The max amount we can actually verify in this call.
+      verifiable_len = min(len(string), num_bytes)
+      pad_material = self.padfile.read(verifiable_len)
+      self._length += verifiable_len
+      if string[:verifiable_len] != pad_material[:verifiable_len]:
+        raise PadSession.FuzzMismatch("expected fuzz does not match message fuzz")
+      num_bytes_remaining = max(0, num_bytes - len(string))
+      return [num_bytes_remaining, string[verifiable_len:]]
     except EOFError:
       raise PadSession.PadShort("not enough pad available to supply fuzz")
 
@@ -436,7 +472,7 @@ must be used for all subsequent calls with that instance.
     # Then we generate the inner header bytes: a series of bytes
     # that indicate various things about the encryption of the plaintext.  
     # The inner header bytes are themselves encrypted against the pad,
-    # or for the portion of the inner headers comprising the fuzz are
+    # or (for the portion of the inner headers comprising the fuzz) are
     # made of raw pad data, so for each byte of inner header we have
     # to consume a byte of pad.
     #
@@ -458,7 +494,7 @@ must be used for all subsequent calls with that instance.
     #     In internal format 0, the second byte holds flag bits:
     # 
     #       0b_______*: 0 means use the default fuzz length
-    #                   1 means look at next byte(s) for fuzz length
+    #                   1 means next byte(s) hold sender-chosen fuzz length
     #       0b______*_: reserved; must be 0 in internal format 0
     #       0b_____*__: reserved; must be 0 in internal format 0
     #       0b____*___: reserved; must be 0 in internal format 0
@@ -584,17 +620,21 @@ must be used for all subsequent calls with that instance.
 
   def _handle_inner_header(self, string):
     """Handle inner header data at front of STRING.
-    Return remainder of STRING, and amount left to skip if STRING
-    is shorter than the inner headers, as a tuple:
+    Return remainder of STRING or the length of pad material left to
+    skip (if STRING is shorter than the inner headers), as a tuple:
 
-      [remainder_if_any, amount_left_to_skip_if_any]
+      [string_remainder_if_any, pad_length_left_to_skip_if_any]
 
-    If the amount left to skip is zero, then the string remainder must
-    be empty.
+    These two elements mutually exclude: if the string remainder is
+    not the empty string, then the pad remainder length must be 0;
+    else the pad remainder length must be an integer > 0 and the
+    string remainder must be the empty string.
 
     This all must happen before any conversion of ciphertext to plaintext
     is done, so it must be called after the PadSession has been initialized
-    but before self.convert() has consumed any pad for actual conversion."""
+    but before self.convert() has consumed any pad for actual conversion.
+
+    """
     # See self._make_inner_header() for inner header documentation.
     inner_format_version = None
     length_to_skip = 0
@@ -615,7 +655,8 @@ must be used for all subsequent calls with that instance.
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
         self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-        self._skip_bytes(head_fuzz_length)
+        num_bytes_remaining, head_fuzz_remaining = self._verify_fuzz_bytes(
+          head_fuzz_length, string[2 + (self._default_fuzz_source_length * 2):])
         length_to_skip += (self._default_fuzz_source_length * 2) + head_fuzz_length
       else:
         raise PadSession.InnerFormat(
@@ -637,8 +678,9 @@ must be used for all subsequent calls with that instance.
     amount_left_to_skip = 0;
     if len(string) < length_to_skip:
       amount_left_to_skip = length_to_skip - len(string);
-    remaining_string = string[length_to_skip:]
-    return [remaining_string, amount_left_to_skip]
+      return ["", amount_left_to_skip];
+    else:
+      return [string[length_to_skip:], 0]
 
   def finish(self):
     """Close out this pad session."""
@@ -692,8 +734,6 @@ class PadSessionEncoder:
     "Return last remaining bits of crypttext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
     if self.pad_sess._tail_fuzz_length:
-      self.pad_sess._kff_debug_compressed_input_len -= self.pad_sess._tail_fuzz_length
-      # print("KFF: encoding: tail fuzz length: %d" % self.pad_sess._tail_fuzz_length)
       remainder += self.pad_sess.convert(
         u'\u0000' * self.pad_sess._tail_fuzz_length)
     if remainder:
@@ -748,7 +788,6 @@ class PadSessionDecoder:
   def finalize(self):
     """Finalize this session's pad usage with the configuration."""
     self.pad_sess.finish()
-    # print("KFF: decoding: tail fuzz length: %d" % self.pad_sess._tail_fuzz_length)
     # TODO: Verify that the encountered tail fuzz equals what's in the
     # pad; same with head fuzz.  Part of the point of the fuzz is
     # message authentication, after all.
@@ -1409,8 +1448,6 @@ def main():
     if not saw_end:
       sys.stderr.write("Error: malformed OneTime format: no end line.\n")
       sys.exit(1)
-
-  # print("KFF: compressed input len: %d" % pad_sess._kff_debug_compressed_input_len)
 
   if (encrypting or decrypting) and not no_trace:
     config.save()
