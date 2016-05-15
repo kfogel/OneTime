@@ -94,13 +94,13 @@ echo ''
 echo '   Each passing test is indicated by exactly one "PASS" line'
 echo '   that includes a brief description of the test.'
 echo ''
-echo '   Failing tests will show error details first -- which may span'
+echo '   A failing test will show "ERROR" details first -- which may span'
 echo '   multiple lines and be very noisy -- followed by a "FAIL" line'
-echo '   that also includes a brief description of the test.  If the'
-echo '   test is currently expected to fail, for example a known bug'
-echo '   not yet fixed, that description will start with "(XFAIL)".'
+echo '   giving a brief description of that test.  If a test is currently'
+echo '   expected to fail, for example due to a known bug not yet fixed, '
+echo '   then its description starts with "(XFAIL)".'
 echo ''
-echo "   Note that some tests may take a while.  Don't be alarmed"
+echo "   Note that some tests may take a while; don't be alarmed"
 echo "   if a minute or two goes by without output."
 echo ''
 
