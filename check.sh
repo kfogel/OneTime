@@ -63,10 +63,24 @@ start_new_test()
 
 check_result()
 {
+  if [ "${1}x" = "XFAILx" ]; then
+    XFAIL="yes"
+  elif [ "${1}x" != "x" ]; then
+    echo "ERROR: unknown argument '${1}' to check_result()"
+  fi
+
   if [ ${PASSED} = "yes" ]; then
-    echo "PASS: ${THIS_TEST}"
+    if [ "${XFAIL}x" = "yesx" ]; then
+      echo "(XPASS): ${THIS_TEST}"
+    else
+      echo "PASS: ${THIS_TEST}"
+    fi
   else
-    echo "FAIL: ${THIS_TEST}"
+    if [ "${XFAIL}x" = "yesx" ]; then
+      echo "(XFAIL): ${THIS_TEST}"
+    else
+      echo "FAIL: ${THIS_TEST}"
+    fi
     # Print an extra blank line separating this "FAIL" line from the
     # tests that come after it, so any already-printed errors related
     # to this failure are visually grouped together with it.
@@ -228,7 +242,7 @@ start_new_test "decryption should not shrink pad usage"
 #     ==> pad-records says length reverted to 27340!
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-1.onetime ../test-plaintext-b
-if ! grep -q "<length>12265</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>12491</length>" dot-onetime/pad-records; then
   echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 1."
   cat dot-onetime/pad-records
@@ -237,7 +251,7 @@ fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-2.onetime ../test-plaintext-b
-if ! grep -q "<length>24695</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>24867</length>" dot-onetime/pad-records; then
   echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 2."
   cat dot-onetime/pad-records
@@ -246,7 +260,7 @@ fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-3.onetime ../test-plaintext-b
-if ! grep -q "<length>36962</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>37351</length>" dot-onetime/pad-records; then
   echo ""
   echo "ERROR: Pad usage length incorrect after encryption iteration 3."
   cat dot-onetime/pad-records
@@ -255,7 +269,7 @@ fi
 
 ../../onetime -C dot-onetime -d -p ../test-pad-1 \
               -o tmp-plaintext-b-1 tmp-ciphertext-b-1.onetime
-if ! grep -q "<length>36962</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>37351</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
   if grep -q "<length>12372</length>" dot-onetime/pad-records; then
     echo ""
@@ -638,10 +652,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>484</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>486</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to use length 484 in pad-records"
+  echo "ERROR: decoding v2 input failed to use length 486 in pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -714,10 +728,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>452</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>454</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to add length 452 to pad-records"
+  echo "ERROR: decoding v2 input failed to add length 454 to pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -836,14 +850,14 @@ then
 fi
 
 # Expect the new length on the 7th line, in second range of first entry.
-if ! grep -q "<length>12450</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>12595</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: failed to insert expected new length 12450 into pad-records"
+  echo "ERROR: failed to insert expected new length 12595 into pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
-elif grep -q "<length>12450</length></used>" v1-dot-onetime/pad-records && \
-     [ `grep -n "<length>12450</length></used>" v1-dot-onetime/pad-records \
+elif grep -q "<length>12595</length></used>" v1-dot-onetime/pad-records && \
+     [ `grep -n "<length>12595</length></used>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 7 ]
 then
   echo ""
@@ -866,6 +880,25 @@ if ! grep -q "DecodingError: unexpected input" err.out
 then
   echo ""
   echo "ERROR: decoder failed to detect trailing garbage in input stream"
+  PASSED="no"
+fi
+
+check_result
+
+########################################################################
+start_new_test "tamper with fuzz to cause authentication error"
+## Encrypt message
+../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+         -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
+# Offset is 32, head fuzz length 395, for this one.  In the
+# base64-encoded ciphertext file, position 220 is 'F' (70). 
+../zap tmp-ciphertext-b-1 220 70 71
+../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
+    < tmp-ciphertext-b-1 2>err.out
+if ! grep -q "FuzzMismatch: expected fuzz does not match message fuzz" err.out
+then
+  echo ""
+  echo "ERROR: "
   PASSED="no"
 fi
 
