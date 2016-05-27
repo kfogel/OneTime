@@ -64,19 +64,19 @@ start_new_test()
 check_result()
 {
   if [ "${1}x" = "XFAILx" ]; then
-    XFAIL="yes"
+    THIS_XFAIL="yes"
   elif [ "${1}x" != "x" ]; then
     echo "ERROR: unknown argument '${1}' to check_result()"
   fi
 
   if [ ${PASSED} = "yes" ]; then
-    if [ "${XFAIL}x" = "yesx" ]; then
+    if [ "${THIS_XFAIL}x" = "yesx" ]; then
       echo "(XPASS): ${THIS_TEST}"
     else
       echo "PASS: ${THIS_TEST}"
     fi
   else
-    if [ "${XFAIL}x" = "yesx" ]; then
+    if [ "${THIS_XFAIL}x" = "yesx" ]; then
       echo "(XFAIL): ${THIS_TEST}"
     else
       echo "FAIL: ${THIS_TEST}"
@@ -86,6 +86,8 @@ check_result()
     # to this failure are visually grouped together with it.
     echo ""
   fi
+
+  unset THIS_XFAIL # Is this how to do local scope portably in shell?
 }
 
 # Because OneTime itself is sensitive to version control, we create
