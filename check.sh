@@ -898,7 +898,8 @@ start_new_test "tamper with fuzz to cause authentication error"
 if ! grep -q "FuzzMismatch: expected fuzz does not match message fuzz" err.out
 then
   echo ""
-  echo "ERROR: "
+  echo "ERROR: did not see expected FuzzMismatch error"
+  cat err.out
   PASSED="no"
 fi
 
