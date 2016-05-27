@@ -905,6 +905,25 @@ fi
 
 check_result
 
+########################################################################
+start_new_test "tamper with crypttext to cause bzip decoder error"
+## Encrypt message
+../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+         -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
+# In the base64-encoded ciphertext file, position 8508 is 'h' (104). 
+../zap tmp-ciphertext-b-1 8507 104 103
+../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
+    < tmp-ciphertext-b-1 2>err.out
+if ! grep -q "IOError: invalid data stream" err.out
+then
+  echo ""
+  echo "ERROR: did not see expected IOerror from bzip decoder"
+  cat err.out
+  PASSED="no"
+fi
+
+check_result
+
 ############################################################################
 ###  All tests finished.  Leave the test area in place for inspection.   ###
 ############################################################################
