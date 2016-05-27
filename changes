@@ -17,7 +17,7 @@
 <div id="content">
 
 <h4><p style="text-align: center; margin-left: 10%; margin-right: 10%;
-color: red; font-size: 80%;" >As of 2014-01-09, OneTime 2.0 is
+color: red; font-size: 80%;" >As of 2016-05-27, OneTime 2.0 is
 in <em>beta testing</em>.</p></h4>
 
 <h3 style="text-decoration: underline;" >Compatibility between OneTime 1.x and 2.x</h3>
@@ -30,25 +30,17 @@ by 2.x and higher versions.</p></li>
 <li><p>Message encrypted with 2.x are <em>not</em> decryptable by 1.x
 versions.</p></li>
 
-<li><p><span style="font-style: italic; color: red;">Note that there
-have been incompatible format changes during the course of 2.x
-development and beta testing.</span> Messages encrypted
-with <strong>2.0-beta</strong> and <strong>2.0-beta2</strong>
-are <em>not</em> decryptable by <strong>2.0-beta3</strong> and higher
-(including 2.0 proper, when it comes out).  This is due to
-a <a href="https://github.com/kfogel/OneTime/issues/2#issuecomment-24194528"
->change</a> in how the encryption offset is chosen, to avoid a minor
-message-authentication weakness discovered during beta testing.  If
-you have messages encrypted with one of the previous beta versions,
-and now you're having trouble decrypting, try using
-<a href="onetime-2.0-beta2" >2.0-beta2</a>
-or <a href="onetime-2.0-beta" >2.0-beta</a>.</p></li>
+<li><p>The latest testing version on the 2.x line
+is <a href="onetime-2.0-beta6" >2.0-beta6</a>, released
+2016-05-27.</p></li>
 
-<li><p><span style="font-style: italic; color: red;">There will
-probably be another format-incompatible change in the 2.0-beta series
-before 2.0 is released</span>, because of
-<a href="https://github.com/kfogel/OneTime/issues/2#issuecomment-32337718"
-   >this problem</a> caught in 2.0-beta3.</p></li>
+<li><p><span style="font-style: italic; color: red;">There have been
+incompatible format changes along the 2.x line during the course of
+2.x development and beta testing.</span> If you're having trouble
+decrypting a message encrypted with one of the previous beta versions,
+just backdate along the 2.x line until you find a version that can
+decrypt that message (but please don't use those old versions to
+encrypt anything new).</p></li>
 
 </ul>
 
