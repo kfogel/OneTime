@@ -327,7 +327,7 @@ if ! grep -q "<length>12491</length>" d-dot-onetime/pad-records; then
   PASSED="no"
 fi
 
-check_result XFAIL
+check_result
 
 ########################################################################
 start_new_test "test reconsumption via repeated encoding and decoding"
@@ -623,10 +623,11 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>512</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>631</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input affected length 512 in pad-records"
+  cat v1-dot-onetime/pad-records
+  echo "ERROR: decoding v2 input affected length 631 in pad-records"
   PASSED="no"
 fi
 
@@ -692,10 +693,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>486</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>631</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to use length 486 in pad-records"
+  echo "ERROR: decoding v2 input failed to use length 631 in pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -768,10 +769,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>454</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>599</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to add length 454 to pad-records"
+  echo "ERROR: decoding v2 input failed to add length 599 to pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -987,6 +988,33 @@ if ! cmp tmp-plaintext-all-nulls ../all-nulls
 then
   echo ""
   echo "ERROR: decrypted all-nulls plaintext does not match original"
+  PASSED="no"
+fi
+
+check_result
+
+########################################################################
+start_new_test "tamper with tail fuzz to cause authentication error"
+## Encrypt message
+../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+         -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
+# In the base64-encoded ciphertext file, position 17086 is 'B' (66).
+../zap tmp-ciphertext-b-1 17086 66 65
+../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
+    -o tmp-plaintext-b-1 < tmp-ciphertext-b-1 2>err.out
+if ! grep -q "FuzzMismatch: expected fuzz does not match message fuzz" err.out
+then
+  echo ""
+  echo "ERROR: did not see expected FuzzMismatch error for tail fuzz"
+  cat err.out
+  PASSED="no"
+fi
+
+if ! cmp ../test-plaintext-b tmp-plaintext-b-1
+then
+  echo ""
+  echo "ERROR: decryption failed when tail fuzz tampered with"
+  cat tmp-plaintext-b-1
   PASSED="no"
 fi
 

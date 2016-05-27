@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__version__ = "2.0-beta5"
+__version__ = "2.0-beta6"
 
 __doc__ = """OneTime: an open source encryption program that uses the one-time pad method.
 
@@ -287,6 +287,9 @@ must be used for all subsequent calls with that instance.
           self._decoding_buffer = string
         else:
           self._decoding_buffer += string
+        # Always reserve the tail fuzz length, so that on the last
+        # iteration we can just verify the tail fuzz instead of trying
+        # to decrypt it.
         if len(self._decoding_buffer) < self._tail_fuzz_length:
           string = ''   # wait until we have more or are done
         else:
@@ -685,12 +688,29 @@ must be used for all subsequent calls with that instance.
   def finish(self):
     """Close out this pad session."""
     if self._format_level == "internal":
-      action = "encoding"
-      if self._decoding:
-        action = "decoding"
       if self._tail_fuzz_length is None:
         raise PadSession.PadSessionUninitialized(
           "tail fuzz length never initialized")
+      elif self._decoding:
+        # Decryption has already succeeded by the time we encounter
+        # the tail fuzz, but if the tail fuzz doesn't match, we should
+        # still let the user know the message was tampered with.
+        # 
+        # Also, verifying the tail fuzz has the important side effect
+        # of recording that last bit of pad usage on decryption, which
+        # is important for avoiding pad re-use -- that's the bug for
+        # which a test was added in commit 9e8422f07.  (Of course, some
+        # of that tail fuzz re-use would overlap with the head fuzz of
+        # the next message encrypted with this pad by the person who
+        # just decrypted.  But there's no guarantee the overlap would
+        # be complete, which means there is an actual danger of true
+        # pad re-use, and in any case it would be an information leak
+        # to even reveal that the same pad was used for two successive
+        # messages -- for one thing, it would reveal their successivity.
+        bytes_remaining, str_remaining = self._verify_fuzz_bytes(
+          self._tail_fuzz_length, self._decoding_buffer)
+        if bytes_remaining != 0 or str_remaining != '':
+          raise PadSession.FuzzMismatch("some source tail fuzz left over")
 
   def __str__(self):
     """Return a string representation of this pad session."""
@@ -788,9 +808,6 @@ class PadSessionDecoder:
   def finalize(self):
     """Finalize this session's pad usage with the configuration."""
     self.pad_sess.finish()
-    # TODO: Verify that the encountered tail fuzz equals what's in the
-    # pad; same with head fuzz.  Part of the point of the fuzz is
-    # message authentication, after all.
     self.config.record_consumed(self.pad_sess, True)
 
 
