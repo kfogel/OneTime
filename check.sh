@@ -927,7 +927,7 @@ fi
 check_result
 
 ########################################################################
-start_new_test "tamper with fuzz to cause authentication error"
+start_new_test "tampering with head fuzz causes authentication error"
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
@@ -947,7 +947,7 @@ fi
 check_result
 
 ########################################################################
-start_new_test "tamper with crypttext to cause bzip decoder error"
+start_new_test "tampering with crypttext causes bzip decoder error"
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
@@ -994,7 +994,7 @@ fi
 check_result
 
 ########################################################################
-start_new_test "tamper with tail fuzz to cause authentication error"
+start_new_test "tampering with tail fuzz causes authentication error"
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
