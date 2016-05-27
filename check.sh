@@ -924,6 +924,34 @@ fi
 
 check_result
 
+########################################################################
+start_new_test "basic encryption/decryption with all-nulls plaintext"
+
+## There was no actual regression that motivated this test.  It's just
+## that head and tail fuzz are both raw pad, i.e., null bytes
+## encrypted against pad, so out of a sense of dutiful paranoia we
+## should make sure that decryptions aren't accidentally looking like
+## they're succeeding just because in some weird environment maybe
+## the programs we use to check the output stops on the first null byte. 
+## Also, it's just good practice in general to verify that a tool that
+## is supposed to work transparently with binary data works with large
+## all-nulls input -- if there's any problem handling binary data,
+## that input is likely to stimulate it.
+
+../../onetime --config=blank-dot-onetime -e -p ../test-pad-1 \
+         -o tmp-ciphertext-all-nulls ../all-nulls
+../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
+         -o tmp-plaintext-all-nulls tmp-ciphertext-all-nulls
+
+if ! cmp tmp-plaintext-all-nulls ../all-nulls
+then
+  echo ""
+  echo "ERROR: decrypted all-nulls plaintext does not match original"
+  PASSED="no"
+fi
+
+check_result
+
 ############################################################################
 ###  All tests finished.  Leave the test area in place for inspection.   ###
 ############################################################################
