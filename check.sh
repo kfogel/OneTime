@@ -932,7 +932,7 @@ start_new_test "basic encryption/decryption with all-nulls plaintext"
 ## encrypted against pad, so out of a sense of dutiful paranoia we
 ## should make sure that decryptions aren't accidentally looking like
 ## they're succeeding just because in some weird environment maybe
-## the programs we use to check the output stops on the first null byte. 
+## the programs we use to check the output stop on the first null byte. 
 ## Also, it's just good practice in general to verify that a tool that
 ## is supposed to work transparently with binary data works with large
 ## all-nulls input -- if there's any problem handling binary data,
