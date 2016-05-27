@@ -292,6 +292,44 @@ fi
 check_result
 
 ########################################################################
+start_new_test "decryption should record same pad usage as encryption"
+
+# If Alice encrypts, resulting in pad usage range R for that pad, then
+# if Bob decrypts starting from the same pad record state that Alice
+# had started with, the Bob's post-decryption pad record state should
+# be exactly the same as Alice's post-encryption pad record state.
+
+cp -a dot-onetime e-dot-onetime  # separate encryption copy
+cp -a dot-onetime d-dot-onetime  # separate decryption copy
+
+../../onetime -C e-dot-onetime -e -p ../test-pad-1 \
+              -o tmp-ciphertext-b-1 ../test-plaintext-b
+
+../../onetime -C d-dot-onetime -d -p ../test-pad-1 \
+              -o tmp-plaintext-b-1 tmp-ciphertext-b-1
+
+if ! grep -q "<length>12491</length>" e-dot-onetime/pad-records; then
+  grep "<length>" e-dot-onetime/pad-records
+  echo ""
+  echo "ERROR: expected pad-record usage length for encryption is wrong"
+  PASSED="no"
+fi
+
+if ! grep -q "<length>12491</length>" d-dot-onetime/pad-records; then
+  if grep -q "<length>12265</length>" d-dot-onetime/pad-records; then
+    echo ""
+    echo "ERROR: tail fuzz authn isn't being counted in pad usage record"
+  else
+    grep "<length>" d-dot-onetime/pad-records
+    echo ""
+    echo "ERROR: pad usage record after decryption is wrong in some new way"
+  fi
+  PASSED="no"
+fi
+
+check_result XFAIL
+
+########################################################################
 start_new_test "test reconsumption via repeated encoding and decoding"
 
 # Debugging helper function.  Deactivated by default -- change 'false'
