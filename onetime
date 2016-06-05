@@ -144,12 +144,11 @@ but it still needs to be a new object due to certain initializations).
     self._tail_fuzz_length_source_bytes = None
 
     # When decoding, we have to buffer enough input to be able to
-    # refrain from decrypting the tail fuzz.  Once this buffer is
-    # initialized, it always holds the latest input, and must always
-    # be at least as long as the tail fuzz length, so that we can
-    # decrypt everything but the last self._tail_fuzz_length bytes in
-    # the buffer.
-    self._decoding_buffer = None
+    # refrain from decrypting the tail fuzz.  This buffer always holds
+    # the latest input, and must always be at least as long as the
+    # tail fuzz length, so that we can decrypt everything but the last
+    # self._tail_fuzz_length bytes in the buffer.
+    self._decoding_buffer = ''
 
     # Most of what a pad session does is the same for encoding and decoding --
     # after all, the conversion step is XOR, which is symmetrical.
@@ -282,12 +281,9 @@ must be used for all subsequent calls with that instance.
         self._pad_remaining_to_skip += bytes_unverified
 
       # Once we've handled any inner headers, buffer for decoding.
-      if self._decoding:
-        if self._decoding_buffer is None:
-          self._decoding_buffer = string
-        else:
-          self._decoding_buffer += string
-        # Always reserve the tail fuzz length, so that on the last
+      if self._decoding and self._tail_fuzz_length > 0:
+        self._decoding_buffer += string
+        # Reserve the tail fuzz length each time, so that on the last
         # iteration we can just verify the tail fuzz instead of trying
         # to decrypt it.
         if len(self._decoding_buffer) < self._tail_fuzz_length:

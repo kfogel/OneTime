@@ -1020,6 +1020,38 @@ fi
 
 check_result
 
+########################################################################
+start_new_test "basic encryption/decryption with zero-length tail fuzz"
+
+## If the head-fuzz or tail-fuzz source bytes are all zeros,
+## everything should still work fine.  There was briefly a bug where
+## we assumed that tail-fuzz always had non-zero length, but that's
+## fixed now and this is the regression test for it.  Note that no one
+## would ever use an all-nulls pad in practice, of course; it's just a
+## convenient way to guarantee that the fuzz lengths are zero.
+
+../../onetime --config=blank-dot-onetime -e -p ../all-nulls \
+         -o tmp-ciphertext-a-1 ../test-plaintext-a
+../../onetime --config=blank-dot-onetime -d -p ../all-nulls \
+         -o tmp-plaintext-a tmp-ciphertext-a-1 2>err.out
+
+if grep -q "FuzzMismatch: some source tail fuzz left over" err.out
+then
+  echo ""
+  echo "ERROR: unable to handle zero-length tail fuzz"
+  cat err.out
+  PASSED="no"
+fi
+
+if ! cmp tmp-plaintext-a ../test-plaintext-a
+then
+  echo ""
+  echo "ERROR: unexpected decryption failure with all-nulls pad"
+  PASSED="no"
+fi
+
+check_result
+
 ############################################################################
 ###  All tests finished.  Leave the test area in place for inspection.   ###
 ############################################################################
