@@ -47,11 +47,23 @@ encrypt anything new).</p></li>
 <h3 style="text-decoration: underline;" >Changes in 2.0</h3>
 
 <ul style="list-style-type: circle; ">
-<li><p>New <a href="example.onetime" >output format</a>, to allow more
-    efficient pad usage and to protect against 
-    <a href="https://github.com/kfogel/OneTime/issues/2" >this
-    problem</a>.  (OneTime 2.x can still read 1.x output, but 1.x and
-    older versions cannot read 2.x output.)</p></li>
+<li><p>Message authentication / integrity-checking, based on pad data
+    (see <a href="https://github.com/kfogel/OneTime/issues/2" >issue
+    2</a>).  This protects against an attack in which someone who knows
+    the real plaintext and can interfere with transmission could
+    substitute a replacement message.  (Thanks to Andy Isaacson for
+    pointing out the problem in a discussion on the Liberation Tech
+    mailing list.)  Note that the protection is probabilistic:
+    there is a tradeoff, in that the stronger the protection is, the
+    more extra pad is used up per message.</p></li> 
+<li><p>The message's exact length and position within the crypttext are
+    now disguised by some random padding on both sides.
+    Again, <a href="https://github.com/kfogel/OneTime/issues/2" >issue
+    2</a> has details.</p></li>
+<li><p>New output format (<a href="example.onetime" >example</a>), to
+    support the above new features and for more efficient pad usage.
+    OneTime 2.x can still read 1.x output, but 1.x and older versions
+    cannot read 2.x output.</p></li>
 <li><p>Pad IDs have changed, because they are calculated differently
     now.  The IDs in your <tt>pad-records</tt> file will be upgraded
     automatically; you do not need to do anything.</p></li>
@@ -65,10 +77,10 @@ encrypt anything new).</p></li>
     >Principle of Least Astonishment</a>.  You can still keep your
     <tt>~/.onetime/</tt> area under VC manually, of course.</p></li>
 <li><p>The <tt>--no-vc</tt> option is therefore removed.</p></li>
-<li><p>OneTime's license is now an <a href="LICENSE" >MIT-style open
-    source license</a>, to avoid various
+<li><p>OneTime's license is now an <a href="LICENSE" >MIT-style free
+    software / open source license</a>, to avoid various
     <a href="http://opensource.org/faq#public-domain" >problems</a>
-    with the public domain.</p></li>
+    with the public domain in certain jurisdictions.</p></li>
 <li><p>New <tt>--license</tt> option displays the license.</p></li>
 <li><p>For developers: <a href="check.sh" >regression test suite</a>
     added.</p></li>
