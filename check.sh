@@ -246,7 +246,7 @@ start_new_test "decryption should not shrink pad usage"
               -o tmp-ciphertext-b-1.onetime ../test-plaintext-b
 if ! grep -q "<length>12491</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length incorrect after encryption iteration 1."
+  echo "ERROR: Pad usage length is not 12491 after encryption iteration 1."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
@@ -255,7 +255,7 @@ fi
               -o tmp-ciphertext-b-2.onetime ../test-plaintext-b
 if ! grep -q "<length>24867</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length incorrect after encryption iteration 2."
+  echo "ERROR: Pad usage length is not 24867 after encryption iteration 2."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
@@ -264,7 +264,7 @@ fi
               -o tmp-ciphertext-b-3.onetime ../test-plaintext-b
 if ! grep -q "<length>37351</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length incorrect after encryption iteration 3."
+  echo "ERROR: Pad usage length is not 37351 after encryption iteration 3."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
@@ -274,11 +274,18 @@ fi
 if ! grep -q "<length>37351</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
   if grep -q "<length>12372</length>" dot-onetime/pad-records; then
+    # Note that as long as everything is working, this case will not
+    # be triggered in normal test suite runs even if the length that
+    # *would* indicate the return of this bug has changed from 12372
+    # to something else due to normal development progress.  So if
+    # we're inside the larger failure already, check carefully to see
+    # whether we should actually be in this case and were just
+    # expecting the wrong number.
     echo ""
     echo "ERROR: 'Decryption wrongly shrinks pad usage' bug is back."
   else
     echo ""
-    echo "ERROR: Usage length wrong after decryption 1, but don't know why."
+    echo "ERROR: Pad usage length is not 37351 after decryption 1, but don't know why."
   fi
   PASSED="no"
 fi
@@ -311,18 +318,25 @@ cp -a dot-onetime d-dot-onetime  # separate decryption copy
 if ! grep -q "<length>12491</length>" e-dot-onetime/pad-records; then
   grep "<length>" e-dot-onetime/pad-records
   echo ""
-  echo "ERROR: expected pad-record usage length for encryption is wrong"
+  echo "ERROR: expected pad usage length of 12491 for encryption"
   PASSED="no"
 fi
 
 if ! grep -q "<length>12491</length>" d-dot-onetime/pad-records; then
   if grep -q "<length>12265</length>" d-dot-onetime/pad-records; then
+    # Note that as long as everything is working, this case will not
+    # be triggered in normal test suite runs even if the length that
+    # *would* indicate the return of this bug has changed from 12265
+    # to something else due to normal development progress.  So if
+    # we're inside the larger failure already, check carefully to see
+    # whether we should actually be in this case and were just
+    # expecting the wrong number.
     echo ""
     echo "ERROR: tail fuzz authn isn't being counted in pad usage record"
   else
     grep "<length>" d-dot-onetime/pad-records
     echo ""
-    echo "ERROR: pad usage record after decryption is wrong in some new way"
+    echo "ERROR: pad usage length is not 12491 after decryption, for some new reason"
   fi
   PASSED="no"
 fi
@@ -828,14 +842,14 @@ fi
 if ! grep -q "<length>45541</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v1 input failed to insert new record into pad-records"
+  echo "ERROR: decoding v1 input failed to insert new 45541 record"
   PASSED="no"
 elif grep -q "<length>45541</length></used>" v1-dot-onetime/pad-records && \
      [ `grep -n "<length>45541</length></used>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 10 ]
 then
   echo ""
-  echo "ERROR: decoding v1 input mis-inserted new record into pad-records"
+  echo "ERROR: decoding v1 input mis-inserted new 45541 record into pad-records"
   PASSED="no"
 fi
 
@@ -879,7 +893,7 @@ fi
 if ! grep -q "<used><offset>32</offset>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: encoding failed to insert new offset into pad-records"
+  echo "ERROR: encoding failed to insert new offset 32 into pad-records"
   PASSED="no"
 elif grep -q "<used><offset>32</offset>" v1-dot-onetime/pad-records && \
      [ `grep -n "<used><offset>32</offset>" v1-dot-onetime/pad-records \
@@ -894,7 +908,7 @@ fi
 if ! grep -q "<length>12595</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: failed to insert expected new length 12595 into pad-records"
+  echo "ERROR: failed to insert new length 12595 into pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 elif grep -q "<length>12595</length></used>" v1-dot-onetime/pad-records && \
@@ -902,7 +916,7 @@ elif grep -q "<length>12595</length></used>" v1-dot-onetime/pad-records && \
         | cut -d ":" -f 1` -ne 7 ]
 then
   echo ""
-  echo "ERROR: encoding failed to insert correct new length into pad-records"
+  echo "ERROR: encoding mis-inserted new length 12595 into pad-records"
   PASSED="no"
 fi
 check_result
