@@ -1,4 +1,5 @@
-#!/bin/sh  # -*- shell-script -*- mode!
+#!/bin/sh 
+# -*- shell-script -*-
 
 # Script for quickly sanity-checking or debugging ../onetime.
 
