@@ -253,7 +253,7 @@ must be used for all subsequent calls with that instance.
           inner_header_data = self._make_inner_header()
           result += inner_header_data
         else: # self._decoding is set
-          # TODO (minor): It's possibile string might be so short that
+          # TODO (minor): It's possible string might be so short that
           # it doesn't even contain enough information to know the fuzz
           # length yet.  The solution is easy: if we haven't yet begun,
           # then just accumulate string to prepend to the next call(s),
