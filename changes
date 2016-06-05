@@ -17,7 +17,7 @@
 <div id="content">
 
 <h4><p style="text-align: center; margin-left: 10%; margin-right: 10%;
-color: red; font-size: 80%;" >As of 2016-05-27, OneTime 2.0 is
+color: red; font-size: 80%;" >As of 2016-06-05, OneTime 2.0 is
 in <em>beta testing</em>.</p></h4>
 
 <h3 style="text-decoration: underline;" >Compatibility between OneTime 1.x and 2.x</h3>
@@ -31,8 +31,8 @@ by 2.x and higher versions.</p></li>
 versions.</p></li>
 
 <li><p>The latest testing version on the 2.x line
-is <a href="onetime-2.0-beta6" >2.0-beta6</a>, released
-2016-05-27.</p></li>
+is <a href="onetime-2.0-beta7" >2.0-beta7</a>, released
+2016-06-05.</p></li>
 
 <li><p><span style="font-style: italic; color: red;">There have been
 incompatible format changes along the 2.x line during the course of
