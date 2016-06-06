@@ -78,6 +78,9 @@ encrypt anything new).</p></li>
     software / open source license</a>, to avoid various
     <a href="http://opensource.org/faq#public-domain" >problems</a>
     with the public domain in certain jurisdictions.</p></li>
+<li><p>A bug with with saving the pad-records file on Microsoft
+    Windows <a href="https://github.com/kfogel/OneTime/issues/13" 
+    >is now fixed</a>.</p></li>
 <li><p>New <tt>--license</tt> option displays the license.</p></li>
 <li><p>For developers: <a href="check.sh" >regression test suite</a>
     added.</p></li>
