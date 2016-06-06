@@ -1,60 +1,66 @@
 <html>
 <head>
 <title>OneTime&nbsp;&nbsp;&mdash;&nbsp;&nbsp;Encryption with One-Time Pads</title>
-<style type="text/css">
-  body { background: white; margin-left: 10%; margin-right: 10%; }
-  h1, h2 { text-align: center; }
-  :target { border: 2px solid red; }
-  a, img { border: none; }
-</style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="css/pills.css">
+<link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body>
 
 <div id="content">
 
-<div style="background: lightblue; font-style: italic;">
-   <h2>OneTime&nbsp;&nbsp;&mdash;&nbsp;&nbsp;Encryption with One-Time Pads</h2>
-</div>
+<h2><span class="title" 
+    >OneTime &nbsp;&mdash;&nbsp; Encryption with One-Time Pads</span></h2>
 
-<h4><p style="margin-left: 10%; margin-right: 10%; color: red;
-font-size: 80%;" >Update (2016-06-05): OneTime 2.0 is currently in
-beta testing.  The latest version is <a href="onetime-2XVERSION"
->2XVERSION</a>&nbsp;&mdash;&nbsp;please give it a try and
+<h4><p class="notice" >Update (2016-06-05): OneTime 2.0 is currently in
+beta testing.  The latest version is <a href="onetime-2.0-beta9"
+>2.0-beta9</a>&nbsp;&mdash;&nbsp;please give it a try and
 <a href="https://github.com/kfogel/OneTime/issues/new" >report</a>
 any bugs you find.  See the <a href="changes" >release notes</a>
 for details about what's new in 2.0.</p></h4>
 
-<a href="get" ><img style="float: left; margin-right: 3.5%;"
-                    src="images/logo/onetime-logo-color-225x225.png" 
-                    alt="OneTime logo" /></a>
+<div class="row">
 
-<p><a href="onetime">OneTime</a> is an <a href="LICENSE" >open
-source</a> encryption program that uses
-the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time
-pad</a> algorithm to allow two parties to communicate privately.  It
-has features to assist with the bureaucracy of pad management, and
-comes with built-in <a href="#help" >help</a>.  OneTime requires
-Python 2.6 or higher, and is for users who are comfortable running
-command-line programs.  (It is not yet compatible with Python 3, but
-there's an <a href="https://github.com/kfogel/OneTime/issues/15"
->open ticket</a> for that and patches are very welcome.)</p> 
+  <div class="four column" style="text-align: center; margin-top: 1em;">
+    <a href="get" ><img src="images/logo/onetime-logo-color-225x225.png" alt="OneTime logo" /></a>
+  </div>
 
-<p>
-<ul style="margin-left: 20%; list-style-type: circle;" >
-<li><a href="get" >Get OneTime</a></li>
-<li><a href="#help" >Documentation</a></li>
-<li><a href="#pad-generation" >How to generate random pads</a></li> 
-<li><a href="example.onetime" >Sample output</a></li>
-<li><a href="dev" >Development</a></li>
-<li><a href="why" >Motivation</a></li>
-</ul>
-</p>
+  <div class="four column">
+    <p><a href="onetime">OneTime</a> is an <a href="LICENSE" >open
+    source</a> encryption program that uses
+    the <a href="http://en.wikipedia.org/wiki/One-time_pad">one-time
+    pad</a> algorithm to allow two parties to communicate privately.
+    It has features to assist with pad management, and comes with
+    built-in <a href="#help" >help</a>.</p>
 
-<hr style="clear: both; text-align: center; margin-top: 3em; margin-bottom: 2em;" />
+    <p>OneTime is for users who are comfortable with command-line
+    programs.  It requires Python 2.6 or higher, but has not been
+    ported to Python 3 (there's
+    an <a href="https://github.com/kfogel/OneTime/issues/15" >open
+    ticket</a> for that and patches are welcome).</p>
+  </div>
+
+  <div class="four column">
+    <ul style="list-style-type: none;" >
+    <li><p><a href="get" >Download</a></li></p>
+    <li><p><a href="#help" >Read documentation</a></li></p>
+    <li><p><a href="example.onetime" >Example output</a></li></p>
+    <li><p><a href="https://github.com/kfogel/OneTime" >Development</a></li></p>
+    <li><p><a href="#pad-generation" >How to generate random pads</a></li> </p>
+    <li><p><a href="#why" >Who uses OneTime?</a></li></p>
+    </ul>
+  </div>
+
+</div> <!-- row -->
+
+<div class="row">
+<div class="column whole">
+
+<hr style="clear: both; text-align: center;" />
 
 <div id="help" title="help" >
 
 <p>This is the output of '<b>onetime&nbsp;--intro</b>':</p>
 
-<pre><i>
+<div class="example-output">

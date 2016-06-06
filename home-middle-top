@@ -1,7 +1,13 @@
-</i></pre>
+</div>  <!-- example-output -->
+
+</div>  <!-- column whole -->
+</div>  <!-- row -->
+
+<div class="row">
+<div class="column whole">
 
 <hr style="text-align: center; margin-top: 2em; margin-bottom: 2em;" />
 
 <p>This is the output of '<b>onetime&nbsp;--help</b>':</p>
 
-<pre><i>
+<div class="example-output">

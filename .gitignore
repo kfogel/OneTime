@@ -2,4 +2,5 @@ msg
 test-msg.*
 home
 get
+changes
 onetime-*

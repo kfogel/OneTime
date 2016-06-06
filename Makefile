@@ -32,6 +32,7 @@ dist:
 	@./make-dist.sh
 
 www: dist
+	@(cd css; ./get-deps)
 	@./onetime --intro     > intro.tmp
 	@./onetime --help      > usage.tmp
 	@./onetime --pad-help  > pad-help.tmp
@@ -82,6 +83,7 @@ www: dist
 	@sed -e "s|2XVERSION|`./find-ver.sh 2`|g" \
            < changes.tmp > changes
 	@rm get.tmp
+	@rm changes.tmp
 	@# Make the GPG link live.
 	@sed -e 's/GnuPG,/<a href="http:\/\/www.gnupg.org\/">GnuPG<\/a>,/g' \
            < home > home.tmp

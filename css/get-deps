@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ ! -d pills ]; then
+  git clone https://github.com/rohitkrai03/pills.git
+fi
+
+cp pills/dist/pills.css .
+cp pills/dist/pills.min.css .

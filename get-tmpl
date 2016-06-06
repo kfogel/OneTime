@@ -1,75 +1,74 @@
 <html>
 <head>
 <title>Getting OneTime</title>
-<style type="text/css">
-  body { background: white; margin-left: 10%; margin-right: 10%; }
-  h1, h2 { text-align: center; }
-  :target { border: 2px solid red; }
-  a, img { border: none; }
-</style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="css/pills.css">
+<link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body>
 <div id="content">
 
-<div style="background: lightblue; font-style: italic;">
-   <h2><center>Getting OneTime</center></h2>
-</div>
+<h2><span class="title" >Getting OneTime</span></h2>
 
-<p style="font-size: 80%; font-style: italic; text-align: center"
->Please use OneTime <strong>1XVERSION</strong> unless you want to help
-beta-test 2XVERSION.</p>
+<center><a href="./" 
+        ><img style="vertical-align: middle;"
+              src="images/logo/onetime-logo-color-32x32.png" 
+              alt="OneTime logo" /></a></center>
 
-<ul>
+<p class="notice" >Please use OneTime <strong>1XVERSION</strong>
+unless you want to help beta-test 2XVERSION.</p>
 
-<li><p><span style="font-weight: bold;" >GNU/Linux, Unix, Mac:</span>
-    <ul style="list-style-type: circle; ">
-    <li><a href="onetime-2XVERSION.tar.gz" >onetime-2XVERSION.tar.gz</a>
-        <span style="font-style: italic;" 
-              >(recommended for beta testers)</span></li>
-    <li><a href="onetime-1XVERSION.tar.gz" >onetime-1XVERSION.tar.gz</a>
-        <span style="font-style: italic;" 
-              >(recommended for everyone else)</span></li>
-    </ul></p>
-</li>
+<div class="row">
 
-<li><p><span style="font-weight: bold;" >Windows (.zip):</span>
-    <ul style="list-style-type: circle; ">
-    <li><a href="onetime-2XVERSION.zip" >onetime-2XVERSION.zip</a>
-        <span style="font-style: italic;" 
-              >(recommended for beta testers)</span></li>
-    <li><a href="onetime-1XVERSION.zip" >onetime-1XVERSION.zip</a>
-        <span style="font-style: italic;" 
-              >(recommended for everyone else)</span></li>
-    </ul></p>
-</li>
+  <div class="three column">
+    <p><span style="font-weight: bold;" >GNU/Linux, Unix, Mac:</span>
+      <ul style="list-style-type: circle; ">
+      <li><p><a href="onetime-2XVERSION.tar.gz" >onetime-2XVERSION.tar.gz</a>
+          <span style="font-style: italic;" 
+                >(recommended for beta testers)</span></p></li>
+      <li><p><a href="onetime-1XVERSION.tar.gz" >onetime-1XVERSION.tar.gz</a>
+          <span style="font-style: italic;" 
+                >(recommended for everyone else)</span></p></li>
+      </ul></p>
+  </div>
 
-<li><p><span style="font-weight: bold;" >Debian GNU/Linux:</span></p>
-    <p>OneTime 1.x is packaged in <a href="http://debian.org/">Debian</a>.
-    If you run the "testing" distribution of Debian or higher, do
-    <tt>'sudo&nbsp;apt-get&nbsp;update&nbsp;&amp;&amp;&nbsp;sudo&nbsp;apt-get&nbsp;install&nbsp;onetime'</tt></p>
+  <div class="three column">
+    <p><span style="font-weight: bold;" >Windows (.zip):</span>
+      <ul style="list-style-type: circle; ">
+      <li><p><a href="onetime-2XVERSION.zip" >onetime-2XVERSION.zip</a>
+          <span style="font-style: italic;" 
+                >(recommended for beta testers)</span></p></li>
+      <li><p><a href="onetime-1XVERSION.zip" >onetime-1XVERSION.zip</a>
+          <span style="font-style: italic;" 
+                >(recommended for everyone else)</span></p></li>
+      </ul></p>
+  </div>
+
+  <div class="three column">
+    <p><span style="font-weight: bold;" >Debian:</span></p>
+
+    <p>OneTime 1.x is packaged in the <a href="http://debian.org/"
+    >Debian</a> "testing" distribution as <tt>onetime</tt>.</p>
+
     <p style="font-style: italic;" >As of June 2016, the version of
     OneTime packaged in Debian is somewhat behind the upstream
     release.  We'll try to get Debian updated soon after OneTime 2.0
-    comes out.</p></li>
+    comes out.</p>
+  </div>
 
-<li><p><span style="font-weight: bold;" >Standalone:</span></p>
+  <div class="three column">
+  <p><span style="font-weight: bold;" >Standalone:</span></p>
     <p>Download the <a href="onetime-1XVERSION"
     >standalone 1XVERSION</a> or <a href="onetime"
     >standalone 2XVERSION</a> script directly, if you don't want the
-    README, the test suite, or other incidental files.</p></li>
-</ul>
+    README, the test suite, or other incidental files.</p>
+  </div>
 
-<p>For access to development source code, see the <a href="dev"
->Development page</a>.</p>
+</div>
 
-<hr/>
-
-<center><a href="./" ><img style="vertical-align: middle;"
-                           src="images/logo/onetime-logo-color-32x32.png" 
-                           alt="OneTime logo" /></a>&nbsp;&nbsp;Back
-                           to the <a href="./" 
-                           >OneTime home page</a>.</p></center>
+<p style="text-align: center;">For access to development source code,
+see the <a href="dev" >Development page</a>.</p>
 
 </body>
 </html>

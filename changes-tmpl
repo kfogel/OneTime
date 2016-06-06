@@ -1,48 +1,23 @@
 <html>
 <head>
+<head>
 <title>OneTime 2.x Changes and Compatibility Notes</title>
-<style type="text/css">
-  body { background: white; margin-left: 10%; margin-right: 10%; }
-  h1, h2 { text-align: center; }
-  :target { border: 2px solid red; }
-  a, img { border: none; }
-</style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="css/pills.css">
+<link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body>
-<div style="background: lightblue; font-style: italic;">
-   <h1><center>OneTime 2.x Changes and Compatibility Notes</center></h1>
-</div>
 
 <div id="content">
 
-<h4><p style="text-align: center; margin-left: 10%; margin-right: 10%;
-color: red; font-size: 80%;" >As of 2016-06-05, OneTime 2.0 is
-in beta testing.</p></h4>
+<h2><span class="title" >OneTime 2.x Changes and Compatibility Notes</span></h2>
 
-<h3 style="text-decoration: underline;" >Compatibility between OneTime 1.x and 2.x</h3>
+<p class="notice" >As of 2016-06-05, OneTime 2.0 is in beta testing.</p></h4>
 
-<ul style="list-style-type: circle;">
+<div class="row">
 
-<li><p>Messages encrypted with OneTime 1.x will always be decryptable
-by 2.x and higher versions.</p></li>
-
-<li><p>Message encrypted with 2.x are <em>not</em> decryptable by 1.x
-versions.</p></li>
-
-<li><p>The latest testing version on the 2.x line
-is <a href="onetime-2XVERSION" >2XVERSION</a>, released
-2016-06-05.</p></li>
-
-<li><p><span style="font-style: italic; color: red;">There have been
-incompatible format changes along the 2.x line during the course of
-2.x development and beta testing.</span> If you're having trouble
-decrypting a message encrypted with one of the previous beta versions,
-just backdate along the 2.x line until you find a version that can
-decrypt that message (but please don't use those old versions to
-encrypt anything new).</p></li>
-
-</ul>
+<div class="six column">
 
 <h3 style="text-decoration: underline;" >Changes in 2.0</h3>
 
@@ -90,6 +65,38 @@ encrypt anything new).</p></li>
 <li><p>For developers: <a href="check.sh" >regression test suite</a>
     added.</p></li>
 </ul>
+
+</div>
+
+<div class="six column">
+
+<h3 style="text-decoration: underline;" >Compatibility between OneTime 1.x and 2.x</h3>
+
+<ul style="list-style-type: circle;">
+
+<li><p>Messages encrypted with OneTime 1.x will always be decryptable
+by 2.x and higher versions.</p></li>
+
+<li><p>Message encrypted with 2.x are <em>not</em> decryptable by 1.x
+versions.</p></li>
+
+<li><p>The latest testing version on the 2.x line
+is <a href="onetime-2XVERSION" >2XVERSION</a>, released
+2016-06-05.</p></li>
+
+<li><p><span style="font-style: italic; color: red;">There have been
+incompatible format changes along the 2.x line during the course of
+2.x development and beta testing.</span> If you're having trouble
+decrypting a message encrypted with one of the previous beta versions,
+just backdate along the 2.x line until you find a version that can
+decrypt that message (but please don't use those old versions to
+encrypt anything new).</p></li>
+
+</ul>
+
+</div>
+
+</div>
 
 <hr/>
 

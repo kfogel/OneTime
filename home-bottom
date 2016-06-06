@@ -1,35 +1,92 @@
-</i></pre>
-</td>
-<td style="padding-left: 3%; padding-right: 3%; width: 19%; vertical-align: top; font-size: 85%;" >
+</div>  <!-- example-output -->
+</div>  <!-- column whole -->
+</div>  <!-- row -->
 
-<p>Note that the one-time pad method depends completely on the quality
-of the pad data: if the pad is not truly random, the security of your
-messages cannot be guaranteed.  So to use OneTime reliably, you need a
-source of good random data to create pad files.  On modern Linux
-systems, the <tt>/dev/random</tt> device is probably good enough
-(<a href="#pad-generation" >here's how</a> to do
-it, but note I haven't done the math myself&nbsp;&mdash;&nbsp;I'm just
-taking other people's <a
-href="http://en.wikipedia.org/wiki//dev/random#Linux" >word</a>
-for it).  Elsewhere, you're on your own.</p>
+<div class="row">
 
-<p>Also, if the same pad data is used to encrypt different
-messages&nbsp;&mdash;&nbsp;no matter how similar or different those
-messages are&nbsp;&mdash;&nbsp;then the security of the system can be
-greatly compromised.  Never encrypt different messages with the same
-stretch of pad!  Doing so could reveal some or all of the used pad to
-eavesdroppers.  OneTime's default behavior is to always avoid reusing
-pad data, unless you tell it otherwise.</p>
+  <div class="four column">
+    <p style="text-decoration: underline;">Pad data must be truly random:</p>
 
-<p><span style="text-decoration: underline;">Recommended
-practice:</span> if you are Alice communicating with Bob, then keep
-two different pads, <tt>alice_to_bob.pad</tt>
-and <tt>bob_to_alice.pad</tt>, as opposed to sharing the same pad for
-both directions of communication.  With two separate pads, even if you
-each send a message simultaneously to the other with no advance
-planning, you still won't accidentally use any of the same pad data
-twice, assuming you let OneTime do its bookkeeping naturally.</p>
-</div>
+    <p>Note that the one-time pad method depends completely on the
+    quality of the pad data: if the pad is not truly random, the
+    security of your messages cannot be guaranteed.  So to use OneTime
+    reliably, you need a source of good random data to create pad
+    files.  On modern Linux systems, the <tt>/dev/random</tt> device
+    is probably good enough (<a href="#pad-generation" >here's how</a>
+    to do it, but note I haven't done the math
+    myself&nbsp;&mdash;&nbsp;I'm just taking other people's <a
+    href="http://en.wikipedia.org/wiki//dev/random#Linux" >word</a>
+    for it).  Elsewhere, you're on your own.</p> 
+  </div>
+
+  <div class="four column">
+    <p style="text-decoration: underline;">Never re-use pad data:</p>
+
+    <p>If the same pad data is used to encrypt different
+    messages&nbsp;&mdash;&nbsp;no matter how similar or different
+    those messages are&nbsp;&mdash;&nbsp;then the security of the
+    system can be greatly compromised.  Never encrypt different
+    messages with the same stretch of pad!  Doing so could reveal some
+    or all of the used pad to eavesdroppers.  OneTime's default
+    behavior is to always avoid reusing pad data, unless you tell it
+    otherwise.</p> 
+  </div>
+
+  <div class="four column">
+    <p style="text-decoration: underline;">Recommended practice:</p>
+
+    <p>If you are Alice communicating with Bob, then keep two
+    different pads, <tt>alice_to_bob.pad</tt> and
+    <tt>bob_to_alice.pad</tt>, as opposed to sharing the same pad for
+    both directions of communication.  With two separate pads, even if
+    you each send a message simultaneously to the other with no
+    advance planning, you still won't accidentally use any of the same
+    pad data twice, assuming you let OneTime do its bookkeeping
+    naturally.</p> 
+  </div>
+
+</div>  <!-- row -->
+</div>  <!-- pad-generation -->
+
+<hr style="clear: both; text-align: center;" />
+
+<div id="why" title="why">
+<div class="row">
+<div class="column whole">
+
+<h2>Who uses OneTime, and why?</h2>
+
+<p>I don't really know.  I just get enough bug reports and feature
+requests to know that there are people using this.  Some are
+anonymous, some are not.  None of the correspondents has told me why
+they use it, and I haven't asked.</p>
+
+<p>One-time pad systems are inconvenient, because of the difficulty of
+pad generation and exchange.  There are many easier cryptography
+systems out there.  If you don't have a reason to use OneTime, then
+don't.  Its existence does not imply a rejection of other
+cryptosystems; in fact, I normally use <a
+href="http://www.red-bean.com/kfogel/public-key.html" >GPG</a> myself.
+OneTime might be handy in a few rare situations:</p>
+
+<ul style="padding-left: 3%; list-style-type: circle; ">
+<li><p>You're not completely confident about the provenance of <a
+    href="http://www.gnupg.org/" >GnuPG</a>, or underlying system
+    libraries, on your computer.</p></li>
+<li><p>To bootstrap trust: i.e., to have a reliable fallback method for
+    exchanging other, more convenient keys.</p></li>
+<li><p>To have an encryption program whose code is small and simple
+    enough that you can inspect and understand it.</p></li>
+<li><p>To throw a little diversity into the surveillance stream.
+    Bots are watching for &amp; saving messages in the popular
+    encryption formats.  OneTime makes 'em work a little harder! :-)</p> </li>
+</ul>
+
+</div>  <!-- why -->
+</div>  <!-- column whole -->
+</div>  <!-- row -->
+
+</div>  <!-- content -->
 
 </body>
 </html>

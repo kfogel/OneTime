@@ -1,9 +1,15 @@
-</i></pre>
-
-</div>
+</div>  <!-- example-output -->
+</div>  <!-- column whole -->
+</div>  <!-- row -->
+</div>  <!-- help -->
 
 <hr style="text-align: center; margin-top: 2em; margin-bottom: 2em;" />
 
-<p>And here is how to generate a one-time pad (this is the output of '<b>onetime&nbsp;--pad-help</b>'):</p>
+<div id="pad-generation" title="pad-generation">
 
-<div id="pad-generation" title="pad-generation"><pre><i>
+<div class="row">
+<div class="column whole">
+
+<p>Here is how to generate a one-time pad (this is the output of '<b>onetime&nbsp;--pad-help</b>'):</p>
+
+<div class="example-output">

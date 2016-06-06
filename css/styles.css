@@ -1,0 +1,56 @@
+/* Custom CSS styles for OneTime web site. */
+
+body { 
+  /* https://en.wikipedia.org/wiki/Shades_of_white was helpful */
+  background: #FDF5E6;
+  margin-left: 10%; 
+  margin-right: 10%; 
+  font-family: 'Helvetica Neue', Helvetica, sans-serif;
+  line-height: 115%;
+}
+
+h1, h2 { 
+  text-align: center;
+  font-weight: bold;
+}
+
+ul, ol {
+  padding-left: 0;
+}
+
+p {
+  margin-right: 3%;
+}
+
+.example-output {
+  margin-left: 5%;
+  margin-right: 5%;
+  font-family: monospace;
+  font-style: italic;
+  white-space: pre;
+}
+
+.title {
+  background: lightblue;
+  padding-left: .5em;
+  padding-right: .5em;
+  border-radius: 1em;
+}
+
+.notice {
+  margin-left: 10%; 
+  margin-right: 10%; 
+  text-align: center;
+  color: darkgreen;
+  font-weight: normal;
+  font-size: 80%;
+}
+
+:target { 
+  border: 2px solid red; 
+  padding: 1em;
+}
+
+a, img { 
+  border: none; 
+}
