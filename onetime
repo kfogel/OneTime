@@ -112,6 +112,10 @@ but it still needs to be a new object due to certain initializations).
   # No reason, except the usual religious bias toward powers of 2.)
   id_source_length = 32
 
+  # The plaintext is authenticated with a SHA256 hash digest that
+  # is itself encrypted with the pad and included in the crypttext.
+  digest_length = 32
+
   def __init__(self, pad_path):
     """Initialize a new pad session, using padfile PAD_PATH.  The pad session
     cannot be used for encoding or decoding until set_offset() is called."""
@@ -281,7 +285,7 @@ must be used for all subsequent calls with that instance.
         self._pad_remaining_to_skip += bytes_unverified
 
       # Once we've handled any inner headers, buffer for decoding.
-      if self._decoding and self._tail_fuzz_length > 0:
+      if self._decoding:
         self._decoding_buffer += string
         # Reserve the tail fuzz length each time, so that on the last
         # iteration we can just verify the tail fuzz instead of trying
@@ -374,7 +378,15 @@ must be used for all subsequent calls with that instance.
     # the distance to skip is based on data in the pad, it can only be
     # known by those who have the pad.
     #
-    # The distance skipped may be determined in two ways:
+    # Note that tail fuzz starts with PadSession.digest_length bytes
+    # for the encrypted message digest, followed by true fuzz -- a
+    # random string of raw pad bytes that concludes the crypttext.
+    # Head fuzz, on the other hand, is just raw pad bytes, because
+    # obviously we don't know the message digest at the time the head
+    # fuzz is emitted.
+    #
+    # For both head fuzz and the non-digest portion of the tail fuzz,
+    # the distance skipped may be determined in two ways:
     #
     #   1) Read NUM_BYTES from the current location in the pad, and
     #      use those bytes to calculate (in some deterministic way)
@@ -609,6 +621,10 @@ must be used for all subsequent calls with that instance.
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
     self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    # The first part of the tail fuzz will be the encrypted digest,
+    # followed by the true fuzz bytes that conclude the crypttext,
+    # so account for the digest length here.
+    self._tail_fuzz_length += PadSession.digest_length
     head_fuzz = self._get_pad_bytes(head_fuzz_length)
     result = chr(inner_header_format_version)       \
              + chr(fuzz_source_length_indicator)    \
@@ -654,6 +670,10 @@ must be used for all subsequent calls with that instance.
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
         self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+        # The first part of the tail fuzz is the encrypted digest,
+        # followed by the true fuzz bytes that conclude the crypttext,
+        # so account for the digest length here.
+        self._tail_fuzz_length += PadSession.digest_length
         num_bytes_remaining, head_fuzz_remaining = self._verify_fuzz_bytes(
           head_fuzz_length, string[2 + (self._default_fuzz_source_length * 2):])
         length_to_skip += (self._default_fuzz_source_length * 2) + head_fuzz_length
@@ -681,8 +701,27 @@ must be used for all subsequent calls with that instance.
     else:
       return [string[length_to_skip:], 0]
 
-  def finish(self):
-    """Close out this pad session."""
+  def _verify_digest(self, msg_hash):
+    """Verify that the message digest encoded at the current location
+    in the pad matches MSG_HASH, consuming PadSession.digest_length
+    bytes of pad in the process.  If the digests do not match, raise a
+    PadSession.FuzzMismatch error showing the two digests in hex form."""
+    msg_digest = msg_hash.digest()
+    pad_bytes = self.padfile.read(PadSession.digest_length)
+    self._length += PadSession.digest_length
+    found_digest = ''
+    for i in range(PadSession.digest_length):
+      found_digest += chr(ord(self._decoding_buffer[i]) ^ ord(pad_bytes[i]))
+    if msg_digest != found_digest:
+      raise PadSession.FuzzMismatch("message digest mismatch:\n  expected: %s\n     found: %s\n"
+                                    % (msg_hash.hexdigest(), found_digest.encode('hex')))
+
+  def finish(self, msg_hash=None):
+    """Close out this pad session.
+    If MSG_HASH is not None, it is the expected final hash for the
+    plaintext message, in which case verify its raw digest against the
+    one embedded in the crypttext, and raise a PadSession.FuzzMismatch
+    error if they don't match."""
     if self._format_level == "internal":
       if self._tail_fuzz_length is None:
         raise PadSession.PadSessionUninitialized(
@@ -691,13 +730,26 @@ must be used for all subsequent calls with that instance.
         # Decryption has already succeeded by the time we encounter
         # the tail fuzz, but if the tail fuzz doesn't match, we should
         # still let the user know the message was tampered with.
+        #
+        # There are two ways the tail fuzz could fail to match: either
+        # a message digest mismatch (i.e., a message authentication
+        # failure) against the first PadSession.digest_length bytes of
+        # the tail fuzz, or a direct fuzz mismatch against the latter
+        # portion of the tail fuzz (i.e., the expected tail fuzz bytes
+        # from the pad don't match those in the message).
         # 
-        # Also, verifying the tail fuzz has the important side effect
+        # Note that verifying the tail fuzz has the important side effect
         # of recording that last bit of pad usage on decryption, which
         # is important for avoiding pad re-use -- that's the bug for
         # which a test was added in commit 9e8422f07.
+        if msg_hash is not None \
+           and self._tail_fuzz_length < PadSession.digest_length:
+          raise PadSession.PadSessionUninitialized("tail fuzz improperly initialized")
+        self._verify_digest(msg_hash)
+        # Now handle the remaining, literal fuzz part of the tail fuzz
         bytes_remaining, str_remaining = self._verify_fuzz_bytes(
-          self._tail_fuzz_length, self._decoding_buffer)
+          self._tail_fuzz_length - PadSession.digest_length,
+          self._decoding_buffer[PadSession.digest_length:])
         if bytes_remaining != 0 or str_remaining != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
 
@@ -729,11 +781,14 @@ class PadSessionEncoder:
     # bz2 unconditionally; the worst case is ok.
     self.compressor = bz2.BZ2Compressor()
     self.pad_sess.prepare_for_encoding()
+    # Keep a running hash of the plaintext as we encrypt.
+    self.msg_hash = hashlib.sha256()
 
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
     out = ''
+    self.msg_hash.update(string)
     compressed_plaintext = self.compressor.compress(string)
     if len(compressed_plaintext) > 0:
       out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
@@ -742,11 +797,14 @@ class PadSessionEncoder:
   def finish(self):
     "Return last remaining bits of crypttext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
-    if self.pad_sess._tail_fuzz_length:
-      remainder += self.pad_sess.convert(
-        u'\u0000' * self.pad_sess._tail_fuzz_length)
-    if remainder:
-      remainder = base64.encodestring(remainder)
+    # TODO: shouldn't this tail fuzz part be handled in self.pad_sess?
+    # Encrypt the message digest as the first part of the tail fuzz.
+    remainder += self.pad_sess.convert(self.msg_hash.digest())
+    # Emit random pad bytes as the second portion of the tail fuzz.
+    remainder += self.pad_sess.convert(
+      u'\u0000' * (self.pad_sess._tail_fuzz_length - PadSession.digest_length))
+    # Finish and return the complete tail fuzz.
+    remainder = base64.encodestring(remainder)
     self.pad_sess.finish()
     self.config.record_consumed(self.pad_sess, False)
     return remainder
@@ -768,6 +826,8 @@ class PadSessionDecoder:
     self.unused_data = ""
     self.format_level = format_level
     self.decompressor = bz2.BZ2Decompressor()
+    # We keep a running hash of the plaintext as we decrypt.
+    self.msg_hash = hashlib.sha256()
 
     if self.format_level != "original" and self.format_level != "internal":
       raise PadSession.FormatLevel(
@@ -792,11 +852,12 @@ class PadSessionDecoder:
       ret = self.decompressor.decompress(self.pad_sess.convert(
         base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
+    self.msg_hash.update(ret)
     return ret
 
   def finalize(self):
     """Finalize this session's pad usage with the configuration."""
-    self.pad_sess.finish()
+    self.pad_sess.finish(self.msg_hash)
     self.config.record_consumed(self.pad_sess, True)
 
 

@@ -244,39 +244,39 @@ start_new_test "decryption should not shrink pad usage"
 #     ==> pad-records says length reverted to 27340!
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-1.onetime ../test-plaintext-b
-if ! grep -q "<length>12491</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>12523</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length is not 12491 after encryption iteration 1."
+  echo "ERROR: Pad usage length is not 12523 after encryption iteration 1."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-2.onetime ../test-plaintext-b
-if ! grep -q "<length>24867</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>25322</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length is not 24867 after encryption iteration 2."
+  echo "ERROR: Pad usage length is not 25322 after encryption iteration 2."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-3.onetime ../test-plaintext-b
-if ! grep -q "<length>37351</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>37603</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length is not 37351 after encryption iteration 3."
+  echo "ERROR: Pad usage length is not 37603 after encryption iteration 3."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
 
 ../../onetime -C dot-onetime -d -p ../test-pad-1 \
               -o tmp-plaintext-b-1 tmp-ciphertext-b-1.onetime
-if ! grep -q "<length>37351</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>37603</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
-  if grep -q "<length>12372</length>" dot-onetime/pad-records; then
+  if grep -q "<length>12523</length>" dot-onetime/pad-records; then
     # Note that as long as everything is working, this case will not
     # be triggered in normal test suite runs even if the length that
-    # *would* indicate the return of this bug has changed from 12372
+    # *would* indicate the return of this bug has changed from 12523
     # to something else due to normal development progress.  So if
     # we're inside the larger failure already, check carefully to see
     # whether we should actually be in this case and were just
@@ -285,7 +285,7 @@ if ! grep -q "<length>37351</length>" dot-onetime/pad-records; then
     echo "ERROR: 'Decryption wrongly shrinks pad usage' bug is back."
   else
     echo ""
-    echo "ERROR: Pad usage length is not 37351 after decryption 1, but don't know why."
+    echo "ERROR: Pad usage length is not 37603 after decryption 1, but don't know why."
   fi
   PASSED="no"
 fi
@@ -315,14 +315,14 @@ cp -a dot-onetime d-dot-onetime  # separate decryption copy
 ../../onetime -C d-dot-onetime -d -p ../test-pad-1 \
               -o tmp-plaintext-b-1 tmp-ciphertext-b-1
 
-if ! grep -q "<length>12491</length>" e-dot-onetime/pad-records; then
+if ! grep -q "<length>12523</length>" e-dot-onetime/pad-records; then
   grep "<length>" e-dot-onetime/pad-records
   echo ""
-  echo "ERROR: expected pad usage length of 12491 for encryption"
+  echo "ERROR: expected pad usage length of 12523 for encryption"
   PASSED="no"
 fi
 
-if ! grep -q "<length>12491</length>" d-dot-onetime/pad-records; then
+if ! grep -q "<length>12523</length>" d-dot-onetime/pad-records; then
   if grep -q "<length>12265</length>" d-dot-onetime/pad-records; then
     # Note that as long as everything is working, this case will not
     # be triggered in normal test suite runs even if the length that
@@ -336,7 +336,7 @@ if ! grep -q "<length>12491</length>" d-dot-onetime/pad-records; then
   else
     grep "<length>" d-dot-onetime/pad-records
     echo ""
-    echo "ERROR: pad usage length is not 12491 after decryption, for some new reason"
+    echo "ERROR: pad usage length is not 12523 after decryption, for some new reason"
   fi
   PASSED="no"
 fi
@@ -637,11 +637,11 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>631</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>663</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
   cat v1-dot-onetime/pad-records
-  echo "ERROR: decoding v2 input affected length 631 in pad-records"
+  echo "ERROR: decoding v2 input affected length 663 in pad-records"
   PASSED="no"
 fi
 
@@ -707,10 +707,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>631</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>663</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to use length 631 in pad-records"
+  echo "ERROR: decoding v2 input failed to use length 663 in pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -783,10 +783,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>599</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>631</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to add length 599 to pad-records"
+  echo "ERROR: decoding v2 input failed to add length 631 to pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -905,18 +905,18 @@ then
 fi
 
 # Expect the new length on the 7th line, in second range of first entry.
-if ! grep -q "<length>12595</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>12627</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: failed to insert new length 12595 into pad-records"
+  echo "ERROR: failed to insert new length 12627 into pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
-elif grep -q "<length>12595</length></used>" v1-dot-onetime/pad-records && \
-     [ `grep -n "<length>12595</length></used>" v1-dot-onetime/pad-records \
+elif grep -q "<length>12627</length></used>" v1-dot-onetime/pad-records && \
+     [ `grep -n "<length>12627</length></used>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 7 ]
 then
   echo ""
-  echo "ERROR: encoding mis-inserted new length 12595 into pad-records"
+  echo "ERROR: encoding mis-inserted new length 12627 into pad-records"
   PASSED="no"
 fi
 check_result
@@ -1061,6 +1061,36 @@ if ! cmp tmp-plaintext-a ../test-plaintext-a
 then
   echo ""
   echo "ERROR: unexpected decryption failure with all-nulls pad"
+  PASSED="no"
+fi
+
+check_result
+
+########################################################################
+start_new_test "tampering with message digest causes authentication error"
+## Encrypt message
+../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+         -o tmp-ciphertext-a-1 < ../test-plaintext-a 2>err.out
+# In the base64-encoded ciphertext file, position 865 is 'f' (102).
+../zap tmp-ciphertext-a-1 815 102 103
+../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
+    -o tmp-plaintext-a-1 < tmp-ciphertext-a-1 2>err.out
+if ! grep -q "FuzzMismatch: message digest mismatch:" err.out|| \
+   ! grep -q "  expected: a8a2f6ebe286697c527eb35a58b5539532e9b3ae3b64d4eb0a46fb657b41562c" err.out || \
+   ! grep -q "     found: a8a2f6ebe286697c527eb35a58b5539532e9b3ae3b64d4e8fa46fb657b41562c" err.out
+   # they differ here, in case you're curious  ----------------------->  ^^   
+then
+  echo ""
+  echo "ERROR: did not see expected FuzzMismatch message digest error"
+  cat err.out
+  PASSED="no"
+fi
+
+if ! cmp ../test-plaintext-a tmp-plaintext-a-1
+then
+  echo ""
+  echo "ERROR: decryption failed when message digest tampered with"
+  cat tmp-plaintext-a-1
   PASSED="no"
 fi
 
