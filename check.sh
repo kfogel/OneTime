@@ -466,7 +466,7 @@ BYTES_V1=`wc -c ../test-v1-ciphertext-b-1 | cut -d " " -f1`
 if [ ${BYTES_NOW} -ge ${BYTES_V1} ]
 then
    echo ""
-   echo "ERROR: new crypttext is bigger than v1 encryption of same plaintext"
+   echo "ERROR: new ciphertext is bigger than v1 encryption of same plaintext"
    PASSED="no"
 fi
 
@@ -961,7 +961,7 @@ fi
 check_result
 
 ########################################################################
-start_new_test "tampering with crypttext causes bzip decoder error"
+start_new_test "tampering with ciphertext causes bzip decoder error"
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out

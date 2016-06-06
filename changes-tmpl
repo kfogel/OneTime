@@ -48,8 +48,8 @@ encrypt anything new).</p></li>
 
 <ul style="list-style-type: circle; ">
 <li><p>Message authentication and integrity checking, based on an
-    embedded SHA-256 checksum in the crypttext and on the message's
-    position within the crypttext being based on surrounding pad data.
+    embedded SHA-256 checksum in the ciphertext and on the message's
+    position within the ciphertext being based on surrounding pad data.
     This combination protects against the situation where someone who can
     interfere with the transmission channel would have both a
     known-plaintext message-substitution attack and a possible

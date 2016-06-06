@@ -83,7 +83,7 @@ import xml.dom.minidom
 # ciphertext (see the PadSession class for details), not in the plaintext
 # headers.  This avoids leaking information about the earliest
 # possible date on which the message could have been encrypted,
-# because the crypttext will reveal only that the message must have
+# because the ciphertext will reveal only that the message must have
 # been encrypted with OneTime 2.0 or higher.
 #
 # Therefore, in OneTime's code, instead of using numbers for the
@@ -115,7 +115,7 @@ but it still needs to be a new object due to certain initializations).
   id_source_length = 32
 
   # The plaintext is authenticated with a SHA256 hash digest that
-  # is itself encrypted with the pad and included in the crypttext.
+  # is itself encrypted with the pad and included in the ciphertext.
   digest_length = 32
 
   def __init__(self, pad_path):
@@ -382,7 +382,7 @@ must be used for all subsequent calls with that instance.
     #
     # Note that tail fuzz starts with PadSession.digest_length bytes
     # for the encrypted message digest, followed by true fuzz -- a
-    # random string of raw pad bytes that concludes the crypttext.
+    # random string of raw pad bytes that concludes the ciphertext.
     # Head fuzz, on the other hand, is just raw pad bytes, because
     # obviously we don't know the message digest at the time the head
     # fuzz is emitted.
@@ -582,9 +582,9 @@ must be used for all subsequent calls with that instance.
     # Now the attacker can't reliably substitute some other plaintext
     # for the original: she'd have only a 1-in-512 chance of guessing
     # the right distance for the head fuzz.  Even if she knows the
-    # exact plaintext, she doesn't know where in the crypttext the
+    # exact plaintext, she doesn't know where in the ciphertext the
     # compressed plaintext starts -- and the tail fuzz distance means
-    # she can't just count backwards from the end of the crypttext.
+    # she can't just count backwards from the end of the ciphertext.
     # Thus a plaintext-substitution attack is prevented.
     #
     # It's tempting to set a higher modulus than 512, but given the
@@ -624,7 +624,7 @@ must be used for all subsequent calls with that instance.
     self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
     # The first part of the tail fuzz will be the encrypted digest,
-    # followed by the true fuzz bytes that conclude the crypttext,
+    # followed by the true fuzz bytes that conclude the ciphertext,
     # so account for the digest length here.
     self._tail_fuzz_length += PadSession.digest_length
     head_fuzz = self._get_pad_bytes(head_fuzz_length)
@@ -673,7 +673,7 @@ must be used for all subsequent calls with that instance.
         self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
         # The first part of the tail fuzz is the encrypted digest,
-        # followed by the true fuzz bytes that conclude the crypttext,
+        # followed by the true fuzz bytes that conclude the ciphertext,
         # so account for the digest length here.
         self._tail_fuzz_length += PadSession.digest_length
         num_bytes_remaining, head_fuzz_remaining = self._verify_fuzz_bytes(
@@ -722,7 +722,7 @@ must be used for all subsequent calls with that instance.
     """Close out this pad session.
     If MSG_HASH is not None, it is the expected final hash for the
     plaintext message, in which case verify its raw digest against the
-    one embedded in the crypttext, and raise a PadSession.FuzzMismatch
+    one embedded in the ciphertext, and raise a PadSession.FuzzMismatch
     error if they don't match."""
     if self._format_level == "internal":
       if self._tail_fuzz_length is None:
@@ -797,7 +797,7 @@ class PadSessionEncoder:
     return out
 
   def finish(self):
-    "Return last remaining bits of crypttext, or None if none left."
+    "Return last remaining bits of ciphertext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
     # TODO: shouldn't this tail fuzz part be handled in self.pad_sess?
     # Encrypt the message digest as the first part of the tail fuzz.
@@ -1352,7 +1352,7 @@ def main():
         # 'FILENAME.onetime'.
         output_name = args[0] + ".onetime"
       else:
-        # If crypttext input is 'FILENAME.onetime', output defaults to
+        # If ciphertext input is 'FILENAME.onetime', output defaults to
         # 'FILENAME'.  But we also look for ".otp", for compatibility
         # with older versions of this program.
         if args[0].endswith(".onetime"):
