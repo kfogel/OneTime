@@ -695,14 +695,7 @@ must be used for all subsequent calls with that instance.
         # Also, verifying the tail fuzz has the important side effect
         # of recording that last bit of pad usage on decryption, which
         # is important for avoiding pad re-use -- that's the bug for
-        # which a test was added in commit 9e8422f07.  (Of course, some
-        # of that tail fuzz re-use would overlap with the head fuzz of
-        # the next message encrypted with this pad by the person who
-        # just decrypted.  But there's no guarantee the overlap would
-        # be complete, which means there is an actual danger of true
-        # pad re-use, and in any case it would be an information leak
-        # to even reveal that the same pad was used for two successive
-        # messages -- for one thing, it would reveal their successivity.
+        # which a test was added in commit 9e8422f07.
         bytes_remaining, str_remaining = self._verify_fuzz_bytes(
           self._tail_fuzz_length, self._decoding_buffer)
         if bytes_remaining != 0 or str_remaining != '':
