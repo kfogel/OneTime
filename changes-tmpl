@@ -82,6 +82,11 @@ encrypt anything new).</p></li>
     Windows <a href="https://github.com/kfogel/OneTime/issues/13" 
     >is now fixed</a>.</p></li>
 <li><p>New <tt>--license</tt> option displays the license.</p></li>
+<li><p>You can now do
+    <tt>make&nbsp;install&nbsp;--prefix=SOME_INSTALLATION_PREFIX</tt>
+    and it will work.  (Thanks
+    to <a href="https://github.com/kfogel/OneTime/pull/12" 
+    >@DomT4</a>.)</p></li>
 <li><p>For developers: <a href="check.sh" >regression test suite</a>
     added.</p></li>
 </ul>
