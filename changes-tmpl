@@ -48,13 +48,13 @@ encrypt anything new).</p></li>
 
 <ul style="list-style-type: circle; ">
 <li><p>Message authentication and integrity checking, based on an
-    embedded SHA-256 checksum in the ciphertext and on the message's
+    embedded SHA-256 digest in the ciphertext and on the message's
     position within the ciphertext being based on surrounding pad data.
     This combination protects against the situation where someone who can
-    interfere with the transmission channel would have both a
-    known-plaintext message-substitution attack and a possible
-    bit-flipping attack on message integrity.  (Thanks to
-    Andy Isaacson for pointing out these problems in a
+    interfere with the transmission channel would have both a possible
+    bit-flipping attack on message integrity and a known-plaintext
+    message-substitution attack.  (Thanks to Andy Isaacson for
+    pointing out these problems in a
     <a href="https://mailman.stanford.edu/pipermail/liberationtech/2013-July/010405.html"
     >discussion</a> on the Liberation Tech mailing list.)</p></li> 
 <li><p>New output format (<a href="example.onetime" >example</a>), to
