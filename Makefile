@@ -77,6 +77,10 @@ www: dist
            < get-tmpl > get.tmp
 	@sed -e "s|2XVERSION|`./find-ver.sh 2`|g" \
            < get.tmp > get
+	@sed -e "s|1XVERSION|`./find-ver.sh 1`|g" \
+           < changes-tmpl > changes.tmp
+	@sed -e "s|2XVERSION|`./find-ver.sh 2`|g" \
+           < changes.tmp > changes
 	@rm get.tmp
 	@# Make the GPG link live.
 	@sed -e 's/GnuPG,/<a href="http:\/\/www.gnupg.org\/">GnuPG<\/a>,/g' \

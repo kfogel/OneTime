@@ -19,8 +19,8 @@
 
 <h4><p style="margin-left: 10%; margin-right: 10%; color: red;
 font-size: 80%;" >Update (2016-06-05): OneTime 2.0 is currently in
-beta testing.  The latest version is <a href="onetime-2.0-beta7"
->2.0-beta7</a>&nbsp;&mdash;&nbsp;please give it a try and
+beta testing.  The latest version is <a href="onetime-2XVERSION"
+>2XVERSION</a>&nbsp;&mdash;&nbsp;please give it a try and
 <a href="https://github.com/kfogel/OneTime/issues/new" >report</a>
 any bugs you find.  See the <a href="changes" >compatibility notes</a>
 for details about what's new in 2.0.</p></h4>
