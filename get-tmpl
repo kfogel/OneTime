@@ -24,19 +24,23 @@ beta-test 2XVERSION.</p>
 
 <li><p><span style="font-weight: bold;" >GNU/Linux, Unix, Mac:</span>
     <ul style="list-style-type: circle; ">
+    <li><a href="onetime-2XVERSION.tar.gz" >onetime-2XVERSION.tar.gz</a>
+        <span style="font-style: italic;" 
+              >(recommended for beta testers)</span></li>
     <li><a href="onetime-1XVERSION.tar.gz" >onetime-1XVERSION.tar.gz</a>
         <span style="font-style: italic;" 
-              >(recommended for now, as of 2014-01-09)</span></li>
-    <li><a href="onetime-2XVERSION.tar.gz" >onetime-2XVERSION.tar.gz</a></li>
+              >(recommended for everyone else)</span></li>
     </ul></p>
 </li>
 
 <li><p><span style="font-weight: bold;" >Windows (.zip):</span>
     <ul style="list-style-type: circle; ">
+    <li><a href="onetime-2XVERSION.zip" >onetime-2XVERSION.zip</a>
+        <span style="font-style: italic;" 
+              >(recommended for beta testers)</span></li>
     <li><a href="onetime-1XVERSION.zip" >onetime-1XVERSION.zip</a>
         <span style="font-style: italic;" 
-              >(recommended for now, as of 2014-01-09)</span></li>
-    <li><a href="onetime-2XVERSION.zip" >onetime-2XVERSION.zip</a></li>
+              >(recommended for everyone else)</span></li>
     </ul></p>
 </li>
 
@@ -44,7 +48,7 @@ beta-test 2XVERSION.</p>
     <p>OneTime 1.x is packaged in <a href="http://debian.org/">Debian</a>.
     If you run the "testing" distribution of Debian or higher, do
     <tt>'sudo&nbsp;apt-get&nbsp;update&nbsp;&amp;&amp;&nbsp;sudo&nbsp;apt-get&nbsp;install&nbsp;onetime'</tt></p>
-    <p style="font-style: italic;" >As of January 2014, the version of
+    <p style="font-style: italic;" >As of June 2016, the version of
     OneTime packaged in Debian is somewhat behind the upstream
     release.  We'll try to get Debian updated soon after OneTime 2.0
     comes out.</p></li>
