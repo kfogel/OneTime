@@ -154,7 +154,7 @@ but it still needs to be a new object due to certain initializations).
     # the latest input, and must always be at least as long as the
     # tail fuzz length, so that we can decrypt everything but the last
     # self._tail_fuzz_length bytes in the buffer.
-    self._decoding_buffer = ''
+    self._tail_buffer = ''
 
     # Most of what a pad session does is the same for encoding and decoding --
     # after all, the conversion step is XOR, which is symmetrical.
@@ -288,15 +288,15 @@ must be used for all subsequent calls with that instance.
 
       # Once we've handled any inner headers, buffer for decoding.
       if self._decoding:
-        self._decoding_buffer += string
+        self._tail_buffer += string
         # Reserve the tail fuzz length each time, so that on the last
         # iteration we can just verify the tail fuzz instead of trying
         # to decrypt it.
-        if len(self._decoding_buffer) < self._tail_fuzz_length:
+        if len(self._tail_buffer) < self._tail_fuzz_length:
           string = ''   # wait until we have more or are done
         else:
-          string = self._decoding_buffer[:(0 - self._tail_fuzz_length)]
-          self._decoding_buffer = self._decoding_buffer[
+          string = self._tail_buffer[:(0 - self._tail_fuzz_length)]
+          self._tail_buffer = self._tail_buffer[
             (0 - self._tail_fuzz_length):]
 
     string_len = len(string)
@@ -713,7 +713,7 @@ must be used for all subsequent calls with that instance.
     self._length += PadSession.digest_length
     found_digest = ''
     for i in range(PadSession.digest_length):
-      found_digest += chr(ord(self._decoding_buffer[i]) ^ ord(pad_bytes[i]))
+      found_digest += chr(ord(self._tail_buffer[i]) ^ ord(pad_bytes[i]))
     if msg_digest != found_digest:
       raise PadSession.FuzzMismatch("message digest mismatch:\n  expected: %s\n     found: %s\n"
                                     % (msg_hash.hexdigest(), found_digest.encode('hex')))
@@ -751,7 +751,7 @@ must be used for all subsequent calls with that instance.
         # Now handle the remaining, literal fuzz part of the tail fuzz
         bytes_remaining, str_remaining = self._verify_fuzz_bytes(
           self._tail_fuzz_length - PadSession.digest_length,
-          self._decoding_buffer[PadSession.digest_length:])
+          self._tail_buffer[PadSession.digest_length:])
         if bytes_remaining != 0 or str_remaining != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
 
