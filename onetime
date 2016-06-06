@@ -1166,7 +1166,7 @@ def license(outfile=sys.stdout):
   license_str = """\
 OneTime version %s.
 
-Copyright (c)  2004-2014  Karl Fogel
+Copyright (c)  2004-2016  Karl Fogel
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
