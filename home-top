@@ -36,9 +36,9 @@ pad</a> algorithm to allow two parties to communicate privately.  It
 has features to assist with the bureaucracy of pad management, and
 comes with built-in <a href="#help" >help</a>.  OneTime requires
 Python 2.6 or higher, and is for users who are comfortable running
-command-line programs.  (It is not yet compatible with Python 3;
-there's an open <a href="https://github.com/kfogel/OneTime/issues/15"
->ticket</a> for that, and patches are very welcome.)</p> 
+command-line programs.  (It is not yet compatible with Python 3, but
+there's an <a href="https://github.com/kfogel/OneTime/issues/15"
+>open ticket</a> for that and patches are very welcome.)</p> 
 
 <p>
 <ul style="margin-left: 20%; list-style-type: circle;" >
