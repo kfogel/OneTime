@@ -1072,7 +1072,7 @@ class Configuration:
     return dict
     
   def save(self):
-    """Save the pad-records file, and maybe commit it."""
+    """Save the pad-records file."""
     if self.config_area == '-':
       return
     tempfile = self.pad_records_file + ".tmp"
