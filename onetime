@@ -1093,7 +1093,20 @@ class Configuration:
       fp.write("  </pad-record>\n")
     fp.write("</onetime-pad-records>\n")
     fp.close()
+    # On some operating systems, renaming a file onto an existing file
+    # doesn't just silently overwrite the latter -- according to
+    # https://github.com/kfogel/OneTime/issues/13, Microsoft Windows
+    # will throw an error, for example.  So we do this rename very
+    # carefully, and in such a way as to not to destroy any pad
+    # records that might be left over from a past failed rename.
+    intermediate_tempfile = self.pad_records_file + ".int"
+    if os.path.exists(intermediate_tempfile):
+      raise ConfigurationError("Leftover intermediate pad-records file found;"
+                               "please sort things out:\n"
+                               "  %s" % intermediate_tempfile)
+    os.rename(self.pad_records_file, intermediate_tempfile)
     os.rename(tempfile, self.pad_records_file)
+    os.remove(intermediate_tempfile)
 
   def register(self, pad_sess):
     """Register PAD_SESS's pad if it is not already registered, and
