@@ -56,10 +56,9 @@
 
 <h2>Who uses OneTime, and why?</h2>
 
-<p>I don't really know.  I just get enough bug reports and feature
-requests to know that there are people using this.  Some are
-anonymous, some are not.  None of the correspondents has told me why
-they use it, and I haven't asked.</p>
+<p>Actually, I don't know&nbsp;&mdash;&nbsp;I just get enough bug
+reports and feature requests to know that there are people using this.
+Some are anonymous, some are not.</p>
 
 <p>One-time pad systems are inconvenient, because of the difficulty of
 pad generation and exchange.  There are many easier cryptography
