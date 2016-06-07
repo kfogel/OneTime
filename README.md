@@ -1,8 +1,8 @@
 OneTime is an open source encryption program that uses the one-time pad method.
 
 See [red-bean.com/onetime](http://www.red-bean.com/onetime/) for more
-information.  You can also run `./onetime;&nbsp;--intro` for an
-introduction, or `./onetime;&nbsp;--help` for complete usage.
+information.  You can also run `./onetime --intro` for an
+introduction, or `./onetime --help` for complete usage.
 
 OneTime is written in Python, and requires Python 2.6 or higher (but
 it has not been ported to Python 3 yet&nbsp;&mdash;&nbsp;there's an
