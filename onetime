@@ -799,13 +799,13 @@ class PadSessionEncoder:
   def finish(self):
     "Return last remaining bits of ciphertext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
-    # TODO: shouldn't this tail fuzz part be handled in self.pad_sess?
-    # Encrypt the message digest as the first part of the tail fuzz.
+    # Emit tail fuzz, the first part of which is the message digest: 
     remainder += self.pad_sess.convert(self.msg_hash.digest())
-    # Emit random pad bytes as the second portion of the tail fuzz.
+    # The second part of the tail fuzz is a random number of raw pad
+    # bytes (random based on previously-read pad data, that is):
     remainder += self.pad_sess.convert(
       u'\u0000' * (self.pad_sess._tail_fuzz_length - PadSession.digest_length))
-    # Finish and return the complete tail fuzz.
+    # Encode and return the completed tail fuzz.
     remainder = base64.encodestring(remainder)
     self.pad_sess.finish()
     self.config.record_consumed(self.pad_sess, False)
