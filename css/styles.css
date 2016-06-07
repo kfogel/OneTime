@@ -12,6 +12,7 @@ body {
 h1, h2 { 
   text-align: center;
   font-weight: bold;
+  line-height: 150%;
 }
 
 ul, ol {
@@ -27,7 +28,11 @@ p {
   margin-right: 5%;
   font-family: monospace;
   font-style: italic;
-  white-space: pre;
+  word-wrap: break-word;       /* Internet Explorer 5.5+ */
+  white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+  white-space: -pre-wrap;      /* Opera 4-6 */
+  white-space: -o-pre-wrap;    /* Opera 7 */
+  white-space: pre-wrap;       /* css-3 */
 }
 
 .title {
