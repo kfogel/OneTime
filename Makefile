@@ -33,6 +33,7 @@ dist:
 
 www: dist
 	@(cd css; ./get-deps)
+	@cp images/logo/favicons/favicon.ico ./favicon.ico
 	@./onetime --intro     > intro.tmp
 	@./onetime --help      > usage.tmp
 	@./onetime --pad-help  > pad-help.tmp
