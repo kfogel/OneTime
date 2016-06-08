@@ -1205,12 +1205,12 @@ with the `dd` command.  Most GNU/Linux computers can do this.
 That command will place a 10 megabyte pad in ~/.onetime/to_foo.pad
 (1000000 bytes is one megabyte).  That pad will be good for encrypting
 10 megabytes of data before it should be retired.  If you anticipate
-sending more than 10 megabytes of data with the same pad, you will
-want to replace 10 with a higher count.  On some computers, large pads
-may take a long time, even days, to generate.  Just let dd work while
-you do other things.  (Although you can go faster by using /dev/urandom
-instead of /dev/random, opinion is divided on whether the random numbers 
-from /dev/urandom are good enough; to be safe, we recommend /dev/random,
+sending more than 10 megabytes of data with the same pad, increase the
+count accordingly.  On some computers, large pads may take a long
+time, even days, to generate.  Just let dd work while you do other
+things.  (Although you can go faster by using /dev/urandom instead of
+/dev/random, opinion is divided on whether the random numbers from
+/dev/urandom are good enough; to be safe, we recommend /dev/random,
 but see http://www.2uo.de/myths-about-urandom/ for more discussion.)
 
 To encrypt a file named WALLET.DAT with that pad:
