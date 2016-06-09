@@ -11,11 +11,7 @@ check:
 
 # For a quick sanity check while developing, just run this.
 quickcheck:
-	@echo "### Encrypt and decrypt the README file, as a quick test -- ###"
-	@echo "### (if README is printed below, onetime is still working). ###"
-	@echo ""
-	@./onetime -e -n -p tests/random-data-1 -o - README \
-          | ./onetime -d -n -p tests/random-data-1 -o -
+	@(cd tests; ./quick-check)
 
 install:
 	@install -d -m 0755 $(bindir)
