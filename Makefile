@@ -89,10 +89,6 @@ www: dist
 	@sed -e 's| http://en.wikipedia.org/wiki/One-time_pad | <a href="http://en.wikipedia.org/wiki/One-time_pad">http://en.wikipedia.org/wiki/One-time_pad</a> |g' \
            < home > home.tmp
 	@mv home.tmp home
-	@# Make the SVN and CVS links live.
-	@sed -e 's|Subversion or CVS,|<a href="http://subversion.tigris.org/">Subversion</a> or <a href="http://www.nongnu.org/cvs/">CVS</a>,|g' \
-           < home > home.tmp
-	@mv home.tmp home
 	@# Make the author name link live.
 	@sed -e 's|Karl Fogel|<a href="http://red-bean.com/kfogel">Karl Fogel</a>|g' \
            < home > home.tmp
