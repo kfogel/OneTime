@@ -144,16 +144,15 @@ but it still needs to be a new object due to certain initializations).
 
     # There are both head and tail fuzz, but we only need to remember
     # the tail fuzz length (and the raw bytes used to compute it),
-    # because we learn it at the start of processing but wait till the
-    # end to use it, whereas the head fuzz we use the moment we learn it.
+    # because we learn the length at the start of processing but wait
+    # till the end to use it, whereas the head fuzz we emit as soon as
+    # we learn its length.
     self._tail_fuzz_length = None
     self._tail_fuzz_length_source_bytes = None
 
-    # When decoding, we have to buffer enough input to be able to
-    # refrain from decrypting the tail fuzz.  This buffer always holds
-    # the latest input, and must always be at least as long as the
-    # tail fuzz length, so that we can decrypt everything but the last
-    # self._tail_fuzz_length bytes in the buffer.
+    # This buffer always holds the latest input, and must always be at
+    # least as long as the tail digest + tail fuzz, so that we can
+    # refrain from decrypting them as part of the original plaintext.
     self._tail_buffer = ''
 
     # Most of what a pad session does is the same for encoding and decoding --
@@ -227,10 +226,10 @@ else return the empty string.  Note STRING may be empty on intermediate
 calls simply because a compressor has not yet had enough incoming data to
 work with, not necessarily because input is ended yet.
 
-If FORMAT_LEVEL is "original", then don't handle the random distance
-skips (the "fuzz") used by the later format levels.  Otherwise, do
-handle the fuzz: for head fuzz, skip over it; for tail fuzz, remember
-its length so we can ignore it later.
+If FORMAT_LEVEL is "original", then don't handle the head and tail 
+used by the later format levels.  Otherwise, do handle the head and
+tail: for the head, skip over the fuzz; for the tail, just remember
+its length so we can handle it later.
 
 It is an error to call this multiple times with different FORMAT_LEVEL
 values, for a given PadSession instance.  Whatever you pass the first time
@@ -289,15 +288,15 @@ must be used for all subsequent calls with that instance.
       # Once we've handled any inner headers, buffer for decoding.
       if self._decoding:
         self._tail_buffer += string
-        # Reserve the tail fuzz length each time, so that on the last
-        # iteration we can just verify the tail fuzz instead of trying
-        # to decrypt it.
-        if len(self._tail_buffer) < self._tail_fuzz_length:
+        # Reserve exactly the tail length each time, so that on the
+        # last iteration we can just verify both parts of the tail
+        # (the digest and the fuzz) without emitting new output.
+        if len(self._tail_buffer) < (PadSession.digest_length + self._tail_fuzz_length):
           string = ''   # wait until we have more or are done
         else:
-          string = self._tail_buffer[:(0 - self._tail_fuzz_length)]
+          string = self._tail_buffer[:(0 - (PadSession.digest_length + self._tail_fuzz_length))]
           self._tail_buffer = self._tail_buffer[
-            (0 - self._tail_fuzz_length):]
+            (0 - (PadSession.digest_length + self._tail_fuzz_length)):]
 
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
@@ -380,15 +379,11 @@ must be used for all subsequent calls with that instance.
     # the distance to skip is based on data in the pad, it can only be
     # known by those who have the pad.
     #
-    # Note that tail fuzz starts with PadSession.digest_length bytes
-    # for the encrypted message digest, followed by true fuzz -- a
-    # random string of raw pad bytes that concludes the ciphertext.
-    # Head fuzz, on the other hand, is just raw pad bytes, because
-    # obviously we don't know the message digest at the time the head
-    # fuzz is emitted.
+    # (Note that the tail of a OneTime message is actually two parts:
+    # the encrypted message digest followed by the tail fuzz.)
     #
-    # For both head fuzz and the non-digest portion of the tail fuzz,
-    # the distance skipped may be determined in two ways:
+    # For both head fuzz and the tail fuzz, the distance skipped may
+    # be determined in two ways:
     #
     #   1) Read NUM_BYTES from the current location in the pad, and
     #      use those bytes to calculate (in some deterministic way)
@@ -623,10 +618,6 @@ must be used for all subsequent calls with that instance.
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
     self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
       self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    # The first part of the tail fuzz will be the encrypted digest,
-    # followed by the true fuzz bytes that conclude the ciphertext,
-    # so account for the digest length here.
-    self._tail_fuzz_length += PadSession.digest_length
     head_fuzz = self._get_pad_bytes(head_fuzz_length)
     result = chr(inner_header_format_version)       \
              + chr(fuzz_source_length_indicator)    \
@@ -672,10 +663,6 @@ must be used for all subsequent calls with that instance.
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
         self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
           self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-        # The first part of the tail fuzz is the encrypted digest,
-        # followed by the true fuzz bytes that conclude the ciphertext,
-        # so account for the digest length here.
-        self._tail_fuzz_length += PadSession.digest_length
         num_bytes_remaining, head_fuzz_remaining = self._verify_fuzz_bytes(
           head_fuzz_length, string[2 + (self._default_fuzz_source_length * 2):])
         length_to_skip += (self._default_fuzz_source_length * 2) + head_fuzz_length
@@ -730,28 +717,21 @@ must be used for all subsequent calls with that instance.
           "tail fuzz length never initialized")
       elif self._decoding:
         # Decryption has already succeeded by the time we encounter
-        # the tail fuzz, but if the tail fuzz doesn't match, we should
-        # still let the user know the message was tampered with.
+        # the tail, but if the tail doesn't match, we should still let
+        # the user know the message was tampered with.
         #
-        # There are two ways the tail fuzz could fail to match: either
-        # a message digest mismatch (i.e., a message authentication
+        # There are two ways the tail could fail to match: either a
+        # message digest mismatch (i.e., a message authentication
         # failure) against the first PadSession.digest_length bytes of
-        # the tail fuzz, or a direct fuzz mismatch against the latter
-        # portion of the tail fuzz (i.e., the expected tail fuzz bytes
-        # from the pad don't match those in the message).
+        # the tail, or a mismatch against the expected tail fuzz bytes.
         # 
-        # Note that verifying the tail fuzz has the important side effect
+        # Note that verifying the tail has the important side effect
         # of recording that last bit of pad usage on decryption, which
         # is important for avoiding pad re-use -- that's the bug for
         # which a test was added in commit 9e8422f07.
-        if msg_hash is not None \
-           and self._tail_fuzz_length < PadSession.digest_length:
-          raise PadSession.PadSessionUninitialized("tail fuzz improperly initialized")
         self._verify_digest(msg_hash)
-        # Now handle the remaining, literal fuzz part of the tail fuzz
         bytes_remaining, str_remaining = self._verify_fuzz_bytes(
-          self._tail_fuzz_length - PadSession.digest_length,
-          self._tail_buffer[PadSession.digest_length:])
+          self._tail_fuzz_length, self._tail_buffer[PadSession.digest_length:])
         if bytes_remaining != 0 or str_remaining != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
 
@@ -799,13 +779,13 @@ class PadSessionEncoder:
   def finish(self):
     "Return last remaining bits of ciphertext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
-    # Emit tail fuzz, the first part of which is the message digest: 
+    # Make the first part of the tail, the message digest: 
     remainder += self.pad_sess.convert(self.msg_hash.digest())
-    # The second part of the tail fuzz is a random number of raw pad
-    # bytes (random based on previously-read pad data, that is):
+    # Make the second part of the tail, the fuzz, a random number
+    # (based on previously-read pad data) of raw pad bytes:
     remainder += self.pad_sess.convert(
-      u'\u0000' * (self.pad_sess._tail_fuzz_length - PadSession.digest_length))
-    # Encode and return the completed tail fuzz.
+      u'\u0000' * (self.pad_sess._tail_fuzz_length))
+    # Encode and return the completed tail.
     remainder = base64.encodestring(remainder)
     self.pad_sess.finish()
     self.config.record_consumed(self.pad_sess, False)
