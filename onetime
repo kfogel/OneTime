@@ -312,6 +312,15 @@ must be used for all subsequent calls with that instance.
 
   def _get_id(self):
     """Get the ID for this session's underlying pad."""
+    # The astute reader may ask: why are we bothering to make a
+    # 32 byte hash of 32 bytes worth of random data, instead of just
+    # using the data itself (expressed in hexadecimal) as the pad ID?
+    # The answer is just tradition, really.  Well, and the very slight
+    # possibility that maybe there's *something* not quite random
+    # about the pad, and that if so, we at least wouldn't want to
+    # reveal that fact in the pad's ID.  In theory, a pad-records file
+    # should be able to leak without revealing anything interesting
+    # about the pad itself, only about how much it's been used.
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
     sha256 = hashlib.sha256()
