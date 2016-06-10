@@ -705,16 +705,22 @@ must be used for all subsequent calls with that instance.
       raise PadSession.FuzzMismatch("message digest mismatch:\n  expected: %s\n     found: %s\n"
                                     % (msg_hash.hexdigest(), found_digest.encode('hex')))
 
-  def finish(self, msg_hash=None):
-    """Close out this pad session.
-    If MSG_HASH is not None, it is the expected final hash for the
-    plaintext message, in which case verify its raw digest against the
-    one embedded in the ciphertext, and raise a PadSession.FuzzMismatch
-    error if they don't match."""
+  def finish(self, msg_hash):
+    """Close out this pad session, emitting or verifying MSG_HASH.
+    If encrypting, return the pad-encrypted digest of MSG_HASH and the
+    tail fuzz, as a single string.  If decrypting, verify that
+    MSG_HASH matches the expected final hash for the plaintext
+    message, and raise a PadSession.FuzzMismatch error if they do not
+    match.  (If they do match, the return value is undefined and
+    should be ignored.)"""
     if self._format_level == "internal":
       if self._tail_fuzz_length is None:
         raise PadSession.PadSessionUninitialized(
           "tail fuzz length never initialized")
+      elif self._encoding:
+        remainder = self.convert(msg_hash.digest())
+        remainder += self.convert(u'\u0000' * self._tail_fuzz_length)
+        return remainder
       elif self._decoding:
         # Decryption has already succeeded by the time we encounter
         # the tail, but if the tail doesn't match, we should still let
@@ -734,6 +740,9 @@ must be used for all subsequent calls with that instance.
           self._tail_fuzz_length, self._tail_buffer[PadSession.digest_length:])
         if bytes_remaining != 0 or str_remaining != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
+      else:
+        raise PadSession.OverPrepared(
+          "pad session out of whack: both encoding and decoding")
 
   def __str__(self):
     """Return a string representation of this pad session."""
@@ -779,15 +788,8 @@ class PadSessionEncoder:
   def finish(self):
     "Return last remaining bits of ciphertext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
-    # Make the first part of the tail, the message digest: 
-    remainder += self.pad_sess.convert(self.msg_hash.digest())
-    # Make the second part of the tail, the fuzz, a random number
-    # (based on previously-read pad data) of raw pad bytes:
-    remainder += self.pad_sess.convert(
-      u'\u0000' * (self.pad_sess._tail_fuzz_length))
-    # Encode and return the completed tail.
+    remainder += self.pad_sess.finish(self.msg_hash)
     remainder = base64.encodestring(remainder)
-    self.pad_sess.finish()
     self.config.record_consumed(self.pad_sess, False)
     return remainder
 
