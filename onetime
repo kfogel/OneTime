@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__version__ = "2.0-beta9"
+__version__ = "2.0-beta10"
 
 __doc__ = """OneTime: an open source encryption program that uses the one-time pad method.
 
@@ -311,26 +311,18 @@ must be used for all subsequent calls with that instance.
 
 
   def _get_id(self):
-    """Get the ID for this session's underlying pad."""
-    # The astute reader may ask: why are we bothering to make a
-    # 32 byte hash of 32 bytes worth of random data, instead of just
-    # using the data itself (expressed in hexadecimal) as the pad ID?
-    # The answer is just tradition, really.  Well, and the very slight
-    # possibility that maybe there's *something* not quite random
-    # about the pad, and that if so, we at least wouldn't want to
-    # reveal that fact in the pad's ID.  In theory, a pad-records file
-    # should be able to leak without revealing anything interesting
-    # about the pad itself, only about how much it's been used.
-    # (Though this is a pretty weak rationale, as some raw pad is
-    # revealed in head fuzz and tail fuzz anyway.  So it really boils
-    # down to tradition, or perhaps superstition.)
+    """Get the ID for this session's underlying pad.
+    (The ID is just the pad's first 32 bytes in hexadecimal.)"""
+    # There's no harm in exposing this data in a pad-records file.
+    # The ID portion of the pad is never used for encryption, and we
+    # expose other non-encrypting pad portions in the head fuzz and
+    # tail fuzz in the message anyway.  If the pad is truly random,
+    # this is all fine; if it's not random, all bets are off.
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
-    sha256 = hashlib.sha256()
     string = self.padfile.read(PadSession.id_source_length)
-    sha256.update(string)
     self.padfile.seek(saved_posn)
-    return sha256.hexdigest()
+    return string.encode('hex')
 
   def _get_original_format_level_id(self):
     """Get the OneTime \"original\" format level ID for the session pad.
