@@ -112,11 +112,11 @@ but it still needs to be a new object due to certain initializations).
   # bytes themselves?  There's no theoretical reason not to, but as a
   # sop to tradition, and to avoid the distraction of explaining why
   # using raw pad would be okay, we just use the SHA-256 sum instead.)
-  id_source_length = 32
+  _id_source_length = 32
 
   # The plaintext is authenticated with a SHA256 hash digest that
   # is itself encrypted with the pad and included in the ciphertext.
-  digest_length = 32
+  _digest_length = 32
 
   def __init__(self, pad_path):
     """Initialize a new pad session, using padfile PAD_PATH.  The pad session
@@ -291,12 +291,12 @@ must be used for all subsequent calls with that instance.
         # Reserve exactly the tail length each time, so that on the
         # last iteration we can just verify both parts of the tail
         # (the digest and the fuzz) without emitting new output.
-        if len(self._tail_buffer) < (PadSession.digest_length + self._tail_fuzz_length):
+        if len(self._tail_buffer) < (PadSession._digest_length + self._tail_fuzz_length):
           string = ''   # wait until we have more or are done
         else:
-          string = self._tail_buffer[:(0 - (PadSession.digest_length + self._tail_fuzz_length))]
+          string = self._tail_buffer[:(0 - (PadSession._digest_length + self._tail_fuzz_length))]
           self._tail_buffer = self._tail_buffer[
-            (0 - (PadSession.digest_length + self._tail_fuzz_length)):]
+            (0 - (PadSession._digest_length + self._tail_fuzz_length)):]
 
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
@@ -320,7 +320,7 @@ must be used for all subsequent calls with that instance.
     # this is all fine; if it's not random, all bets are off.
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
-    string = self.padfile.read(PadSession.id_source_length)
+    string = self.padfile.read(PadSession._id_source_length)
     self.padfile.seek(saved_posn)
     return string.encode('hex')
 
@@ -696,14 +696,14 @@ must be used for all subsequent calls with that instance.
 
   def _verify_digest(self, msg_hash):
     """Verify that the message digest encoded at the current location
-    in the pad matches MSG_HASH, consuming PadSession.digest_length
+    in the pad matches MSG_HASH, consuming PadSession._digest_length
     bytes of pad in the process.  If the digests do not match, raise a
     PadSession.FuzzMismatch error showing the two digests in hex form."""
     msg_digest = msg_hash.digest()
-    pad_bytes = self.padfile.read(PadSession.digest_length)
-    self._length += PadSession.digest_length
+    pad_bytes = self.padfile.read(PadSession._digest_length)
+    self._length += PadSession._digest_length
     found_digest = ''
-    for i in range(PadSession.digest_length):
+    for i in range(PadSession._digest_length):
       found_digest += chr(ord(self._tail_buffer[i]) ^ ord(pad_bytes[i]))
     if msg_digest != found_digest:
       raise PadSession.FuzzMismatch("message digest mismatch:\n  expected: %s\n     found: %s\n"
@@ -732,7 +732,7 @@ must be used for all subsequent calls with that instance.
         #
         # There are two ways the tail could fail to match: either a
         # message digest mismatch (i.e., a message authentication
-        # failure) against the first PadSession.digest_length bytes of
+        # failure) against the first PadSession._digest_length bytes of
         # the tail, or a mismatch against the expected tail fuzz bytes.
         # 
         # Note that verifying the tail has the important side effect
@@ -741,7 +741,7 @@ must be used for all subsequent calls with that instance.
         # which a test was added in commit 9e8422f07.
         self._verify_digest(msg_hash)
         bytes_remaining, str_remaining = self._verify_fuzz_bytes(
-          self._tail_fuzz_length, self._tail_buffer[PadSession.digest_length:])
+          self._tail_fuzz_length, self._tail_buffer[PadSession._digest_length:])
         if bytes_remaining != 0 or str_remaining != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
       else:
@@ -964,7 +964,7 @@ class Configuration:
 
   def _get_next_offset(self, used):
     """Return the next free offset from USED, which assumed to be in
-    consolidated form.  The minimum returned is PadSession.id_source_length;
+    consolidated form.  The minimum returned is PadSession._id_source_length;
     that way the pad ID stretch is always accounted for, even if USED
     was initialized from an old original-format pad record."""
     cur_offset = None
@@ -975,8 +975,8 @@ class Configuration:
     for tup in used:
       (this_offset, this_length) = tup
       cur_offset = this_offset + this_length
-    if cur_offset is None or cur_offset < PadSession.id_source_length:
-      return PadSession.id_source_length
+    if cur_offset is None or cur_offset < PadSession._id_source_length:
+      return PadSession._id_source_length
     else:
       return cur_offset
     
@@ -1368,9 +1368,9 @@ def main():
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
     error_exit = True
 
-  if offset is not None and offset < PadSession.id_source_length:
+  if offset is not None and offset < PadSession._id_source_length:
       sys.stderr.write("Error: argument to --offset must be >= %d\n"
-                       % PadSession.id_source_length)
+                       % PadSession._id_source_length)
       error_exit = True
 
   if error_exit:
