@@ -321,6 +321,9 @@ must be used for all subsequent calls with that instance.
     # reveal that fact in the pad's ID.  In theory, a pad-records file
     # should be able to leak without revealing anything interesting
     # about the pad itself, only about how much it's been used.
+    # (Though this is a pretty weak rationale, as some raw pad is
+    # revealed in head fuzz and tail fuzz anyway.  So it really boils
+    # down to tradition, or perhaps superstition.)
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
     sha256 = hashlib.sha256()
