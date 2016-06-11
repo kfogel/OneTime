@@ -45,7 +45,19 @@
     cannot read 2.x output.</p></li>
 <li><p>Pad IDs have changed, because they are calculated differently
     now.  The IDs in your <tt>pad-records</tt> file will be upgraded
-    automatically; you do not need to do anything.</p></li>
+    automatically; you do not need to do anything.</p>
+
+    <p style="font-style: italic;" ><span style="font-weight: bold;"
+    >Note</span>: Pad IDs changed <span style="text-decoration:
+    underline;" >during</span> the development process for 2.0 too, so
+    if you used interim 2.0 beta versions, then you will probably need
+    to fix your ~/.onetime/pad-records file (otherwise there is a
+    danger of pad range reuse).  For each of your pad files, run the
+    command "<tt>onetime&nbsp;-p&nbsp;PAD_FILE&nbsp;--show-id</tt>"
+    with your older 2.0-beta version of onetime, save the outputs, and
+    then upgrade onetime to 2.0-beta10 or later and run the same
+    command for each pad.  Use the two output sets to manually update
+    the pad IDs in your ~/.onetime/pad-records file.</p></li>
 <li><p>New <tt>--show-id</tt> option displays a pad's ID.</p></li>
 <li><p>New <tt>--pad-help</tt> option tells how to generate pads.</p></li>
 <li><p>There is no more automated version control of pad metadata.
