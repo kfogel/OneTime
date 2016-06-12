@@ -201,12 +201,7 @@ should be generated (it might refer to the same underlying pad file,
 but it still needs to be a new object due to certain initializations).
   """
 
-  # Length of the front stretch of pad used for the ID.  The actual ID
-  # is a SHA-256 sum of those bytes, which are themselves then never
-  # used for encryption.  (Why not just use a hex digest of the pad
-  # bytes themselves?  There's no theoretical reason not to, but as a
-  # sop to tradition, and to avoid the distraction of explaining why
-  # using raw pad would be okay, we just use the SHA-256 sum instead.)
+  # Length of the front stretch of pad used for the ID.
   _id_source_length = 32
 
   # The plaintext is authenticated with a SHA256 hash digest that
@@ -1085,7 +1080,7 @@ class Configuration:
     names inside a pad element, and the value of the 'used' element is
     a list of tuples, each tuple of the form (OFFSET, LENGTH).  So:
 
-       returned_dict[SHA256_SUM] ==> subdict
+       returned_dict[PAD_ID] ==> subdict
        subdict['used'] ==> [(OFFSET1, LENGTH1), (OFFSET2, LENGTH2), ...]
        subdict['some_elt_name'] ==> SOME_ELT_VALUE       <!-- if any -->
        subdict['another_elt_name'] ==> ANOTHER_ELT_VALUE <!-- if any -->
@@ -1096,7 +1091,7 @@ class Configuration:
       <!DOCTYPE TYPE_OF_DOC SYSTEM/PUBLIC "dtd-name">
       <onetime-pad-records>
          <pad-record>
-           <id>SHA256_HASH_OF_FIRST_32_BYTES_OF_PAD</id>
+           <id>PAD_ID</id>
            <used><offset>OFFSET_A</offset>
                  <length>LENGTH_A</length></used>
            <used><offset>OFFSET_B</offset>
@@ -1104,7 +1099,7 @@ class Configuration:
            ...
          </pad-record>
          <pad-record>
-           <id>SHA256_HASH_OF_FIRST_32_BYTES_OF_PAD</id>
+           <id>SOME_OTHER_PAD_ID</id>
            <used><offset>OFFSET_C</offset>
                  <length>LENGTH_C</length></used>
            ...
