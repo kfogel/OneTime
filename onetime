@@ -117,7 +117,7 @@ import xml.dom.minidom
 #          bytes taken from the pad.  The ones at the front are called
 #          "head fuzz", and their presences means that an attacker
 #          cannot know exactly where in the encrypted text the message
-#          starts).  The ones at the end are "tail fuzz", and their
+#          starts.  The ones at the end are "tail fuzz", and their
 #          presence means that an attacker cannot know where the message
 #          ends.  That is, the real message (and its digest, see below)
 #          sits somewhere along a slider surrounded by fuzz on each
