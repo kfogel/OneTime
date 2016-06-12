@@ -54,6 +54,101 @@ import xml.dom
 import xml.dom.minidom
 
 
+########################### Design Overview #############################
+# 
+# To encrypt, OneTime first compresses input using bzip2, then XOR's
+# the bzipped stream against the pad, and emits the result in base64
+# encoding.  As it does so, it records in ~/.onetime/pad-records that
+# that length of pad data, starting at a particular offset, has been
+# used, so that the user won't ever re-use that stretch of pad for
+# encryption again.
+# 
+# To decrypt, OneTime does the reverse: base64 decode the input, XOR
+# it against the pad (starting at the pad offset specified in the
+# encrypted message), and buzip2 the result.  Decryption also records
+# that this range has been used, in ~/.onetime/pad-records, because
+# the recipient of a message should of course never use the same
+# pad data to encrypt anything else.
+#
+# The output format looks like this:
+#
+#
+#   -----BEGIN OneTime MESSAGE-----
+#   Format: internal  << NOTE: OneTime 1.x and older cannot read this format. >>
+#   Pad ID: [...64 hexadecimal digits of unique pad ID...]
+#   Offset: [...a number expressed in decimal...]
+#   
+#   [...encrypted block, base64-encoded...]
+#   
+#   -----END OneTime MESSAGE-----
+#
+# The encrypted block has some structure, though -- it's not *just* a
+# base64 encoding of pad-XOR'd bzipped plaintext data.  Before and
+# after the core data, there's some bookkeeping, all base64-encoded.
+# Here's a diagram, with offset increasing from left to right:
+#
+#   FFHHTT******----------------------------------------DDDDDDDD*******
+#
+# Here is what the different parts mean:
+#
+#   F  ==  a few format indicator bytes:
+#
+#          These tell OneTime what version of its internal format it
+#          is looking at.  This is really just for future-proofing,
+#          since these internal format indicator bytes were only
+#          introduced in 2.0, and as of this writing OneTime is still
+#          using that first format (known as "internal" format).
+#
+#   H  ==  a few head fuzz source length bytes:
+# 
+#          A few bytes of raw pad data, used to calculate
+#          the number of bytes of head fuzz (the first 
+#          set of asterisks) that will be used.
+#
+#   T  ==  a few tail fuzz source length bytes:
+# 
+#          A few more bytes of raw pad data, used to calculate
+#          the number of bytes of tail fuzz (the concluding
+#          set of asterisks) that will be used. 
+#
+#   *  ==  a random number of fuzz bytes (head or tail):
+# 
+#          A random number (derived from the pad -- see above) of raw
+#          bytes taken from the pad.  The ones at the front are called
+#          "head fuzz", and their presences means that an attacker
+#          cannot know exactly where in the encrypted text the message
+#          starts).  The ones at the end are "tail fuzz", and their
+#          presence means that an attacker cannot know where the message
+#          ends.  That is, the real message (and its digest, see below)
+#          sits somewhere along a slider surrounded by fuzz on each
+#          side, where the precise amount of fuzz on each side is known
+#          only to those with the pad.  This prevents a known-plaintext
+#          message substitution attack: because attackers cannot know
+#          where the message is, they cannot reliably replace a known
+#          plaintext with some other plaintext of the same length, even
+#          if they have channel control.
+# 
+#   -  ==  the actual encrypted plaintext
+# 
+#          Base64-encoded XOR'd bzipped plaintext.
+#
+#   D  ==  32 bytes of message digest
+#
+#          A SHA256 hash, XOR'd with pad, of the original plaintext.
+#          Note this is not a hexadecimal representation of the hash;
+#          to save space, it is the raw hash digest.  However, any
+#          message integrity errors display the hash in hexadecimal.
+#
+# On decryption, OneTime not only verifies the message digest, but
+# also that the head fuzz and tail fuzz exactly match the expected
+# pad bytes (those bytes were not used for encryption of course; they
+# were used *only* for fuzz).  If anything doesn't match, OneTime will
+# raise an error -- though if the error was detected only in the
+# digest or in the tail fuzz, then there may still have been a
+# successful decryption first, with plaintext output emitted.
+# 
+########################################################################
+
 # The current format level.
 #
 # Some background is needed to understand what this means:
