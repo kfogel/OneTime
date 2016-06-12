@@ -63,9 +63,9 @@ import xml.dom.minidom
 # used, so that the user won't ever re-use that stretch of pad for
 # encryption again.
 # 
-# To decrypt, OneTime does the reverse: base64 decode the input, XOR
+# To decrypt, OneTime does the reverse: base64-decode the input, XOR
 # it against the pad (starting at the pad offset specified in the
-# encrypted message), and buzip2 the result.  Decryption also records
+# encrypted message), and bunzip2 the result.  Decryption also records
 # that this range has been used, in ~/.onetime/pad-records, because
 # the recipient of a message should of course never use the same
 # pad data to encrypt anything else.
