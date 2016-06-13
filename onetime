@@ -208,9 +208,11 @@ but it still needs to be a new object due to certain initializations).
   # is itself encrypted with the pad and included in the ciphertext.
   _digest_length = 32
 
-  def __init__(self, pad_path):
-    """Initialize a new pad session, using padfile PAD_PATH.  The pad session
-    cannot be used for encoding or decoding until set_offset() is called."""
+  def __init__(self, config, pad_path):
+    """Make a new pad session, with configuration CONFIG and padfile PAD_PATH.
+    The pad session cannot be used for encoding or decoding until
+    set_offset() is called.""" 
+    self.config = config
     self.pad_path = pad_path
     self.padfile = open(self.pad_path, "rb")
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
@@ -258,6 +260,9 @@ but it still needs to be a new object due to certain initializations).
     # False until conversion starts, True thereafter.  (Conversion
     # starts after all the head fuzz has been verified.)
     self._begun = False
+
+    # Register with config as last thing we do.
+    self.config.register(self)
     
   class PadSessionUninitialized(Exception):
     """Exception raised if PadSession hasn't been initialized yet."""
@@ -800,13 +805,15 @@ must be used for all subsequent calls with that instance.
                                     % (msg_hash.hexdigest(), found_digest.encode('hex')))
 
   def finish(self, msg_hash):
-    """Close out this pad session, emitting or verifying MSG_HASH.
-    If encrypting, return the pad-encrypted digest of MSG_HASH and the
-    tail fuzz, as a single string.  If decrypting, verify that
-    MSG_HASH matches the expected final hash for the plaintext
-    message, and raise a PadSession.FuzzMismatch error if they do not
-    match.  (If they do match, the return value is undefined and
-    should be ignored.)"""
+    """Close out this pad session.  If this PadSession is at an
+    \"internal\" (i.e., post-1.x) format level, then: 
+    Emit or verify MSG_HASH.  If encrypting, return the pad-encrypted
+    digest of MSG_HASH and the tail fuzz, as a single string.  If
+    decrypting, verify that MSG_HASH matches the expected final hash
+    for the plaintext message, and raise a PadSession.FuzzMismatch
+    error if they do not match.  (If they do match, the return value
+    is undefined and should be ignored.)"""
+    remainder = None
     if self._format_level == "internal":
       if self._tail_fuzz_length is None:
         raise PadSession.PadSessionUninitialized(
@@ -814,7 +821,6 @@ must be used for all subsequent calls with that instance.
       elif self._encoding:
         remainder = self.convert(msg_hash.digest())
         remainder += self.convert(u'\u0000' * self._tail_fuzz_length)
-        return remainder
       elif self._decoding:
         # Decryption has already succeeded by the time we encounter
         # the tail, but if the tail doesn't match, we should still let
@@ -837,6 +843,10 @@ must be used for all subsequent calls with that instance.
       else:
         raise PadSession.OverPrepared(
           "pad session out of whack: both encoding and decoding")
+    # Record consumption last, after we've used the last bits of
+    # pad we're going to use in this session.
+    self.config.record_consumed(self, self._decoding)
+    return remainder
 
   def __str__(self):
     """Return a string representation of this pad session."""
@@ -850,10 +860,9 @@ class PadSessionEncoder:
     """Exception raised when an unknown compression method is requested."""
     pass
 
-  def __init__(self, pad_sess, config):
-    """Initialize an encoder for PAD_SESS with Configuration CONFIG."""
+  def __init__(self, pad_sess):
+    """Initialize an encoder for PAD_SESS."""
     self.pad_sess = pad_sess
-    self.config = config
     # We use bz2 compression unconditionally.  If we offered a choice,
     # we'd have to name that choice somewhere for use in decryption.
     # But if we were to list the choice in the open headers, then we
@@ -884,7 +893,6 @@ class PadSessionEncoder:
     remainder = self.pad_sess.convert(self.compressor.flush())
     remainder += self.pad_sess.finish(self.msg_hash)
     remainder = base64.encodestring(remainder)
-    self.config.record_consumed(self.pad_sess, False)
     return remainder
 
 
@@ -895,12 +903,11 @@ class PadSessionDecoder:
     """Exception raised when something goes wrong decoding."""
     pass
 
-  def __init__(self, pad_sess, config, format_level):
-    """Initialize a decoder for PAD_SESS with Configuration CONFIG.
+  def __init__(self, pad_sess, format_level):
+    """Initialize a decoder for PAD_SESS.
     FORMAT_LEVEL indicates the OneTime format level of the incoming
     data, i.e., the value given in the output's "Format:" header."""
     self.pad_sess = pad_sess
-    self.config = config
     self.unused_data = ""
     self.format_level = format_level
     self.decompressor = bz2.BZ2Decompressor()
@@ -934,9 +941,8 @@ class PadSessionDecoder:
     return ret
 
   def finish(self):
-    """Finalize this session's pad usage with the configuration."""
+    """Finalize this session's pad usage."""
     self.pad_sess.finish(self.msg_hash)
-    self.config.record_consumed(self.pad_sess, True)
 
 
 class Configuration:
@@ -1467,10 +1473,8 @@ def main():
     usage(sys.stderr)
     sys.exit(1)
 
-  pad_sess = PadSession(pad_file)
-
   config = Configuration(config_area)
-  config.register(pad_sess)
+  pad_sess = PadSession(config, pad_file)
 
   if show_pad_id:
     print pad_sess.id()
@@ -1519,7 +1523,7 @@ def main():
 
   if encrypting:
     output.write(onetime_header)
-    encoder = PadSessionEncoder(pad_sess, config)
+    encoder = PadSessionEncoder(pad_sess)
     while 1:
       string = incoming.read(8192)
       if len(string) > 0:
@@ -1565,12 +1569,12 @@ def main():
       m = re.match("Format: ([a-zA-Z0-9-]+) ", maybe_header_line)
       if m:
         format_level = m.group(1)
-        decoder = PadSessionDecoder(pad_sess, config, format_level)
+        decoder = PadSessionDecoder(pad_sess, format_level)
         continue
 
     if decoder is None:
       # If we saw no format header, it must be the old, original format.
-      decoder = PadSessionDecoder(pad_sess, config, "original")
+      decoder = PadSessionDecoder(pad_sess, "original")
 
     while 1:
       string = incoming.readline()
