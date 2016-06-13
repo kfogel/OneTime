@@ -58,8 +58,8 @@ import xml.dom.minidom
 # 
 # To encrypt, OneTime first compresses input using bzip2, then XOR's
 # the bzipped stream against the pad, and emits the result in base64
-# encoding.  As it does so, it records in ~/.onetime/pad-records that
-# that length of pad data, starting at a particular offset, has been
+# encoding.  It also records in ~/.onetime/pad-records that that
+# length of pad data, starting from a particular offset, has been
 # used, so that the user won't ever re-use that stretch of pad for
 # encryption again.
 # 
