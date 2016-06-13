@@ -96,7 +96,7 @@ import xml.dom.minidom
 #          is looking at.  This is really just for future-proofing,
 #          since these internal format indicator bytes were only
 #          introduced in 2.0, and as of this writing OneTime is still
-#          using that first format (known as "internal" format).
+#          using that first format (known as "internal format 0").
 #
 #   H  ==  a few head fuzz source length bytes:
 # 
