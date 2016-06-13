@@ -2,7 +2,8 @@
 
 __version__ = "2.0-beta10"
 
-__doc__ = """OneTime: an open source encryption program that uses the one-time pad method.
+__doc__ = """\
+OneTime: an open source encryption program that uses the one-time pad method.
 
 (Run 'onetime --help' for usage information.)
 
@@ -72,14 +73,14 @@ import xml.dom.minidom
 #
 # The output format looks like this:
 #
-#   -----BEGIN OneTime MESSAGE-----
-#   Format: internal  << NOTE: OneTime 1.x and older cannot read this format. >>
-#   Pad ID: [...64 hexadecimal digits of unique pad ID...]
-#   Offset: [...a number expressed in decimal...]
-#   
-#   [...encrypted block, base64-encoded...]
-#   
-#   -----END OneTime MESSAGE-----
+# -----BEGIN OneTime MESSAGE-----
+# Format: internal  << NOTE: OneTime 1.x and older cannot read this format. >>
+# Pad ID: [...64 hexadecimal digits of unique pad ID...]
+# Offset: [...a number expressed in decimal...]
+# 
+# [...encrypted block, base64-encoded...]
+# 
+# -----END OneTime MESSAGE-----
 #
 # The encrypted block has some structure, though -- it's not *just* a
 # base64 encoding of pad-XOR'd bzipped plaintext data.  Before and
@@ -323,10 +324,10 @@ class Configuration:
     return new_used
 
   def _get_next_offset(self, used):
-    """Return the next free offset from USED, which assumed to be in
-    consolidated form.  The minimum returned is PadSession._id_source_length;
-    that way the pad ID stretch is always accounted for, even if USED
-    was initialized from an old original-format pad record."""
+    """Return the next free offset from USED, which is assumed to be in
+    consolidated form.  PadSession._id_source_length is the minimum
+    returned; that way the pad ID stretch is always accounted for,
+    even if USED was initialized from an old original-format pad record."""
     cur_offset = None
     # We don't do anything fancy, just get the earliest available
     # offset past the last used tuple.  This means that any ranges in
@@ -447,9 +448,10 @@ class Configuration:
     # records that might be left over from a past failed rename.
     intermediate_tempfile = self.pad_records_file + ".int"
     if os.path.exists(intermediate_tempfile):
-      raise ConfigurationError("Leftover intermediate pad-records file found;"
-                               "please sort things out:\n"
-                               "  %s" % intermediate_tempfile)
+      raise ConfigurationError(
+        "Leftover intermediate pad-records file found;"
+        "please sort things out:\n"
+        "  %s" % intermediate_tempfile)
     os.rename(self.pad_records_file, intermediate_tempfile)
     os.rename(tempfile, self.pad_records_file)
     os.remove(intermediate_tempfile)
@@ -461,24 +463,29 @@ class Configuration:
     # This is a little complicated only because we need; to look for
     # old original-style pad IDs and upgrade them if present.
     if not self.pad_records.has_key(self._pad_session.id()):
-      if self.pad_records.has_key(self._pad_session.id(format_level="original")):
+      if self.pad_records.has_key(
+          self._pad_session.id(format_level="original")):
         # Upgrade original-style record to internal style.
-        self.pad_records[self._pad_session.id()] = self.pad_records[self._pad_session.id(format_level="original")]
+        self.pad_records[self._pad_session.id()] \
+          = self.pad_records[self._pad_session.id(format_level="original")]
         del self.pad_records[self._pad_session.id(format_level="original")]
       else:
         # Initialize a new internal-style record.
         self.pad_records[self._pad_session.id()] = { "used" : [ ] }
     else:
-      if self.pad_records.has_key(self._pad_session.id(format_level="original")):
+      if self.pad_records.has_key(
+          self._pad_session.id(format_level="original")):
         raise Configuration.ConfigurationError(
           "Pad has both v2 and v1 IDs present in pad-records file:\n" \
           "  v2: %s\n"                                                \
           "  v1: %s\n"                                                \
           "This is supposed to be impossible.  Please resolve."       \
-          % (self._pad_session.id(), self._pad_session.id(format_level="original")))
+          % (self._pad_session.id(), 
+             self._pad_session.id(format_level="original")))
     # One way or another, we now have an up-to-date v2 pad record.
     # Set the next offset accordingly.
-    next_offset = self._get_next_offset(self.pad_records[self._pad_session.id()]["used"])
+    next_offset = self._get_next_offset(
+      self.pad_records[self._pad_session.id()]["used"])
     self._pad_session.set_offset(next_offset)
 
   def record_consumed(self, allow_reconsumption):
@@ -492,8 +499,8 @@ class Configuration:
     re-use a range for encoding."""
     used = self.pad_records[self._pad_session.id()]["used"]
     used.append((self._pad_session.offset(), self._pad_session.length()))
-    self.pad_records[self._pad_session.id()]["used"] = self._consolidate_used_ranges(
-      used, allow_reconsumption)
+    self.pad_records[self._pad_session.id()]["used"] \
+      = self._consolidate_used_ranges(used, allow_reconsumption)
 
   def show_pad_records(self):
     """Print pad records, presumably for debugging."""
@@ -506,11 +513,10 @@ class PadSession:
   """An encoder/decoder associated with a specific pad at a specific offset.
 Feed bytes through convert() to XOR them against the pad.
 
-A PadSession is used for a single encryption or decryption session; it should
-not be used for subsequent sessions -- instead, a new PadSession object
-should be generated (it might refer to the same underlying pad file,
-but it still needs to be a new object due to certain initializations).
-  """
+A PadSession is used for a single encryption or decryption session; it 
+should not be used for subsequent sessions -- instead, a new PadSession
+object should be generated (it might refer to the same underlying pad file,
+but it still needs to be a new object due to certain initializations)."""
 
   # Length of the front stretch of pad used for the ID.
   _id_source_length = 32
@@ -561,8 +567,8 @@ but it still needs to be a new object due to certain initializations).
     # refrain from decrypting them as part of the original plaintext.
     self._tail_buffer = ''
 
-    # Most of what a pad session does is the same for encoding and decoding --
-    # after all, the conversion step is XOR, which is symmetrical.
+    # Most of what a pad session does is the same for encoding and decoding
+    # -- after all, the conversion step is XOR, which is symmetrical.
     #
     # However, before conversion can happen, the pad session needs to know
     # whether to write or read the inner header flag bytes -- so for
@@ -579,32 +585,32 @@ but it still needs to be a new object due to certain initializations).
     self.config.register()
     
   class PadSessionUninitialized(Exception):
-    """Exception raised if PadSession hasn't been initialized yet."""
+    "Exception raised if PadSession hasn't been initialized yet."
     pass
 
   class OverPrepared(Exception):
-    """Exception raised if a PadSession is initialized or prepared twice."""
+    "Exception raised if a PadSession is initialized or prepared twice."
     pass
 
   class PadShort(Exception):
-    """Exception raised if pad doesn't have enough data for this encryption."""
+    "Exception raised if pad doesn't have enough data for this encryption."
     pass
 
   class FormatLevel(Exception):
-    """Exception raised for an unknown or inconsistent format level."""
+    "Exception raised for an unknown or inconsistent format level."
     pass
 
   class InnerFormat(Exception):
-    """Exception raised if something is wrong with the inner format."""
+    "Exception raised if something is wrong with the inner format."
     pass
 
   class FuzzMismatch(Exception):
-    """Exception raised if pad and input fuzz don't match."""
+    "Exception raised if pad and input fuzz don't match."
     pass
 
   def prepare_for_encoding(self):
-    """Mark this PadSession as encoding.  This or prepare_for_decoding() must
-    be called exactly once, before any conversion happens."""
+    """Mark this PadSession as encoding.  This or prepare_for_decoding()
+    must be called exactly once, before any conversion happens."""
     if self._encoding:
       raise PadSession.OverPrepared("already prepared for encoding")
     if self._decoding:
@@ -613,8 +619,8 @@ but it still needs to be a new object due to certain initializations).
     self._encoding = True
 
   def prepare_for_decoding(self):
-    """Mark this PadSession as decoding.  This or prepare_for_encoding() must
-    be called exactly once, before any conversion happens."""
+    """Mark this PadSession as decoding.  This or prepare_for_encoding()
+    must be called exactly once, before any conversion happens."""
     if self._decoding:
       raise PadSession.OverPrepared("already prepared for decoding")
     if self._encoding:
@@ -691,7 +697,8 @@ must be used for all subsequent calls with that instance.
         else:
           num_bytes_to_verify_now = self._pad_remaining_to_skip
         self._pad_remaining_to_skip = new_pad_remaining
-        bytes_unverified, string = self._verify_fuzz_bytes(num_bytes_to_verify_now, string)
+        bytes_unverified, string = self._verify_fuzz_bytes(
+          num_bytes_to_verify_now, string)
         self._pad_remaining_to_skip += bytes_unverified
 
       # Once we've handled any inner headers, buffer for decoding.
@@ -700,10 +707,12 @@ must be used for all subsequent calls with that instance.
         # Reserve exactly the tail length each time, so that on the
         # last iteration we can just verify both parts of the tail
         # (the digest and the fuzz) without emitting new output.
-        if len(self._tail_buffer) < (PadSession._digest_length + self._tail_fuzz_length):
+        if len(self._tail_buffer) < (PadSession._digest_length 
+                                     + self._tail_fuzz_length):
           string = ''   # wait until we have more or are done
         else:
-          string = self._tail_buffer[:(0 - (PadSession._digest_length + self._tail_fuzz_length))]
+          string = self._tail_buffer[:(0 - (PadSession._digest_length
+                                            + self._tail_fuzz_length))]
           self._tail_buffer = self._tail_buffer[
             (0 - (PadSession._digest_length + self._tail_fuzz_length)):]
 
@@ -751,7 +760,7 @@ must be used for all subsequent calls with that instance.
 
   def id(self, format_level="internal"):
     """Return the pad ID of the pad belonging to this pad session.
-    If FORMAT_LEVEL is specified, return ID according to that format level."""
+    If FORMAT_LEVEL is specified, return ID according to that level."""
     if format_level == "internal":
       if self._id is None:
         self._id = self._get_id()
@@ -777,7 +786,7 @@ must be used for all subsequent calls with that instance.
     return self._length
 
   def _make_fuzz_length_from_pad(self, num_bytes, modulo):
-    """Calculate a fuzz skip length based on the next NUM_BYTES bytes % MODULO,
+    """Calculate a fuzz skip length based on the next NUM_BYTES % MODULO,
     advancing the pad accordingly.  Return that length and the raw pad
     data used to calculate it in a tuple of the form:
 
@@ -863,7 +872,8 @@ must be used for all subsequent calls with that instance.
       pad_material = self.padfile.read(verifiable_len)
       self._length += verifiable_len
       if string[:verifiable_len] != pad_material[:verifiable_len]:
-        raise PadSession.FuzzMismatch("expected fuzz does not match message fuzz")
+        raise PadSession.FuzzMismatch(
+          "expected fuzz does not match message fuzz")
       num_bytes_remaining = max(0, num_bytes - len(string))
       return [num_bytes_remaining, string[verifiable_len:]]
     except EOFError:
@@ -876,7 +886,8 @@ must be used for all subsequent calls with that instance.
       data = self.padfile.read(num_bytes)
       self._length += num_bytes
     except EOFError:
-      raise PadSession.PadShort("not enough pad available to supply raw data")
+      raise PadSession.PadShort(
+        "not enough pad available to supply raw data")
     return data
 
   def _make_inner_header(self):
@@ -1027,10 +1038,12 @@ must be used for all subsequent calls with that instance.
     # bytes, so we get 8 times the variability for the amount of pad
     # used up.  But skipping by bits would complicate the code, since
     # all the seeking and I/O is natively aligned on 8-bit boundaries.
-    head_fuzz_length, head_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
-      self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
-      self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    head_fuzz_length, head_fuzz_length_source_bytes \
+      = self._make_fuzz_length_from_pad(
+        self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
+      = self._make_fuzz_length_from_pad(
+        self._default_fuzz_source_length, self._default_fuzz_source_modulo)
     head_fuzz = self._get_pad_bytes(head_fuzz_length)
     result = chr(inner_header_format_version)       \
              + chr(fuzz_source_length_indicator)    \
@@ -1072,13 +1085,20 @@ must be used for all subsequent calls with that instance.
       self._length += 1
       length_to_skip += 1
       if first_flag_byte & 1 == 0:
-        head_fuzz_length, head_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
-          self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-        self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
-          self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-        num_bytes_remaining, head_fuzz_remaining = self._verify_fuzz_bytes(
-          head_fuzz_length, string[2 + (self._default_fuzz_source_length * 2):])
-        length_to_skip += (self._default_fuzz_source_length * 2) + head_fuzz_length
+        head_fuzz_length, head_fuzz_length_source_bytes \
+          = self._make_fuzz_length_from_pad(
+            self._default_fuzz_source_length, 
+            self._default_fuzz_source_modulo)
+        self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
+          = self._make_fuzz_length_from_pad(
+            self._default_fuzz_source_length, 
+            self._default_fuzz_source_modulo)
+        num_bytes_remaining, head_fuzz_remaining \
+          = self._verify_fuzz_bytes(
+            head_fuzz_length, 
+            string[2 + (self._default_fuzz_source_length * 2):])
+        length_to_skip += (self._default_fuzz_source_length * 2) \
+                          + head_fuzz_length
       else:
         raise PadSession.InnerFormat(
           "cannot yet handle custom fuzz_source length")
@@ -1115,8 +1135,9 @@ must be used for all subsequent calls with that instance.
     for i in range(PadSession._digest_length):
       found_digest += chr(ord(self._tail_buffer[i]) ^ ord(pad_bytes[i]))
     if msg_digest != found_digest:
-      raise PadSession.FuzzMismatch("message digest mismatch:\n  expected: %s\n     found: %s\n"
-                                    % (msg_hash.hexdigest(), found_digest.encode('hex')))
+      raise PadSession.FuzzMismatch(
+        "message digest mismatch:\n  expected: %s\n     found: %s\n"
+        % (msg_hash.hexdigest(), found_digest.encode('hex')))
 
   def finish(self, msg_hash):
     """Close out this pad session.  If this PadSession is at an
@@ -1151,7 +1172,8 @@ must be used for all subsequent calls with that instance.
         # which a test was added in commit 9e8422f07.
         self._verify_digest(msg_hash)
         bytes_remaining, str_remaining = self._verify_fuzz_bytes(
-          self._tail_fuzz_length, self._tail_buffer[PadSession._digest_length:])
+          self._tail_fuzz_length, 
+          self._tail_buffer[PadSession._digest_length:])
         if bytes_remaining != 0 or str_remaining != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
       else:
@@ -1505,7 +1527,7 @@ def main():
 
   if offset is not None:
     pad_sess.set_offset(offset)
-    offset = None  # junk this; we'll rely on pad_sess for offset from now on
+    offset = None  # junk it; we'll rely on pad_sess for offset from now on
 
   # The first line of OneTime format level "internal" is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
