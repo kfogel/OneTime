@@ -72,7 +72,6 @@ import xml.dom.minidom
 #
 # The output format looks like this:
 #
-#
 #   -----BEGIN OneTime MESSAGE-----
 #   Format: internal  << NOTE: OneTime 1.x and older cannot read this format. >>
 #   Pad ID: [...64 hexadecimal digits of unique pad ID...]
