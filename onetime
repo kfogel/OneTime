@@ -224,12 +224,15 @@ but it still needs to be a new object due to certain initializations).
   # is itself encrypted with the pad and included in the ciphertext.
   _digest_length = 32
 
-  def __init__(self, config, pad_path):
-    """Make a new pad session, with configuration CONFIG and padfile PAD_PATH.
+  def __init__(self, pad_path, config_area=None, no_trace=False):
+    """Make a new pad session, with padfile PAD_PATH.
     The pad session cannot be used for encoding or decoding until
-    set_offset() is called.""" 
-    self.config = config
+    set_offset() is called.  If CONFIG_AREA is not None, it is the
+    directory containing the pad-records file.  If NO_TRACE is not
+    False, then don't make any changes in the configuration area."""
     self.pad_path = pad_path
+    self.config = Configuration(config_area)
+    self._no_trace = no_trace
     self.padfile = open(self.pad_path, "rb")
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._offset = None  # where to start using pad bytes (must initialize)
@@ -862,6 +865,7 @@ must be used for all subsequent calls with that instance.
     # Record consumption last, after we've used the last bits of
     # pad we're going to use in this session.
     self.config.record_consumed(self, self._decoding)
+    if not self._no_trace: self.config.save()
     return remainder
 
   def __str__(self):
@@ -1428,8 +1432,6 @@ def main():
       show_pad_id = True
     elif opt == '--no-trace' or opt == '-n':
       no_trace = True
-    elif opt == '--debug':
-      debug = 1
     else:
       sys.stderr.write("Error: unrecognized option: '%s'\n" % opt)
       error_exit = True
@@ -1489,8 +1491,7 @@ def main():
     usage(sys.stderr)
     sys.exit(1)
 
-  config = Configuration(config_area)
-  pad_sess = PadSession(config, pad_file)
+  pad_sess = PadSession(pad_file, config_area, no_trace)
 
   if show_pad_id:
     print pad_sess.id()
@@ -1627,11 +1628,6 @@ def main():
       sys.stderr.write("Error: malformed OneTime format: no end line.\n")
       sys.exit(1)
 
-  if (encrypting or decrypting) and not no_trace:
-    config.save()
-
-  if debug:
-    config.show_pad_records()
 
 if __name__ == '__main__':
   main()
