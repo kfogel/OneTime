@@ -84,11 +84,11 @@ import xml.dom.minidom
 # The encrypted block has some structure, though -- it's not *just* a
 # base64 encoding of pad-XOR'd bzipped plaintext data.  Before and
 # after the core data, there's some bookkeeping, all base64-encoded.
-# Here's a diagram, with offset increasing from left to right:
+# Here's a diagram, with index increasing from left to right:
 #
 #   FFHHTT******----------------------------------------DDDDDDDD*******
 #
-# Here is what the different parts mean:
+# This is what the different parts mean:
 #
 #   F  ==  a few format indicator bytes:
 #
