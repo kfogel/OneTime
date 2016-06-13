@@ -224,8 +224,8 @@ class Configuration:
     Configuration."""
     pass
 
-  def __init__(self, path=None):
-    """Initialize a new configuration.
+  def __init__(self, pad_session, path=None):
+    """Initialize a new configuration with PAD_SESSION.
 
     If PATH is None, try to find or create the config area in the
     standard location in the user's home directory; otherwise, find or
@@ -235,6 +235,7 @@ class Configuration:
     connect it to any activity on disk; it will neither read from nor
     write to permanent storage."""
 
+    self._pad_session = pad_session
     self.config_area = path
     if self.config_area is None:
       self.config_area = os.path.join(os.path.expanduser("~"), ".onetime")
@@ -453,36 +454,35 @@ class Configuration:
     os.rename(tempfile, self.pad_records_file)
     os.remove(intermediate_tempfile)
 
-  def register(self, pad_sess):
-    """Register PAD_SESS's pad if it is not already registered, and
+  def register(self):
+    """Register this session's pad if it is not already registered, and
     set its offset based on previously used regions for that pad, if any."""
     next_offset = None
     # This is a little complicated only because we need; to look for
     # old original-style pad IDs and upgrade them if present.
-    if not self.pad_records.has_key(pad_sess.id()):
-      if self.pad_records.has_key(pad_sess.id(format_level="original")):
+    if not self.pad_records.has_key(self._pad_session.id()):
+      if self.pad_records.has_key(self._pad_session.id(format_level="original")):
         # Upgrade original-style record to internal style.
-        self.pad_records[pad_sess.id()] = self.pad_records[pad_sess.id(format_level="original")]
-        del self.pad_records[pad_sess.id(format_level="original")]
+        self.pad_records[self._pad_session.id()] = self.pad_records[self._pad_session.id(format_level="original")]
+        del self.pad_records[self._pad_session.id(format_level="original")]
       else:
         # Initialize a new internal-style record.
-        self.pad_records[pad_sess.id()] = { "used" : [ ] }
+        self.pad_records[self._pad_session.id()] = { "used" : [ ] }
     else:
-      if self.pad_records.has_key(pad_sess.id(format_level="original")):
+      if self.pad_records.has_key(self._pad_session.id(format_level="original")):
         raise Configuration.ConfigurationError(
           "Pad has both v2 and v1 IDs present in pad-records file:\n" \
           "  v2: %s\n"                                                \
           "  v1: %s\n"                                                \
           "This is supposed to be impossible.  Please resolve."       \
-          % (pad_sess.id(), pad_sess.id(format_level="original")))
+          % (self._pad_session.id(), self._pad_session.id(format_level="original")))
     # One way or another, we now have an up-to-date v2 pad record.
     # Set the next offset accordingly.
-    next_offset = self._get_next_offset(self.pad_records[pad_sess.id()]["used"])
-    pad_sess.set_offset(next_offset)
+    next_offset = self._get_next_offset(self.pad_records[self._pad_session.id()]["used"])
+    self._pad_session.set_offset(next_offset)
 
-  def record_consumed(self, pad_sess, allow_reconsumption):
-    """Record that PAD_SESS has used PAD_SESS.length() bytes starting
-    at PAD_SESS.offset().
+  def record_consumed(self, allow_reconsumption):
+    """Record pad ranged currently used by self._pad_session.
 
     If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
     if reconsuming any part of a range that has been consumed previously.
@@ -490,9 +490,9 @@ class Configuration:
     Typically, it is False when encoding and True when decoding,
     because it's okay to decode a message multiple times, but not to
     re-use a range for encoding."""
-    used = self.pad_records[pad_sess.id()]["used"]
-    used.append((pad_sess.offset(), pad_sess.length()))
-    self.pad_records[pad_sess.id()]["used"] = self._consolidate_used_ranges(
+    used = self.pad_records[self._pad_session.id()]["used"]
+    used.append((self._pad_session.offset(), self._pad_session.length()))
+    self.pad_records[self._pad_session.id()]["used"] = self._consolidate_used_ranges(
       used, allow_reconsumption)
 
   def show_pad_records(self):
@@ -526,7 +526,7 @@ but it still needs to be a new object due to certain initializations).
     directory containing the pad-records file.  If NO_TRACE is not
     False, then don't make any changes in the configuration area."""
     self.pad_path = pad_path
-    self.config = Configuration(config_area)
+    self.config = Configuration(self, config_area)
     self._no_trace = no_trace
     self.padfile = open(self.pad_path, "rb")
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
@@ -576,7 +576,7 @@ but it still needs to be a new object due to certain initializations).
     self._begun = False
 
     # Register with config as last thing we do.
-    self.config.register(self)
+    self.config.register()
     
   class PadSessionUninitialized(Exception):
     """Exception raised if PadSession hasn't been initialized yet."""
@@ -1159,7 +1159,7 @@ must be used for all subsequent calls with that instance.
           "pad session out of whack: both encoding and decoding")
     # Record consumption last, after we've used the last bits of
     # pad we're going to use in this session.
-    self.config.record_consumed(self, self._decoding)
+    self.config.record_consumed(self._decoding)
     if not self._no_trace: self.config.save()
     return remainder
 
