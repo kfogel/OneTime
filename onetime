@@ -147,6 +147,23 @@ import xml.dom.minidom
 # digest or in the tail fuzz, then there may still have been a
 # successful decryption first, with plaintext output emitted.
 # 
+# As for the code, the design is pretty much what you'd expect:
+# 
+# The PadSession class encapsulates one session of using a pad to
+# encrypt or decrypt one contiguous data stream.  It takes care of
+# everything that happens in the encrypted block above.
+# 
+# A PadSession object is created with a particular pad file and
+# registered with a Configuration object.  The Configuration object
+# reads the ~/.onetime/pad-records file, to ensure that the PadSession
+# starts from the right offset in the pad, and it records in
+# ~/.onetime/pad-records that a new stretch of pad is consumed, once
+# the PadSession is done.
+#
+# A PadSession is wrapped with a PadSessionEncoder if encrypting or
+# with a PadsessionDecoder if decrypting.  These wrapper classes take
+# care of the base64 encoding.
+# 
 ########################################################################
 
 # The current format level.
