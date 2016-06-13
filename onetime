@@ -933,7 +933,7 @@ class PadSessionDecoder:
     self.msg_hash.update(ret)
     return ret
 
-  def finalize(self):
+  def finish(self):
     """Finalize this session's pad usage with the configuration."""
     self.pad_sess.finish(self.msg_hash)
     self.config.record_consumed(self.pad_sess, True)
@@ -1602,7 +1602,7 @@ def main():
           output.write(result)
       else:
         break
-    decoder.finalize()
+    decoder.finish()
     if not saw_end:
       sys.stderr.write("Error: malformed OneTime format: no end line.\n")
       sys.exit(1)
