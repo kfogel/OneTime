@@ -278,9 +278,9 @@ class Configuration:
     If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
     exception if the input is incoherent, such as a range beginning
     inside another range.  But if ALLOW_RECONSUMPTION is True, allow
-    ranges to overlap.  Typically, it will be False when encoding and
-    True when decoding, because it's legitimate to decode a message
-    multiple times, as long as no one re-uses that range for encoding."""
+    ranges to overlap.  Typically, it will be False when encrypting and
+    True when decrypting, because it's legitimate to decrypt a message
+    multiple times, as long as no one re-uses that range for encrypting."""
     new_used = [ ]
     last_offset = None
     last_length = None
@@ -494,9 +494,9 @@ class Configuration:
     If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
     if reconsuming any part of a range that has been consumed previously.
     But if ALLOW_RECONSUMPTION is True, allow ranges to overlap.
-    Typically, it is False when encoding and True when decoding,
-    because it's okay to decode a message multiple times, but not to
-    re-use a range for encoding."""
+    Typically, it is False when encrypting and True when decrypting,
+    because it's okay to decrypt a message multiple times, but not to
+    re-use a range for encrypting."""
     used = self.pad_records[self._pad_session.id()]["used"]
     used.append((self._pad_session.offset(), self._pad_session.length()))
     self.pad_records[self._pad_session.id()]["used"] \
@@ -510,8 +510,8 @@ class Configuration:
 
 
 class PadSession:
-  """An encoder/decoder associated with a specific pad at a specific offset.
-Feed bytes through convert() to XOR them against the pad.
+  """An encrypter/decrypter associated with a pad at an offset.
+Feed bytes through convert() to XOR them against that pad.
 
 A PadSession is used for a single encryption or decryption session; it 
 should not be used for subsequent sessions -- instead, a new PadSession
@@ -527,7 +527,7 @@ but it still needs to be a new object due to certain initializations)."""
 
   def __init__(self, pad_path, config_area=None, no_trace=False):
     """Make a new pad session, with padfile PAD_PATH.
-    The pad session cannot be used for encoding or decoding until
+    The pad session cannot be used for encrypting or decrypting until
     set_offset() is called.  If CONFIG_AREA is not None, it is the
     directory containing the pad-records file.  If NO_TRACE is not
     False, then don't make any changes in the configuration area."""
@@ -545,11 +545,11 @@ but it still needs to be a new object due to certain initializations)."""
     self._id = None
     self._original_format_level_id = None
 
-    # If this encoding/decoding session saw a particular format level,
-    # record it so we can check that it remains consistent.
+    # If this session saw a particular format level, record it so we
+    # can check that it remains consistent.
     self._format_level = None
 
-    # On decoding, a given call to convert() might not supply enough
+    # On decrypting, a given call to convert() might not supply enough
     # string to use up the inner headers.  Therefore we must remember
     # how much of the head_fuzz still needs to be used up.
     self._pad_remaining_to_skip = 0
@@ -567,16 +567,16 @@ but it still needs to be a new object due to certain initializations)."""
     # refrain from decrypting them as part of the original plaintext.
     self._tail_buffer = ''
 
-    # Most of what a pad session does is the same for encoding and decoding
-    # -- after all, the conversion step is XOR, which is symmetrical.
+    # Most of what a pad session does is the same for encrypting and
+    # decrypting -- after all, the conversion step is symmetrical (XOR).
     #
     # However, before conversion can happen, the pad session needs to know
     # whether to write or read the inner header flag bytes -- so for
-    # that it needs to know whether it's encoding or decoding.  When
+    # that it needs to know whether it's encrypting or decrypting.  When
     # that step is done, the appropriate variable below is set;
     # exactly one of them *must* be set before any conversion happens.
-    self._encoding = False
-    self._decoding = False
+    self._encrypting = False
+    self._decrypting = False
     # False until conversion starts, True thereafter.  (Conversion
     # starts after all the head fuzz has been verified.)
     self._begun = False
@@ -608,28 +608,28 @@ but it still needs to be a new object due to certain initializations)."""
     "Exception raised if pad and input fuzz don't match."
     pass
 
-  def prepare_for_encoding(self):
-    """Mark this PadSession as encoding.  This or prepare_for_decoding()
+  def prepare_for_encryption(self):
+    """Mark this PadSession as encrypting.  This or prepare_for_decryption()
     must be called exactly once, before any conversion happens."""
-    if self._encoding:
-      raise PadSession.OverPrepared("already prepared for encoding")
-    if self._decoding:
+    if self._encrypting:
+      raise PadSession.OverPrepared("already prepared for encryption")
+    if self._decrypting:
       raise PadSession.OverPrepared(
-        "cannot prepare for both encoding and decoding")
-    self._encoding = True
+        "cannot prepare for both encryption and decryption")
+    self._encrypting = True
 
-  def prepare_for_decoding(self):
-    """Mark this PadSession as decoding.  This or prepare_for_encoding()
+  def prepare_for_decryption(self):
+    """Mark this PadSession as encrypting.  This or prepare_for_encryption()
     must be called exactly once, before any conversion happens."""
-    if self._decoding:
-      raise PadSession.OverPrepared("already prepared for decoding")
-    if self._encoding:
+    if self._decrypting:
+      raise PadSession.OverPrepared("already prepared for decryption")
+    if self._encrypting:
       raise PadSession.OverPrepared(
-        "cannot prepare for both decoding and encoding")
-    self._decoding = True
+        "cannot prepare for both decryption and encryption")
+    self._decrypting = True
 
   def set_offset(self, offset):
-    """Set this pad session's encoding/decoding offset to OFFSET."""
+    """Set this pad session's encryption/decryption offset to OFFSET."""
     if offset >= self.pad_size:
       raise PadSession.PadShort("offset exceeds pad size, need more pad")
     self._offset = offset
@@ -662,17 +662,17 @@ must be used for all subsequent calls with that instance.
         "inconsistent format levels requested: '%s' and '%s'"
         % (self._format_level, format_level))
     if format_level == "internal":
-      if self._encoding and self._decoding:
+      if self._encrypting and self._decrypting:
         raise PadSession.OverPrepared(
-          "pad session cannot encode and decode simultaneously")
-      elif not self._encoding and not self._decoding:
+          "pad session cannot encrypt and decrypt simultaneously")
+      elif not self._encrypting and not self._decrypting:
         raise PadSession.PadSessionUninitialized(
-          "pad session not yet prepared for either encoding or decoding")
+          "pad session not yet prepared for either encrypting or decrypting")
       elif not self._begun:
-        if self._encoding:
+        if self._encrypting:
           inner_header_data = self._make_inner_header()
           result += inner_header_data
-        else: # self._decoding is set
+        else: # self._decrypting is set
           # TODO (minor): It's possible string might be so short that
           # it doesn't even contain enough information to know the fuzz
           # length yet.  The solution is easy: if we haven't yet begun,
@@ -701,8 +701,8 @@ must be used for all subsequent calls with that instance.
           num_bytes_to_verify_now, string)
         self._pad_remaining_to_skip += bytes_unverified
 
-      # Once we've handled any inner headers, buffer for decoding.
-      if self._decoding:
+      # Once we've handled any inner headers, buffer for decrypting.
+      if self._decrypting:
         self._tail_buffer += string
         # Reserve exactly the tail length each time, so that on the
         # last iteration we can just verify both parts of the tail
@@ -778,7 +778,7 @@ must be used for all subsequent calls with that instance.
     return self.pad_path
 
   def offset(self):
-    """Return offset from which encoding/decoding starts."""
+    """Return offset from which encryption/decryption starts."""
     return self._offset
 
   def length(self):
@@ -821,13 +821,13 @@ must be used for all subsequent calls with that instance.
     # Here's how method (1) works:
     #
     # First we read NUM_BYTES bytes from the pad (the bytes are
-    # consumed -- they won't be used for encoding data, and therefore
-    # this happens before any pad gets used for encoding/decoding).
+    # consumed -- they won't be used for encrypting or decrypting
+    # data).
     #
     # We then portably convert that sequence of bytes to a number
     # modulo MODULO.  The result is the number of bytes forward to
     # skip in the pad before starting to consume pad data for use by
-    # convert() in encoding or decoding.
+    # convert() in encrypting or decrypting.
     #
     # See _make_inner_header() for why we do things this way.
     fuzz_length_source = self.padfile.read(num_bytes)
@@ -891,7 +891,7 @@ must be used for all subsequent calls with that instance.
     return data
 
   def _make_inner_header(self):
-    """Return inner header data to be encoded in the output.
+    """Return inner header data to be embedded in the output.
     This must happen before any conversion of plaintext to ciphertext
     is done, so it must be called after the PadSession has been initialized
     but before self.convert() has consumed any pad for actual conversion."""
@@ -976,7 +976,7 @@ must be used for all subsequent calls with that instance.
     #
     # Okay, but why not instead use a few bytes of pad data as a key
     # by which to encrypt the plaintext input with some standard block
-    # cipher and then encode the result of *that* against the pad?
+    # cipher and then encrypt the result of *that* against the pad?
     # Wouldn't that protect against a known-plaintext attack better?
     #
     # True, but the problem with doing full symmetric encryption
@@ -1078,8 +1078,8 @@ must be used for all subsequent calls with that instance.
     next_pad_byte = ord(self.padfile.read(1))
     self._length += 1
     length_to_skip += 1
-    pad_encoded_byte = ord(string[0])
-    inner_format_version = pad_encoded_byte ^ next_pad_byte
+    pad_encrypted_byte = ord(string[0])
+    inner_format_version = pad_encrypted_byte ^ next_pad_byte
     if inner_format_version == 0:
       first_flag_byte = ord(string[1]) ^ ord(self.padfile.read(1))
       self._length += 1
@@ -1124,7 +1124,7 @@ must be used for all subsequent calls with that instance.
       return [string[length_to_skip:], 0]
 
   def _verify_digest(self, msg_hash):
-    """Verify that the message digest encoded at the current location
+    """Verify that the message digest embedded at the current location
     in the pad matches MSG_HASH, consuming PadSession._digest_length
     bytes of pad in the process.  If the digests do not match, raise a
     PadSession.FuzzMismatch error showing the two digests in hex form."""
@@ -1153,10 +1153,10 @@ must be used for all subsequent calls with that instance.
       if self._tail_fuzz_length is None:
         raise PadSession.PadSessionUninitialized(
           "tail fuzz length never initialized")
-      elif self._encoding:
+      elif self._encrypting:
         remainder = self.convert(msg_hash.digest())
         remainder += self.convert(u'\u0000' * self._tail_fuzz_length)
-      elif self._decoding:
+      elif self._decrypting:
         # Decryption has already succeeded by the time we encounter
         # the tail, but if the tail doesn't match, we should still let
         # the user know the message was tampered with.
@@ -1178,10 +1178,10 @@ must be used for all subsequent calls with that instance.
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
       else:
         raise PadSession.OverPrepared(
-          "pad session out of whack: both encoding and decoding")
+          "pad session out of whack: both encrypting and decrypting")
     # Record consumption last, after we've used the last bits of
     # pad we're going to use in this session.
-    self.config.record_consumed(self._decoding)
+    self.config.record_consumed(self._decrypting)
     if not self._no_trace: self.config.save()
     return remainder
 
@@ -1211,7 +1211,7 @@ class PadSessionEncoder:
     # to be so simple as to be trivially auditable.  So we just use
     # bz2 unconditionally; the worst case is ok.
     self.compressor = bz2.BZ2Compressor()
-    self.pad_sess.prepare_for_encoding()
+    self.pad_sess.prepare_for_encryption()
     # Keep a running hash of the plaintext as we encrypt.
     self.msg_hash = hashlib.sha256()
 
@@ -1254,7 +1254,7 @@ class PadSessionDecoder:
     if self.format_level != "original" and self.format_level != "internal":
       raise PadSession.FormatLevel(
         "impossible format level: \"%s\"" % self.format_level)
-    self.pad_sess.prepare_for_decoding()
+    self.pad_sess.prepare_for_decryption()
 
   def decode(self, string):
     """Return all available unreturned onetime-decoded data so far,
