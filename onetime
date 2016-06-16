@@ -160,9 +160,9 @@ import xml.dom.minidom
 # ~/.onetime/pad-records that a new stretch of pad is consumed, once
 # the PadSession is done.
 #
-# A PadSession is wrapped with a PadSessionEncoder if encrypting or
-# with a PadsessionDecoder if decrypting.  These wrapper classes take
-# care of the base64 encoding.
+# A PadSession is wrapped with a SessionEncoder if encrypting or with
+# a Sessiondecoder if decrypting.  These wrapper classes take care of
+# the base64 encoding.
 # 
 ########################################################################
 
@@ -1190,7 +1190,7 @@ must be used for all subsequent calls with that instance.
     return "PadSession '%s' (%s):\n   Offset: %d\n   Length: %d\n" \
            % (self.path(), self.id(), self.offset(), self.length())
 
-class PadSessionEncoder:
+class SessionEncoder:
   """Class for encoding raw data to OneTime output."""
 
   class UnknownCompressionException(Exception):
@@ -1233,7 +1233,7 @@ class PadSessionEncoder:
     return remainder
 
 
-class PadSessionDecoder:
+class SessionDecoder:
   """Class for decoding OneTime output back to plaintext."""
 
   class DecodingError(Exception):
@@ -1563,7 +1563,7 @@ def main():
 
   if encrypting:
     output.write(onetime_header)
-    encoder = PadSessionEncoder(pad_sess)
+    encoder = SessionEncoder(pad_sess)
     while 1:
       string = incoming.read(8192)
       if len(string) > 0:
@@ -1609,12 +1609,12 @@ def main():
       m = re.match("Format: ([a-zA-Z0-9-]+) ", maybe_header_line)
       if m:
         format_level = m.group(1)
-        decoder = PadSessionDecoder(pad_sess, format_level)
+        decoder = SessionDecoder(pad_sess, format_level)
         continue
 
     if decoder is None:
       # If we saw no format header, it must be the old, original format.
-      decoder = PadSessionDecoder(pad_sess, "original")
+      decoder = SessionDecoder(pad_sess, "original")
 
     while 1:
       string = incoming.readline()
@@ -1625,7 +1625,7 @@ def main():
         try:
           result = decoder.decode(string)
         except (IOError, PadSession.InnerFormat,
-                PadSessionDecoder.DecodingError) as e:
+                SessionDecoder.DecodingError) as e:
           output.close()
           if output_name is not None:
             os.remove(output_name)
@@ -1640,7 +1640,7 @@ def main():
             output.close()
             if output_name is not None:
               os.remove(output_name)
-            raise PadSessionDecoder.DecodingError(
+            raise SessionDecoder.DecodingError(
               "unexpected input: '%s'" % string)
         if result:
           output.write(result)
