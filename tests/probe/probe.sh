@@ -9,7 +9,7 @@
 for posn in `python -c "for i in range(195,1050): print i"`; do
   cp input.onetime this-try.onetime
   for newval in `python -c "for i in range(0,255): print i"`; do
-    ../zap try-${posn}.onetime ${posn} ? ${newval}
+    ../zap this-try.onetime ${posn} ? ${newval}
     echo ""
     echo "####################################################"
     echo "Trying ${newval} at position ${posn}:"
