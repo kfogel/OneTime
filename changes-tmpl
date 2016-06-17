@@ -20,7 +20,7 @@
               src="images/logo/onetime-logo-color-32x32.png" 
               alt="OneTime logo" /></a></center>
 
-<p class="notice" >As of 2016-06-05, OneTime 2.0 is in beta testing.</p></h4>
+<p class="notice" >As of 2016-06-14, OneTime 2.0 is in beta testing.</p></h4>
 
 <div class="row">
 
@@ -29,6 +29,22 @@
 <h3 style="text-decoration: underline;" >Changes in 2.0</h3>
 
 <ul style="list-style-type: circle; ">
+<li><p>Pad IDs have changed, because they are calculated differently
+    now.  The IDs in your <tt>pad-records</tt> file will be upgraded
+    automatically; you do not need to do anything.</p>
+
+    <p><span style="font-style: italic; font-weight: bold;" >Important
+    note to 2.x beta testers</span>: Pad IDs changed
+    <span style="text-decoration: underline;" >during</span> the
+    development process for 2.0 too, so if you used interim 2.0 beta
+    versions, then you will probably need to fix your
+    ~/.onetime/pad-records file&nbsp;&mdash;&nbsp;otherwise there is a
+    danger of pad range reuse!  For each of your pad files, run the
+    command "<tt>onetime&nbsp;-p&nbsp;PAD_FILE&nbsp;--show-id</tt>"
+    with your older 2.0-beta version of onetime, save the outputs, and
+    then upgrade onetime to 2.0-beta10 or later and run the same
+    command for each pad.  Use the two output sets to manually update
+    the pad IDs in your ~/.onetime/pad-records file.</p></li>
 <li><p>Message authentication and integrity checking, based on an
     embedded SHA-256 digest in the ciphertext and on the message's
     position within the ciphertext being based on surrounding pad data.
@@ -43,9 +59,6 @@
     support the above new features and for more efficient pad usage.
     OneTime 2.x can still read 1.x output, but 1.x and older versions
     cannot read 2.x output.</p></li>
-<li><p>Pad IDs have changed, because they are calculated differently
-    now.  The IDs in your <tt>pad-records</tt> file will be upgraded
-    automatically; you do not need to do anything.</p></li>
 <li><p>New <tt>--show-id</tt> option displays a pad's ID.</p></li>
 <li><p>New <tt>--pad-help</tt> option tells how to generate pads.</p></li>
 <li><p>There is no more automated version control of pad metadata.
@@ -88,7 +101,7 @@ versions.</p></li>
 
 <li><p>The latest testing version on the 2.x line
 is <a href="onetime-2XVERSION" >2XVERSION</a>, released
-2016-06-05.</p></li>
+2016-06-14.</p></li>
 
 <li><p><span style="font-style: italic; color: red;">There have been
 incompatible format changes along the 2.x line during the course of

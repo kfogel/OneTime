@@ -39,10 +39,10 @@
 # test who doesn't currently have a ~/.onetime directory will suddenly
 # have one afterwards, which would be bad behavior for a test suite.
 
-TEST_PAD_1_ID="6d0031fd04e927feb893aad9478b9e7e213b56e7fc766fdb57f12d3a55fa36e4"
+TEST_PAD_1_ID="f8cdde43117cbff08554666b4960b3febc9a355aef1735324defd513360fa201"
 TEST_PAD_1_V1_ID="6af6d0ac17081705cec30833da3cd436a400c429"
 
-TEST_PAD_2_ID="7613667562635a22e62c55aabbb22d7a39bc368a8d2263e611db5caa215cc4cf"
+TEST_PAD_2_ID="e7021cbf484f8cee4d05da03b0bdb865927de189a066df03def49fff14943235"
 TEST_PAD_2_V1_ID="de61f169bce003a1189b3e6ebb8ddfc0ef007ac2"
 
 # See start_new_test() and check_result() for what these do.

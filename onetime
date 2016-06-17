@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
-__version__ = "2.0-beta9"
+__version__ = "2.0-beta11"
 
-__doc__ = """OneTime: an open source encryption program that uses the one-time pad method.
+__doc__ = """\
+OneTime: an open source encryption program that uses the one-time pad method.
 
 (Run 'onetime --help' for usage information.)
 
@@ -54,6 +55,117 @@ import xml.dom
 import xml.dom.minidom
 
 
+########################### Design Overview #############################
+# 
+# To encrypt, OneTime first compresses input using bzip2, then XOR's
+# the bzipped stream against the pad, and emits the result in base64
+# encoding.  It also records in ~/.onetime/pad-records that that
+# length of pad data, starting from a particular offset, has been
+# used, so that the user won't ever re-use that stretch of pad for
+# encryption again.
+# 
+# To decrypt, OneTime does the reverse: base64-decode the input, XOR
+# it against the pad (starting at the pad offset specified in the
+# encrypted message), and bunzip2 the result.  Decryption also records
+# that this range has been used, in ~/.onetime/pad-records, because
+# the recipient of a message should of course never use the same
+# pad data to encrypt anything else.
+#
+# The output format looks like this:
+#
+# -----BEGIN OneTime MESSAGE-----
+# Format: internal  << NOTE: OneTime 1.x and older cannot read this format. >>
+# Pad ID: [...64 hexadecimal digits of unique pad ID...]
+# Offset: [...a number expressed in decimal...]
+# 
+# [...encrypted block, base64-encoded...]
+# 
+# -----END OneTime MESSAGE-----
+#
+# The encrypted block has some structure, though -- it's not *just* a
+# base64 encoding of pad-XOR'd bzipped plaintext data.  Before and
+# after the core data, there's some bookkeeping, all base64-encoded.
+# Here's a diagram, with index increasing from left to right:
+#
+#   FFHHTT******----------------------------------------DDDDDDDD*******
+#
+# This is what the different parts mean:
+#
+#   F  ==  a few format indicator bytes:
+#
+#          These tell OneTime what version of its internal format it
+#          is looking at.  This is really just for future-proofing,
+#          since these internal format indicator bytes were only
+#          introduced in 2.0, and as of this writing OneTime is still
+#          using that first format (known as "internal format 0").
+#
+#   H  ==  a few head fuzz source length bytes:
+# 
+#          A few bytes of raw pad data, used to calculate
+#          the number of bytes of head fuzz (the first 
+#          set of asterisks) that will be used.
+#
+#   T  ==  a few tail fuzz source length bytes:
+# 
+#          A few more bytes of raw pad data, used to calculate
+#          the number of bytes of tail fuzz (the concluding
+#          set of asterisks) that will be used. 
+#
+#   *  ==  a random number of fuzz bytes (head or tail):
+# 
+#          A random number (derived from the pad -- see above) of raw
+#          bytes taken from the pad.  The ones at the front are called
+#          "head fuzz", and their presences means that an attacker
+#          cannot know exactly where in the encrypted text the message
+#          starts.  The ones at the end are "tail fuzz", and their
+#          presence means that an attacker cannot know where the message
+#          ends.  That is, the real message (and its digest, see below)
+#          sits somewhere along a slider surrounded by fuzz on each
+#          side, where the precise amount of fuzz on each side is known
+#          only to those with the pad.  This prevents a known-plaintext
+#          message substitution attack: because attackers cannot know
+#          where the message is, they cannot reliably replace a known
+#          plaintext with some other plaintext of the same length, even
+#          if they have channel control.
+# 
+#   -  ==  the actual encrypted plaintext
+# 
+#          Base64-encoded XOR'd bzipped plaintext.
+#
+#   D  ==  32 bytes of message digest
+#
+#          A SHA256 hash, XOR'd with pad, of the original plaintext.
+#          Note this is not a hexadecimal representation of the hash;
+#          to save space, it is the raw hash digest.  However, any
+#          message integrity errors display the hash in hexadecimal.
+#
+# On decryption, OneTime not only verifies the message digest, but
+# also that the head fuzz and tail fuzz exactly match the expected
+# pad bytes (those bytes were not used for encryption of course; they
+# were used *only* for fuzz).  If anything doesn't match, OneTime will
+# raise an error -- though if the error was detected only in the
+# digest or in the tail fuzz, then there may still have been a
+# successful decryption first, with plaintext output emitted.
+# 
+# As for the code, the design is pretty much what you'd expect:
+# 
+# The PadSession class encapsulates one session of using a pad to
+# encrypt or decrypt one contiguous data stream.  It takes care of
+# everything that happens in the encrypted block above.
+# 
+# A PadSession object is created with a particular pad file and
+# registered with a Configuration object.  The Configuration object
+# reads the ~/.onetime/pad-records file, to ensure that the PadSession
+# starts from the right offset in the pad, and it records in
+# ~/.onetime/pad-records that a new stretch of pad is consumed, once
+# the PadSession is done.
+#
+# A PadSession is wrapped with a SessionEncoder if encrypting or with
+# a Sessiondecoder if decrypting.  These wrapper classes take care of
+# the base64 encoding.
+# 
+########################################################################
+
 # The current format level.
 #
 # Some background is needed to understand what this means:
@@ -96,32 +208,332 @@ import xml.dom.minidom
 # in the inner headers in the cipthertext, as described in class PadSession.
 Format_Level = "internal"
 
-class PadSession:
-  """An encoder/decoder associated with a specific pad at a specific offset.
-Feed bytes through convert() to XOR them against the pad.
 
-A PadSession is used for a single encryption or decryption session; it should
-not be used for subsequent sessions -- instead, a new PadSession object
-should be generated (it might refer to the same underlying pad file,
-but it still needs to be a new object due to certain initializations).
+class Configuration:
+  """A parsed representation of one user's ~/.onetime/ configuration area.
+  A .onetime/ directory contains just a 'pad-records' file right now.
+
+  Even in cases where we're operating without touching permanent
+  storage, a Configuration instance is still created and updated
+  internally.  This is partly because the Configuration does some
+  consistency checks on incoming/outgoing data, and partly because it
+  would be useful if we're ever providing an API.
   """
 
-  # Length of the front stretch of pad used for the ID.  The actual ID
-  # is a SHA-256 sum of those bytes, which are themselves then never
-  # used for encryption.  (Why not just use a hex digest of the pad
-  # bytes themselves?  There's no theoretical reason not to, but as a
-  # sop to tradition, and to avoid the distraction of explaining why
-  # using raw pad would be okay, we just use the SHA-256 sum instead.)
-  id_source_length = 32
+  class ConfigurationError(Exception):
+    """Exception raised if we encounter an impossible state in a
+    Configuration."""
+    pass
+
+  def __init__(self, pad_session, path=None):
+    """Initialize a new configuration with PAD_SESSION.
+
+    If PATH is None, try to find or create the config area in the
+    standard location in the user's home directory; otherwise, find or
+    create it at PATH.
+
+    If PATH is \"-\", instantiate a Configuration object but do not
+    connect it to any activity on disk; it will neither read from nor
+    write to permanent storage."""
+
+    self._pad_session = pad_session
+    self.config_area = path
+    if self.config_area is None:
+      self.config_area = os.path.join(os.path.expanduser("~"), ".onetime")
+    self.pad_records_file = os.path.join(self.config_area, "pad-records")
+    # Create the configuration area if necessary.
+    if self.config_area != '-' and not os.path.isdir(self.config_area):
+      # Legacy data check: if they have a ~/.otp dir, that's probably
+      # from a previous incarnation of this program, when it was named
+      # "otp".  If so, just rename the old config area.
+      old_config_area = os.path.join(os.path.expanduser("~"), ".otp")
+      old_pad_records_file = os.path.join(old_config_area, "pad-records")
+      if os.path.isfile(old_pad_records_file):
+        os.rename(old_config_area, self.config_area)
+      else:
+        os.mkdir(self.config_area)
+
+    # Create the pad-records file if necessary.
+    if self.config_area != '-' and not os.path.isfile(self.pad_records_file):
+      open(self.pad_records_file, "w").close()
+    # Parse the pad-records file (if any) in the configuration area.
+    self.pad_records = self._parse_pad_records_file()
+    
+  def _consolidate_used_ranges(self, used, allow_reconsumption=False):
+    """Return a consolidated version of USED.  USED is a list of
+    tuples, indicating offsets and lengths:
+
+       [ (OFFSET1, LENGTH1), (OFFSET2, LENGTH2), ... ]
+
+    Consolidation means returning a list of equal or shorter length,
+    that marks exactly the same ranges as used, but expressed in the
+    most compact way possible.  For example:
+
+       [ (0, 10), (10, 20), (20, 25) ]
+
+    would become
+
+       [ (0, 25) ]
+
+    If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
+    exception if the input is incoherent, such as a range beginning
+    inside another range.  But if ALLOW_RECONSUMPTION is True, allow
+    ranges to overlap.  Typically, it will be False when encrypting and
+    True when decrypting, because it's legitimate to decrypt a message
+    multiple times, as long as no one re-uses that range for encrypting."""
+    new_used = [ ]
+    last_offset = None
+    last_length = None
+
+    for tup in used:
+      (this_offset, this_length) = tup
+      if last_offset is not None:
+        if last_offset + last_length >= this_offset:
+          # It's only reconsumption if the end of the previous range
+          # extends past the next offset.  So we error on that if
+          # we're not allowing reconsumption...
+          if (last_offset + last_length > this_offset
+              and not allow_reconsumption):
+            raise self.ConfigurationError(
+              "pad's used ranges are incoherent:\n   %s" % str(used))
+          # ...but otherwise we just extend the range from the
+          # original offset, whether it was a true overlap or a
+          # snuggle-right-up-against kind of thing:
+          else:
+            # All the possible cases are:
+            #
+            #   1) first tuple entirely precedes second
+            #   2) second tuple begins inside first but ends after it
+            #   3) second tuple begins and ends inside first
+            #   4) second tuple begins *before* first and ends in it
+            #   5) second tuple begins and ends before first
+            #
+            # However, due to the conditional above, we must be in (2)
+            # or (3), and we only need to adjust last_length if (2).
+            if (this_offset + this_length) > (last_offset + last_length):
+              last_length = (this_offset - last_offset) + this_length
+        else:
+          new_used.append((last_offset, last_length))
+          last_offset = this_offset
+          last_length = this_length
+      else:
+        last_offset = this_offset
+        last_length = this_length
+    if last_offset is not None:
+      new_used.append((last_offset, last_length))
+    return new_used
+
+  def _get_next_offset(self, used):
+    """Return the next free offset from USED, which is assumed to be in
+    consolidated form.  PadSession._id_source_length is the minimum
+    returned; that way the pad ID stretch is always accounted for,
+    even if USED was initialized from an old original-format pad record."""
+    cur_offset = None
+    # We don't do anything fancy, just get the earliest available
+    # offset past the last used tuple.  This means that any ranges in
+    # between tuples are wasted.  See comment in main() about
+    # discontinuous ranges for why this is okay.
+    for tup in used:
+      (this_offset, this_length) = tup
+      cur_offset = this_offset + this_length
+    if cur_offset is None or cur_offset < PadSession._id_source_length:
+      return PadSession._id_source_length
+    else:
+      return cur_offset
+    
+  def _parse_pad_records_file(self):
+    """Return a dictionary representing this configuration's 'pad-records'
+    file (e.g., ~/.onetime/pad-records).  If the file is empty, just
+    return an empty dictionary.
+
+    The returned dictionary is keyed on pad IDs, with sub-dictionaries
+    as values.  Each sub-dictionary's keys are the remaining element
+    names inside a pad element, and the value of the 'used' element is
+    a list of tuples, each tuple of the form (OFFSET, LENGTH).  So:
+
+       returned_dict[PAD_ID] ==> subdict
+       subdict['used'] ==> [(OFFSET1, LENGTH1), (OFFSET2, LENGTH2), ...]
+       subdict['some_elt_name'] ==> SOME_ELT_VALUE       <!-- if any -->
+       subdict['another_elt_name'] ==> ANOTHER_ELT_VALUE <!-- if any -->
+
+    A 'pad-records' file is an XML document like this:
+
+      <?xml version="1.0" encode="UTF-8"?>
+      <!DOCTYPE TYPE_OF_DOC SYSTEM/PUBLIC "dtd-name">
+      <onetime-pad-records>
+         <pad-record>
+           <id>PAD_ID</id>
+           <used><offset>OFFSET_A</offset>
+                 <length>LENGTH_A</length></used>
+           <used><offset>OFFSET_B</offset>
+                 <length>LENGTH_B</length></used>
+           ...
+         </pad-record>
+         <pad-record>
+           <id>SOME_OTHER_PAD_ID</id>
+           <used><offset>OFFSET_C</offset>
+                 <length>LENGTH_C</length></used>
+           ...
+         </pad-record>
+         ...
+      </onetime-pad-records>
+      """
+    dict = { }
+
+    if self.config_area == '-':
+      return dict
+
+    try:
+      dom = xml.dom.minidom.parse(self.pad_records_file)
+
+      for pad in dom.firstChild.childNodes:
+        id = None
+        path = None
+        used = [ ]
+        if pad.nodeType == xml.dom.Node.ELEMENT_NODE:
+          subdict = { }
+          for pad_part in pad.childNodes:
+            if pad_part.nodeType == xml.dom.Node.ELEMENT_NODE:
+              if pad_part.nodeName == "id":
+                id = pad_part.childNodes[0].nodeValue
+              elif pad_part.nodeName == "used":
+                offset = None
+                length = None
+                for used_part in pad_part.childNodes:
+                  if used_part.nodeName == "offset":
+                    offset = int(used_part.childNodes[0].nodeValue)
+                  if used_part.nodeName == "length":
+                    length = int(used_part.childNodes[0].nodeValue)
+                used.append((offset, length))
+                subdict["used"] = self._consolidate_used_ranges(used)
+              else:
+                # Parse unknown elements transparently.
+                subdict[pad_part.nodeName] = pad_part.childNodes[0].nodeValue
+          if not subdict.has_key("used"):
+            # We don't require the "used" element to be present; if it's
+            # absent, it just means none of this pad has been used yet.
+            subdict["used"] = [ (0, 0) ]
+          dict[id] = subdict
+    except xml.parsers.expat.ExpatError:
+      pass
+    return dict
+    
+  def save(self):
+    """Save the pad-records file."""
+    if self.config_area == '-':
+      return
+    tempfile = self.pad_records_file + ".tmp"
+    # Deliberately not setting binary mode here; this is a text file.
+    fp = open(tempfile, 'w')
+    fp.write("<onetime-pad-records>\n")
+    for pad_id in self.pad_records.keys():
+      fp.write("  <pad-record>\n")
+      fp.write("    <id>%s</id>\n" % pad_id)
+      for tuple in self._consolidate_used_ranges(
+          self.pad_records[pad_id]["used"]):
+        fp.write("    <used><offset>%d</offset>\n" % tuple[0])
+        fp.write("          <length>%d</length></used>\n" % tuple[1])
+      for key in self.pad_records[pad_id].keys():
+        if key != "used":
+          fp.write("    <%s>%s</%s>\n" % \
+                   (key, self.pad_records[pad_id][key], key))
+      fp.write("  </pad-record>\n")
+    fp.write("</onetime-pad-records>\n")
+    fp.close()
+    # On some operating systems, renaming a file onto an existing file
+    # doesn't just silently overwrite the latter -- according to
+    # https://github.com/kfogel/OneTime/issues/13, Microsoft Windows
+    # will throw an error, for example.  So we do this rename very
+    # carefully, and in such a way as to not to destroy any pad
+    # records that might be left over from a past failed rename.
+    intermediate_tempfile = self.pad_records_file + ".int"
+    if os.path.exists(intermediate_tempfile):
+      raise ConfigurationError(
+        "Leftover intermediate pad-records file found;"
+        "please sort things out:\n"
+        "  %s" % intermediate_tempfile)
+    os.rename(self.pad_records_file, intermediate_tempfile)
+    os.rename(tempfile, self.pad_records_file)
+    os.remove(intermediate_tempfile)
+
+  def register(self):
+    """Register this session's pad if it is not already registered, and
+    set its offset based on previously used regions for that pad, if any."""
+    next_offset = None
+    # This is a little complicated only because we need; to look for
+    # old original-style pad IDs and upgrade them if present.
+    if not self.pad_records.has_key(self._pad_session.id()):
+      if self.pad_records.has_key(
+          self._pad_session.id(format_level="original")):
+        # Upgrade original-style record to internal style.
+        self.pad_records[self._pad_session.id()] \
+          = self.pad_records[self._pad_session.id(format_level="original")]
+        del self.pad_records[self._pad_session.id(format_level="original")]
+      else:
+        # Initialize a new internal-style record.
+        self.pad_records[self._pad_session.id()] = { "used" : [ ] }
+    else:
+      if self.pad_records.has_key(
+          self._pad_session.id(format_level="original")):
+        raise Configuration.ConfigurationError(
+          "Pad has both v2 and v1 IDs present in pad-records file:\n" \
+          "  v2: %s\n"                                                \
+          "  v1: %s\n"                                                \
+          "This is supposed to be impossible.  Please resolve."       \
+          % (self._pad_session.id(), 
+             self._pad_session.id(format_level="original")))
+    # One way or another, we now have an up-to-date v2 pad record.
+    # Set the next offset accordingly.
+    next_offset = self._get_next_offset(
+      self.pad_records[self._pad_session.id()]["used"])
+    self._pad_session.set_offset(next_offset)
+
+  def record_consumed(self, allow_reconsumption):
+    """Record pad ranged currently used by self._pad_session.
+
+    If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
+    if reconsuming any part of a range that has been consumed previously.
+    But if ALLOW_RECONSUMPTION is True, allow ranges to overlap.
+    Typically, it is False when encrypting and True when decrypting,
+    because it's okay to decrypt a message multiple times, but not to
+    re-use a range for encrypting."""
+    used = self.pad_records[self._pad_session.id()]["used"]
+    used.append((self._pad_session.offset(), self._pad_session.length()))
+    self.pad_records[self._pad_session.id()]["used"] \
+      = self._consolidate_used_ranges(used, allow_reconsumption)
+
+  def show_pad_records(self):
+    """Print pad records, presumably for debugging."""
+    for pad_id in self.pad_records.keys():
+      print "PadSession %s:" % pad_id
+      print "  used:", self.pad_records[pad_id]["used"]
+
+
+class PadSession:
+  """An encrypter/decrypter associated with a pad at an offset.
+Feed bytes through convert() to XOR them against that pad.
+
+A PadSession is used for a single encryption or decryption session; it 
+should not be used for subsequent sessions -- instead, a new PadSession
+object should be generated (it might refer to the same underlying pad file,
+but it still needs to be a new object due to certain initializations)."""
+
+  # Length of the front stretch of pad used for the ID.
+  _id_source_length = 32
 
   # The plaintext is authenticated with a SHA256 hash digest that
   # is itself encrypted with the pad and included in the ciphertext.
-  digest_length = 32
+  _digest_length = 32
 
-  def __init__(self, pad_path):
-    """Initialize a new pad session, using padfile PAD_PATH.  The pad session
-    cannot be used for encoding or decoding until set_offset() is called."""
+  def __init__(self, pad_path, config_area=None, no_trace=False):
+    """Make a new pad session, with padfile PAD_PATH.
+    The pad session cannot be used for encrypting or decrypting until
+    set_offset() is called.  If CONFIG_AREA is not None, it is the
+    directory containing the pad-records file.  If NO_TRACE is not
+    False, then don't make any changes in the configuration area."""
     self.pad_path = pad_path
+    self.config = Configuration(self, config_area)
+    self._no_trace = no_trace
     self.padfile = open(self.pad_path, "rb")
     self.pad_size = os.stat(self.pad_path)[stat.ST_SIZE]
     self._offset = None  # where to start using pad bytes (must initialize)
@@ -133,89 +545,91 @@ but it still needs to be a new object due to certain initializations).
     self._id = None
     self._original_format_level_id = None
 
-    # If this encoding/decoding session saw a particular format level,
-    # record it so we can check that it remains consistent.
+    # If this session saw a particular format level, record it so we
+    # can check that it remains consistent.
     self._format_level = None
 
-    # On decoding, a given call to convert() might not supply enough
+    # On decrypting, a given call to convert() might not supply enough
     # string to use up the inner headers.  Therefore we must remember
     # how much of the head_fuzz still needs to be used up.
     self._pad_remaining_to_skip = 0
 
     # There are both head and tail fuzz, but we only need to remember
     # the tail fuzz length (and the raw bytes used to compute it),
-    # because we learn it at the start of processing but wait till the
-    # end to use it, whereas the head fuzz we use the moment we learn it.
+    # because we learn the length at the start of processing but wait
+    # till the end to use it, whereas the head fuzz we emit as soon as
+    # we learn its length.
     self._tail_fuzz_length = None
     self._tail_fuzz_length_source_bytes = None
 
-    # When decoding, we have to buffer enough input to be able to
-    # refrain from decrypting the tail fuzz.  This buffer always holds
-    # the latest input, and must always be at least as long as the
-    # tail fuzz length, so that we can decrypt everything but the last
-    # self._tail_fuzz_length bytes in the buffer.
+    # This buffer always holds the latest input, and must always be at
+    # least as long as the tail digest + tail fuzz, so that we can
+    # refrain from decrypting them as part of the original plaintext.
     self._tail_buffer = ''
 
-    # Most of what a pad session does is the same for encoding and decoding --
-    # after all, the conversion step is XOR, which is symmetrical.
+    # Most of what a pad session does is the same for encrypting and
+    # decrypting -- after all, the conversion step is symmetrical (XOR).
     #
     # However, before conversion can happen, the pad session needs to know
     # whether to write or read the inner header flag bytes -- so for
-    # that it needs to know whether it's encoding or decoding.  When
+    # that it needs to know whether it's encrypting or decrypting.  When
     # that step is done, the appropriate variable below is set;
     # exactly one of them *must* be set before any conversion happens.
-    self._encoding = False
-    self._decoding = False
+    self._encrypting = False
+    self._decrypting = False
     # False until conversion starts, True thereafter.  (Conversion
     # starts after all the head fuzz has been verified.)
     self._begun = False
+
+    # Register with config as last thing we do.
+    self.config.register()
     
   class PadSessionUninitialized(Exception):
-    """Exception raised if PadSession hasn't been initialized yet."""
+    "Exception raised if PadSession hasn't been initialized yet."
     pass
 
   class OverPrepared(Exception):
-    """Exception raised if a PadSession is initialized or prepared twice."""
+    "Exception raised if a PadSession is initialized or prepared twice."
     pass
 
   class PadShort(Exception):
-    """Exception raised if pad doesn't have enough data for this encryption."""
+    "Exception raised if pad doesn't have enough data for this encryption."
     pass
 
   class FormatLevel(Exception):
-    """Exception raised for an unknown or inconsistent format level."""
+    "Exception raised for an unknown or inconsistent format level."
     pass
 
   class InnerFormat(Exception):
-    """Exception raised if something is wrong with the inner format."""
+    "Exception raised if something is wrong with the inner format."
     pass
 
   class FuzzMismatch(Exception):
-    """Exception raised if pad and input fuzz don't match."""
+    "Exception raised if pad and input fuzz don't match."
     pass
 
-  def prepare_for_encoding(self):
-    """Mark this PadSession as encoding.  This or prepare_for_decoding() must
-    be called exactly once, before any conversion happens."""
-    if self._encoding:
-      raise PadSession.OverPrepared("already prepared for encoding")
-    if self._decoding:
+  def prepare_for_encryption(self):
+    """Mark this PadSession as encrypting.  This or prepare_for_decryption()
+    must be called exactly once, before any conversion happens."""
+    if self._encrypting:
+      raise PadSession.OverPrepared("already prepared for encryption")
+    if self._decrypting:
       raise PadSession.OverPrepared(
-        "cannot prepare for both encoding and decoding")
-    self._encoding = True
+        "cannot prepare for both encryption and decryption")
+    self._encrypting = True
 
-  def prepare_for_decoding(self):
-    """Mark this PadSession as decoding.  This or prepare_for_encoding() must
-    be called exactly once, before any conversion happens."""
-    if self._decoding:
-      raise PadSession.OverPrepared("already prepared for decoding")
-    if self._encoding:
+  def prepare_for_decryption(self):
+    """Mark this PadSession as encrypting.  This or prepare_for_encryption()
+    must be called exactly once, before any conversion happens."""
+    if self._decrypting:
+      raise PadSession.OverPrepared("already prepared for decryption")
+    if self._encrypting:
       raise PadSession.OverPrepared(
-        "cannot prepare for both decoding and encoding")
-    self._decoding = True
+        "cannot prepare for both decryption and encryption")
+    self._decrypting = True
 
   def set_offset(self, offset):
-    """Set this pad session's encoding/decoding offset to OFFSET."""
+    """Set this pad session's encryption/decryption offset to OFFSET."""
     if offset >= self.pad_size:
       raise PadSession.PadShort("offset exceeds pad size, need more pad")
     self._offset = offset
@@ -227,10 +641,10 @@ else return the empty string.  Note STRING may be empty on intermediate
 calls simply because a compressor has not yet had enough incoming data to
 work with, not necessarily because input is ended yet.
 
-If FORMAT_LEVEL is "original", then don't handle the random distance
-skips (the "fuzz") used by the later format levels.  Otherwise, do
-handle the fuzz: for head fuzz, skip over it; for tail fuzz, remember
-its length so we can ignore it later.
+If FORMAT_LEVEL is "original", then don't handle the head and tail 
+used by the later format levels.  Otherwise, do handle the head and
+tail: for the head, skip over the fuzz; for the tail, just remember
+its length so we can handle it later.
 
 It is an error to call this multiple times with different FORMAT_LEVEL
 values, for a given PadSession instance.  Whatever you pass the first time
@@ -248,17 +662,17 @@ must be used for all subsequent calls with that instance.
         "inconsistent format levels requested: '%s' and '%s'"
         % (self._format_level, format_level))
     if format_level == "internal":
-      if self._encoding and self._decoding:
+      if self._encrypting and self._decrypting:
         raise PadSession.OverPrepared(
-          "pad session cannot encode and decode simultaneously")
-      elif not self._encoding and not self._decoding:
+          "pad session cannot encrypt and decrypt simultaneously")
+      elif not self._encrypting and not self._decrypting:
         raise PadSession.PadSessionUninitialized(
-          "pad session not yet prepared for either encoding or decoding")
+          "pad session not yet prepared for either encrypting or decrypting")
       elif not self._begun:
-        if self._encoding:
+        if self._encrypting:
           inner_header_data = self._make_inner_header()
           result += inner_header_data
-        else: # self._decoding is set
+        else: # self._decrypting is set
           # TODO (minor): It's possible string might be so short that
           # it doesn't even contain enough information to know the fuzz
           # length yet.  The solution is easy: if we haven't yet begun,
@@ -283,21 +697,24 @@ must be used for all subsequent calls with that instance.
         else:
           num_bytes_to_verify_now = self._pad_remaining_to_skip
         self._pad_remaining_to_skip = new_pad_remaining
-        bytes_unverified, string = self._verify_fuzz_bytes(num_bytes_to_verify_now, string)
+        bytes_unverified, string = self._verify_fuzz_bytes(
+          num_bytes_to_verify_now, string)
         self._pad_remaining_to_skip += bytes_unverified
 
-      # Once we've handled any inner headers, buffer for decoding.
-      if self._decoding:
+      # Once we've handled any inner headers, buffer for decrypting.
+      if self._decrypting:
         self._tail_buffer += string
-        # Reserve the tail fuzz length each time, so that on the last
-        # iteration we can just verify the tail fuzz instead of trying
-        # to decrypt it.
-        if len(self._tail_buffer) < self._tail_fuzz_length:
+        # Reserve exactly the tail length each time, so that on the
+        # last iteration we can just verify both parts of the tail
+        # (the digest and the fuzz) without emitting new output.
+        if len(self._tail_buffer) < (PadSession._digest_length 
+                                     + self._tail_fuzz_length):
           string = ''   # wait until we have more or are done
         else:
-          string = self._tail_buffer[:(0 - self._tail_fuzz_length)]
+          string = self._tail_buffer[:(0 - (PadSession._digest_length
+                                            + self._tail_fuzz_length))]
           self._tail_buffer = self._tail_buffer[
-            (0 - self._tail_fuzz_length):]
+            (0 - (PadSession._digest_length + self._tail_fuzz_length)):]
 
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
@@ -312,14 +729,18 @@ must be used for all subsequent calls with that instance.
 
 
   def _get_id(self):
-    """Get the ID for this session's underlying pad."""
+    """Get the ID for this session's underlying pad.
+    (The ID is just the pad's first 32 bytes in hexadecimal.)"""
+    # There's no harm in exposing this data in a pad-records file.
+    # The ID portion of the pad is never used for encryption, and we
+    # expose other non-encrypting pad portions in the head fuzz and
+    # tail fuzz in the message anyway.  If the pad is truly random,
+    # this is all fine; if it's not random, all bets are off.
     saved_posn = self.padfile.tell()
     self.padfile.seek(0)
-    sha256 = hashlib.sha256()
-    string = self.padfile.read(PadSession.id_source_length)
-    sha256.update(string)
+    string = self.padfile.read(PadSession._id_source_length)
     self.padfile.seek(saved_posn)
-    return sha256.hexdigest()
+    return string.encode('hex')
 
   def _get_original_format_level_id(self):
     """Get the OneTime \"original\" format level ID for the session pad.
@@ -339,7 +760,7 @@ must be used for all subsequent calls with that instance.
 
   def id(self, format_level="internal"):
     """Return the pad ID of the pad belonging to this pad session.
-    If FORMAT_LEVEL is specified, return ID according to that format level."""
+    If FORMAT_LEVEL is specified, return ID according to that level."""
     if format_level == "internal":
       if self._id is None:
         self._id = self._get_id()
@@ -357,7 +778,7 @@ must be used for all subsequent calls with that instance.
     return self.pad_path
 
   def offset(self):
-    """Return offset from which encoding/decoding starts."""
+    """Return offset from which encryption/decryption starts."""
     return self._offset
 
   def length(self):
@@ -365,7 +786,7 @@ must be used for all subsequent calls with that instance.
     return self._length
 
   def _make_fuzz_length_from_pad(self, num_bytes, modulo):
-    """Calculate a fuzz skip length based on the next NUM_BYTES bytes % MODULO,
+    """Calculate a fuzz skip length based on the next NUM_BYTES % MODULO,
     advancing the pad accordingly.  Return that length and the raw pad
     data used to calculate it in a tuple of the form:
 
@@ -380,15 +801,11 @@ must be used for all subsequent calls with that instance.
     # the distance to skip is based on data in the pad, it can only be
     # known by those who have the pad.
     #
-    # Note that tail fuzz starts with PadSession.digest_length bytes
-    # for the encrypted message digest, followed by true fuzz -- a
-    # random string of raw pad bytes that concludes the ciphertext.
-    # Head fuzz, on the other hand, is just raw pad bytes, because
-    # obviously we don't know the message digest at the time the head
-    # fuzz is emitted.
+    # (Note that the tail of a OneTime message is actually two parts:
+    # the encrypted message digest followed by the tail fuzz.)
     #
-    # For both head fuzz and the non-digest portion of the tail fuzz,
-    # the distance skipped may be determined in two ways:
+    # For both head fuzz and the tail fuzz, the distance skipped may
+    # be determined in two ways:
     #
     #   1) Read NUM_BYTES from the current location in the pad, and
     #      use those bytes to calculate (in some deterministic way)
@@ -404,13 +821,13 @@ must be used for all subsequent calls with that instance.
     # Here's how method (1) works:
     #
     # First we read NUM_BYTES bytes from the pad (the bytes are
-    # consumed -- they won't be used for encoding data, and therefore
-    # this happens before any pad gets used for encoding/decoding).
+    # consumed -- they won't be used for encrypting or decrypting
+    # data).
     #
     # We then portably convert that sequence of bytes to a number
     # modulo MODULO.  The result is the number of bytes forward to
     # skip in the pad before starting to consume pad data for use by
-    # convert() in encoding or decoding.
+    # convert() in encrypting or decrypting.
     #
     # See _make_inner_header() for why we do things this way.
     fuzz_length_source = self.padfile.read(num_bytes)
@@ -455,7 +872,8 @@ must be used for all subsequent calls with that instance.
       pad_material = self.padfile.read(verifiable_len)
       self._length += verifiable_len
       if string[:verifiable_len] != pad_material[:verifiable_len]:
-        raise PadSession.FuzzMismatch("expected fuzz does not match message fuzz")
+        raise PadSession.FuzzMismatch(
+          "expected fuzz does not match message fuzz")
       num_bytes_remaining = max(0, num_bytes - len(string))
       return [num_bytes_remaining, string[verifiable_len:]]
     except EOFError:
@@ -468,11 +886,12 @@ must be used for all subsequent calls with that instance.
       data = self.padfile.read(num_bytes)
       self._length += num_bytes
     except EOFError:
-      raise PadSession.PadShort("not enough pad available to supply raw data")
+      raise PadSession.PadShort(
+        "not enough pad available to supply raw data")
     return data
 
   def _make_inner_header(self):
-    """Return inner header data to be encoded in the output.
+    """Return inner header data to be embedded in the output.
     This must happen before any conversion of plaintext to ciphertext
     is done, so it must be called after the PadSession has been initialized
     but before self.convert() has consumed any pad for actual conversion."""
@@ -557,7 +976,7 @@ must be used for all subsequent calls with that instance.
     #
     # Okay, but why not instead use a few bytes of pad data as a key
     # by which to encrypt the plaintext input with some standard block
-    # cipher and then encode the result of *that* against the pad?
+    # cipher and then encrypt the result of *that* against the pad?
     # Wouldn't that protect against a known-plaintext attack better?
     #
     # True, but the problem with doing full symmetric encryption
@@ -619,14 +1038,12 @@ must be used for all subsequent calls with that instance.
     # bytes, so we get 8 times the variability for the amount of pad
     # used up.  But skipping by bits would complicate the code, since
     # all the seeking and I/O is natively aligned on 8-bit boundaries.
-    head_fuzz_length, head_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
-      self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
-      self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    # The first part of the tail fuzz will be the encrypted digest,
-    # followed by the true fuzz bytes that conclude the ciphertext,
-    # so account for the digest length here.
-    self._tail_fuzz_length += PadSession.digest_length
+    head_fuzz_length, head_fuzz_length_source_bytes \
+      = self._make_fuzz_length_from_pad(
+        self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
+      = self._make_fuzz_length_from_pad(
+        self._default_fuzz_source_length, self._default_fuzz_source_modulo)
     head_fuzz = self._get_pad_bytes(head_fuzz_length)
     result = chr(inner_header_format_version)       \
              + chr(fuzz_source_length_indicator)    \
@@ -661,24 +1078,27 @@ must be used for all subsequent calls with that instance.
     next_pad_byte = ord(self.padfile.read(1))
     self._length += 1
     length_to_skip += 1
-    pad_encoded_byte = ord(string[0])
-    inner_format_version = pad_encoded_byte ^ next_pad_byte
+    pad_encrypted_byte = ord(string[0])
+    inner_format_version = pad_encrypted_byte ^ next_pad_byte
     if inner_format_version == 0:
       first_flag_byte = ord(string[1]) ^ ord(self.padfile.read(1))
       self._length += 1
       length_to_skip += 1
       if first_flag_byte & 1 == 0:
-        head_fuzz_length, head_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
-          self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-        self._tail_fuzz_length, self._tail_fuzz_length_source_bytes = self._make_fuzz_length_from_pad(
-          self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-        # The first part of the tail fuzz is the encrypted digest,
-        # followed by the true fuzz bytes that conclude the ciphertext,
-        # so account for the digest length here.
-        self._tail_fuzz_length += PadSession.digest_length
-        num_bytes_remaining, head_fuzz_remaining = self._verify_fuzz_bytes(
-          head_fuzz_length, string[2 + (self._default_fuzz_source_length * 2):])
-        length_to_skip += (self._default_fuzz_source_length * 2) + head_fuzz_length
+        head_fuzz_length, head_fuzz_length_source_bytes \
+          = self._make_fuzz_length_from_pad(
+            self._default_fuzz_source_length, 
+            self._default_fuzz_source_modulo)
+        self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
+          = self._make_fuzz_length_from_pad(
+            self._default_fuzz_source_length, 
+            self._default_fuzz_source_modulo)
+        num_bytes_remaining, head_fuzz_remaining \
+          = self._verify_fuzz_bytes(
+            head_fuzz_length, 
+            string[2 + (self._default_fuzz_source_length * 2):])
+        length_to_skip += (self._default_fuzz_source_length * 2) \
+                          + head_fuzz_length
       else:
         raise PadSession.InnerFormat(
           "cannot yet handle custom fuzz_source length")
@@ -704,73 +1124,82 @@ must be used for all subsequent calls with that instance.
       return [string[length_to_skip:], 0]
 
   def _verify_digest(self, msg_hash):
-    """Verify that the message digest encoded at the current location
-    in the pad matches MSG_HASH, consuming PadSession.digest_length
+    """Verify that the message digest embedded at the current location
+    in the pad matches MSG_HASH, consuming PadSession._digest_length
     bytes of pad in the process.  If the digests do not match, raise a
     PadSession.FuzzMismatch error showing the two digests in hex form."""
     msg_digest = msg_hash.digest()
-    pad_bytes = self.padfile.read(PadSession.digest_length)
-    self._length += PadSession.digest_length
+    pad_bytes = self.padfile.read(PadSession._digest_length)
+    self._length += PadSession._digest_length
     found_digest = ''
-    for i in range(PadSession.digest_length):
+    for i in range(PadSession._digest_length):
       found_digest += chr(ord(self._tail_buffer[i]) ^ ord(pad_bytes[i]))
     if msg_digest != found_digest:
-      raise PadSession.FuzzMismatch("message digest mismatch:\n  expected: %s\n     found: %s\n"
-                                    % (msg_hash.hexdigest(), found_digest.encode('hex')))
+      raise PadSession.FuzzMismatch(
+        "message digest mismatch:\n  expected: %s\n     found: %s\n"
+        % (msg_hash.hexdigest(), found_digest.encode('hex')))
 
-  def finish(self, msg_hash=None):
-    """Close out this pad session.
-    If MSG_HASH is not None, it is the expected final hash for the
-    plaintext message, in which case verify its raw digest against the
-    one embedded in the ciphertext, and raise a PadSession.FuzzMismatch
-    error if they don't match."""
+  def finish(self, msg_hash):
+    """Close out this pad session.  If this PadSession is at an
+    \"internal\" (i.e., post-1.x) format level, then: 
+    Emit or verify MSG_HASH.  If encrypting, return the pad-encrypted
+    digest of MSG_HASH and the tail fuzz, as a single string.  If
+    decrypting, verify that MSG_HASH matches the expected final hash
+    for the plaintext message, and raise a PadSession.FuzzMismatch
+    error if they do not match.  (If they do match, the return value
+    is undefined and should be ignored.)"""
+    remainder = None
     if self._format_level == "internal":
       if self._tail_fuzz_length is None:
         raise PadSession.PadSessionUninitialized(
           "tail fuzz length never initialized")
-      elif self._decoding:
+      elif self._encrypting:
+        remainder = self.convert(msg_hash.digest())
+        remainder += self.convert(u'\u0000' * self._tail_fuzz_length)
+      elif self._decrypting:
         # Decryption has already succeeded by the time we encounter
-        # the tail fuzz, but if the tail fuzz doesn't match, we should
-        # still let the user know the message was tampered with.
+        # the tail, but if the tail doesn't match, we should still let
+        # the user know the message was tampered with.
         #
-        # There are two ways the tail fuzz could fail to match: either
-        # a message digest mismatch (i.e., a message authentication
-        # failure) against the first PadSession.digest_length bytes of
-        # the tail fuzz, or a direct fuzz mismatch against the latter
-        # portion of the tail fuzz (i.e., the expected tail fuzz bytes
-        # from the pad don't match those in the message).
+        # There are two ways the tail could fail to match: either a
+        # message digest mismatch (i.e., a message authentication
+        # failure) against the first PadSession._digest_length bytes of
+        # the tail, or a mismatch against the expected tail fuzz bytes.
         # 
-        # Note that verifying the tail fuzz has the important side effect
+        # Note that verifying the tail has the important side effect
         # of recording that last bit of pad usage on decryption, which
         # is important for avoiding pad re-use -- that's the bug for
         # which a test was added in commit 9e8422f07.
-        if msg_hash is not None \
-           and self._tail_fuzz_length < PadSession.digest_length:
-          raise PadSession.PadSessionUninitialized("tail fuzz improperly initialized")
         self._verify_digest(msg_hash)
-        # Now handle the remaining, literal fuzz part of the tail fuzz
         bytes_remaining, str_remaining = self._verify_fuzz_bytes(
-          self._tail_fuzz_length - PadSession.digest_length,
-          self._tail_buffer[PadSession.digest_length:])
+          self._tail_fuzz_length, 
+          self._tail_buffer[PadSession._digest_length:])
         if bytes_remaining != 0 or str_remaining != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
+      else:
+        raise PadSession.OverPrepared(
+          "pad session out of whack: both encrypting and decrypting")
+    # Record consumption last, after we've used the last bits of
+    # pad we're going to use in this session.
+    self.config.record_consumed(self._decrypting)
+    if not self._no_trace: self.config.save()
+    return remainder
 
   def __str__(self):
     """Return a string representation of this pad session."""
     return "PadSession '%s' (%s):\n   Offset: %d\n   Length: %d\n" \
            % (self.path(), self.id(), self.offset(), self.length())
 
-class PadSessionEncoder:
+class SessionEncoder:
   """Class for encoding raw data to OneTime output."""
 
   class UnknownCompressionException(Exception):
     """Exception raised when an unknown compression method is requested."""
     pass
 
-  def __init__(self, pad_sess, config):
-    """Initialize an encoder for PAD_SESS with Configuration CONFIG."""
+  def __init__(self, pad_sess):
+    """Initialize an encoder for PAD_SESS."""
     self.pad_sess = pad_sess
-    self.config = config
     # We use bz2 compression unconditionally.  If we offered a choice,
     # we'd have to name that choice somewhere for use in decryption.
     # But if we were to list the choice in the open headers, then we
@@ -782,7 +1211,7 @@ class PadSessionEncoder:
     # to be so simple as to be trivially auditable.  So we just use
     # bz2 unconditionally; the worst case is ok.
     self.compressor = bz2.BZ2Compressor()
-    self.pad_sess.prepare_for_encoding()
+    self.pad_sess.prepare_for_encryption()
     # Keep a running hash of the plaintext as we encrypt.
     self.msg_hash = hashlib.sha256()
 
@@ -799,32 +1228,23 @@ class PadSessionEncoder:
   def finish(self):
     "Return last remaining bits of ciphertext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
-    # Emit tail fuzz, the first part of which is the message digest: 
-    remainder += self.pad_sess.convert(self.msg_hash.digest())
-    # The second part of the tail fuzz is a random number of raw pad
-    # bytes (random based on previously-read pad data, that is):
-    remainder += self.pad_sess.convert(
-      u'\u0000' * (self.pad_sess._tail_fuzz_length - PadSession.digest_length))
-    # Encode and return the completed tail fuzz.
+    remainder += self.pad_sess.finish(self.msg_hash)
     remainder = base64.encodestring(remainder)
-    self.pad_sess.finish()
-    self.config.record_consumed(self.pad_sess, False)
     return remainder
 
 
-class PadSessionDecoder:
+class SessionDecoder:
   """Class for decoding OneTime output back to plaintext."""
 
   class DecodingError(Exception):
     """Exception raised when something goes wrong decoding."""
     pass
 
-  def __init__(self, pad_sess, config, format_level):
-    """Initialize a decoder for PAD_SESS with Configuration CONFIG.
+  def __init__(self, pad_sess, format_level):
+    """Initialize a decoder for PAD_SESS.
     FORMAT_LEVEL indicates the OneTime format level of the incoming
     data, i.e., the value given in the output's "Format:" header."""
     self.pad_sess = pad_sess
-    self.config = config
     self.unused_data = ""
     self.format_level = format_level
     self.decompressor = bz2.BZ2Decompressor()
@@ -834,7 +1254,7 @@ class PadSessionDecoder:
     if self.format_level != "original" and self.format_level != "internal":
       raise PadSession.FormatLevel(
         "impossible format level: \"%s\"" % self.format_level)
-    self.pad_sess.prepare_for_decoding()
+    self.pad_sess.prepare_for_decryption()
 
   def decode(self, string):
     """Return all available unreturned onetime-decoded data so far,
@@ -857,304 +1277,9 @@ class PadSessionDecoder:
     self.msg_hash.update(ret)
     return ret
 
-  def finalize(self):
-    """Finalize this session's pad usage with the configuration."""
+  def finish(self):
+    """Finalize this session's pad usage."""
     self.pad_sess.finish(self.msg_hash)
-    self.config.record_consumed(self.pad_sess, True)
-
-
-class Configuration:
-  """A parsed representation of one user's ~/.onetime/ configuration area.
-  A .onetime/ directory contains just a 'pad-records' file right now.
-
-  Even in cases where we're operating without touching permanent
-  storage, a Configuration instance is still created and updated
-  internally.  This is partly because the Configuration does some
-  consistency checks on incoming/outgoing data, and partly because it
-  would be useful if we're ever providing an API.
-  """
-
-  class ConfigurationError(Exception):
-    """Exception raised if we encounter an impossible state in a
-    Configuration."""
-    pass
-
-  def __init__(self, path=None):
-    """Initialize a new configuration.
-
-    If PATH is None, try to find or create the config area in the
-    standard location in the user's home directory; otherwise, find or
-    create it at PATH.
-
-    If PATH is \"-\", instantiate a Configuration object but do not
-    connect it to any activity on disk; it will neither read from nor
-    write to permanent storage."""
-
-    self.config_area = path
-    if self.config_area is None:
-      self.config_area = os.path.join(os.path.expanduser("~"), ".onetime")
-    self.pad_records_file = os.path.join(self.config_area, "pad-records")
-    # Create the configuration area if necessary.
-    if self.config_area != '-' and not os.path.isdir(self.config_area):
-      # Legacy data check: if they have a ~/.otp dir, that's probably
-      # from a previous incarnation of this program, when it was named
-      # "otp".  If so, just rename the old config area.
-      old_config_area = os.path.join(os.path.expanduser("~"), ".otp")
-      old_pad_records_file = os.path.join(old_config_area, "pad-records")
-      if os.path.isfile(old_pad_records_file):
-        os.rename(old_config_area, self.config_area)
-      else:
-        os.mkdir(self.config_area)
-
-    # Create the pad-records file if necessary.
-    if self.config_area != '-' and not os.path.isfile(self.pad_records_file):
-      open(self.pad_records_file, "w").close()
-    # Parse the pad-records file (if any) in the configuration area.
-    self.pad_records = self._parse_pad_records_file()
-    
-  def _consolidate_used_ranges(self, used, allow_reconsumption=False):
-    """Return a consolidated version of USED.  USED is a list of
-    tuples, indicating offsets and lengths:
-
-       [ (OFFSET1, LENGTH1), (OFFSET2, LENGTH2), ... ]
-
-    Consolidation means returning a list of equal or shorter length,
-    that marks exactly the same ranges as used, but expressed in the
-    most compact way possible.  For example:
-
-       [ (0, 10), (10, 20), (20, 25) ]
-
-    would become
-
-       [ (0, 25) ]
-
-    If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
-    exception if the input is incoherent, such as a range beginning
-    inside another range.  But if ALLOW_RECONSUMPTION is True, allow
-    ranges to overlap.  Typically, it will be False when encoding and
-    True when decoding, because it's legitimate to decode a message
-    multiple times, as long as no one re-uses that range for encoding."""
-    new_used = [ ]
-    last_offset = None
-    last_length = None
-
-    for tup in used:
-      (this_offset, this_length) = tup
-      if last_offset is not None:
-        if last_offset + last_length >= this_offset:
-          # It's only reconsumption if the end of the previous range
-          # extends past the next offset.  So we error on that if
-          # we're not allowing reconsumption...
-          if (last_offset + last_length > this_offset
-              and not allow_reconsumption):
-            raise self.ConfigurationError(
-              "pad's used ranges are incoherent:\n   %s" % str(used))
-          # ...but otherwise we just extend the range from the
-          # original offset, whether it was a true overlap or a
-          # snuggle-right-up-against kind of thing:
-          else:
-            # All the possible cases are:
-            #
-            #   1) first tuple entirely precedes second
-            #   2) second tuple begins inside first but ends after it
-            #   3) second tuple begins and ends inside first
-            #   4) second tuple begins *before* first and ends in it
-            #   5) second tuple begins and ends before first
-            #
-            # However, due to the conditional above, we must be in (2)
-            # or (3), and we only need to adjust last_length if (2).
-            if (this_offset + this_length) > (last_offset + last_length):
-              last_length = (this_offset - last_offset) + this_length
-        else:
-          new_used.append((last_offset, last_length))
-          last_offset = this_offset
-          last_length = this_length
-      else:
-        last_offset = this_offset
-        last_length = this_length
-    if last_offset is not None:
-      new_used.append((last_offset, last_length))
-    return new_used
-
-  def _get_next_offset(self, used):
-    """Return the next free offset from USED, which assumed to be in
-    consolidated form.  The minimum returned is PadSession.id_source_length;
-    that way the pad ID stretch is always accounted for, even if USED
-    was initialized from an old original-format pad record."""
-    cur_offset = None
-    # We don't do anything fancy, just get the earliest available
-    # offset past the last used tuple.  This means that any ranges in
-    # between tuples are wasted.  See comment in main() about
-    # discontinuous ranges for why this is okay.
-    for tup in used:
-      (this_offset, this_length) = tup
-      cur_offset = this_offset + this_length
-    if cur_offset is None or cur_offset < PadSession.id_source_length:
-      return PadSession.id_source_length
-    else:
-      return cur_offset
-    
-  def _parse_pad_records_file(self):
-    """Return a dictionary representing this configuration's 'pad-records'
-    file (e.g., ~/.onetime/pad-records).  If the file is empty, just
-    return an empty dictionary.
-
-    The returned dictionary is keyed on pad IDs, with sub-dictionaries
-    as values.  Each sub-dictionary's keys are the remaining element
-    names inside a pad element, and the value of the 'used' element is
-    a list of tuples, each tuple of the form (OFFSET, LENGTH).  So:
-
-       returned_dict[SHA256_SUM] ==> subdict
-       subdict['used'] ==> [(OFFSET1, LENGTH1), (OFFSET2, LENGTH2), ...]
-       subdict['some_elt_name'] ==> SOME_ELT_VALUE       <!-- if any -->
-       subdict['another_elt_name'] ==> ANOTHER_ELT_VALUE <!-- if any -->
-
-    A 'pad-records' file is an XML document like this:
-
-      <?xml version="1.0" encode="UTF-8"?>
-      <!DOCTYPE TYPE_OF_DOC SYSTEM/PUBLIC "dtd-name">
-      <onetime-pad-records>
-         <pad-record>
-           <id>SHA256_HASH_OF_FIRST_32_BYTES_OF_PAD</id>
-           <used><offset>OFFSET_A</offset>
-                 <length>LENGTH_A</length></used>
-           <used><offset>OFFSET_B</offset>
-                 <length>LENGTH_B</length></used>
-           ...
-         </pad-record>
-         <pad-record>
-           <id>SHA256_HASH_OF_FIRST_32_BYTES_OF_PAD</id>
-           <used><offset>OFFSET_C</offset>
-                 <length>LENGTH_C</length></used>
-           ...
-         </pad-record>
-         ...
-      </onetime-pad-records>
-      """
-    dict = { }
-
-    if self.config_area == '-':
-      return dict
-
-    try:
-      dom = xml.dom.minidom.parse(self.pad_records_file)
-
-      for pad in dom.firstChild.childNodes:
-        id = None
-        path = None
-        used = [ ]
-        if pad.nodeType == xml.dom.Node.ELEMENT_NODE:
-          subdict = { }
-          for pad_part in pad.childNodes:
-            if pad_part.nodeType == xml.dom.Node.ELEMENT_NODE:
-              if pad_part.nodeName == "id":
-                id = pad_part.childNodes[0].nodeValue
-              elif pad_part.nodeName == "used":
-                offset = None
-                length = None
-                for used_part in pad_part.childNodes:
-                  if used_part.nodeName == "offset":
-                    offset = int(used_part.childNodes[0].nodeValue)
-                  if used_part.nodeName == "length":
-                    length = int(used_part.childNodes[0].nodeValue)
-                used.append((offset, length))
-                subdict["used"] = self._consolidate_used_ranges(used)
-              else:
-                # Parse unknown elements transparently.
-                subdict[pad_part.nodeName] = pad_part.childNodes[0].nodeValue
-          if not subdict.has_key("used"):
-            # We don't require the "used" element to be present; if it's
-            # absent, it just means none of this pad has been used yet.
-            subdict["used"] = [ (0, 0) ]
-          dict[id] = subdict
-    except xml.parsers.expat.ExpatError:
-      pass
-    return dict
-    
-  def save(self):
-    """Save the pad-records file."""
-    if self.config_area == '-':
-      return
-    tempfile = self.pad_records_file + ".tmp"
-    # Deliberately not setting binary mode here; this is a text file.
-    fp = open(tempfile, 'w')
-    fp.write("<onetime-pad-records>\n")
-    for pad_id in self.pad_records.keys():
-      fp.write("  <pad-record>\n")
-      fp.write("    <id>%s</id>\n" % pad_id)
-      for tuple in self._consolidate_used_ranges(
-          self.pad_records[pad_id]["used"]):
-        fp.write("    <used><offset>%d</offset>\n" % tuple[0])
-        fp.write("          <length>%d</length></used>\n" % tuple[1])
-      for key in self.pad_records[pad_id].keys():
-        if key != "used":
-          fp.write("    <%s>%s</%s>\n" % \
-                   (key, self.pad_records[pad_id][key], key))
-      fp.write("  </pad-record>\n")
-    fp.write("</onetime-pad-records>\n")
-    fp.close()
-    # On some operating systems, renaming a file onto an existing file
-    # doesn't just silently overwrite the latter -- according to
-    # https://github.com/kfogel/OneTime/issues/13, Microsoft Windows
-    # will throw an error, for example.  So we do this rename very
-    # carefully, and in such a way as to not to destroy any pad
-    # records that might be left over from a past failed rename.
-    intermediate_tempfile = self.pad_records_file + ".int"
-    if os.path.exists(intermediate_tempfile):
-      raise ConfigurationError("Leftover intermediate pad-records file found;"
-                               "please sort things out:\n"
-                               "  %s" % intermediate_tempfile)
-    os.rename(self.pad_records_file, intermediate_tempfile)
-    os.rename(tempfile, self.pad_records_file)
-    os.remove(intermediate_tempfile)
-
-  def register(self, pad_sess):
-    """Register PAD_SESS's pad if it is not already registered, and
-    set its offset based on previously used regions for that pad, if any."""
-    next_offset = None
-    # This is a little complicated only because we need; to look for
-    # old original-style pad IDs and upgrade them if present.
-    if not self.pad_records.has_key(pad_sess.id()):
-      if self.pad_records.has_key(pad_sess.id(format_level="original")):
-        # Upgrade original-style record to internal style.
-        self.pad_records[pad_sess.id()] = self.pad_records[pad_sess.id(format_level="original")]
-        del self.pad_records[pad_sess.id(format_level="original")]
-      else:
-        # Initialize a new internal-style record.
-        self.pad_records[pad_sess.id()] = { "used" : [ ] }
-    else:
-      if self.pad_records.has_key(pad_sess.id(format_level="original")):
-        raise Configuration.ConfigurationError(
-          "Pad has both v2 and v1 IDs present in pad-records file:\n" \
-          "  v2: %s\n"                                                \
-          "  v1: %s\n"                                                \
-          "This is supposed to be impossible.  Please resolve."       \
-          % (pad_sess.id(), pad_sess.id(format_level="original")))
-    # One way or another, we now have an up-to-date v2 pad record.
-    # Set the next offset accordingly.
-    next_offset = self._get_next_offset(self.pad_records[pad_sess.id()]["used"])
-    pad_sess.set_offset(next_offset)
-
-  def record_consumed(self, pad_sess, allow_reconsumption):
-    """Record that PAD_SESS has used PAD_SESS.length() bytes starting
-    at PAD_SESS.offset().
-
-    If ALLOW_RECONSUMPTION is False, raise a ConfigurationError
-    if reconsuming any part of a range that has been consumed previously.
-    But if ALLOW_RECONSUMPTION is True, allow ranges to overlap.
-    Typically, it is False when encoding and True when decoding,
-    because it's okay to decode a message multiple times, but not to
-    re-use a range for encoding."""
-    used = self.pad_records[pad_sess.id()]["used"]
-    used.append((pad_sess.offset(), pad_sess.length()))
-    self.pad_records[pad_sess.id()]["used"] = self._consolidate_used_ranges(
-      used, allow_reconsumption)
-
-  def show_pad_records(self):
-    """Print pad records, presumably for debugging."""
-    for pad_id in self.pad_records.keys():
-      print "PadSession %s:" % pad_id
-      print "  used:", self.pad_records[pad_id]["used"]
 
 
 def license(outfile=sys.stdout):
@@ -1330,8 +1455,6 @@ def main():
       show_pad_id = True
     elif opt == '--no-trace' or opt == '-n':
       no_trace = True
-    elif opt == '--debug':
-      debug = 1
     else:
       sys.stderr.write("Error: unrecognized option: '%s'\n" % opt)
       error_exit = True
@@ -1382,19 +1505,16 @@ def main():
     sys.stderr.write("Error: unexpected arguments: %s\n" % args[1:])
     error_exit = True
 
-  if offset is not None and offset < PadSession.id_source_length:
+  if offset is not None and offset < PadSession._id_source_length:
       sys.stderr.write("Error: argument to --offset must be >= %d\n"
-                       % PadSession.id_source_length)
+                       % PadSession._id_source_length)
       error_exit = True
 
   if error_exit:
     usage(sys.stderr)
     sys.exit(1)
 
-  pad_sess = PadSession(pad_file)
-
-  config = Configuration(config_area)
-  config.register(pad_sess)
+  pad_sess = PadSession(pad_file, config_area, no_trace)
 
   if show_pad_id:
     print pad_sess.id()
@@ -1407,7 +1527,7 @@ def main():
 
   if offset is not None:
     pad_sess.set_offset(offset)
-    offset = None  # junk this; we'll rely on pad_sess for offset from now on
+    offset = None  # junk it; we'll rely on pad_sess for offset from now on
 
   # The first line of OneTime format level "internal" is the begin line.
   # Then comes the header: a group of lines followed by a blank line.
@@ -1443,7 +1563,7 @@ def main():
 
   if encrypting:
     output.write(onetime_header)
-    encoder = PadSessionEncoder(pad_sess, config)
+    encoder = SessionEncoder(pad_sess)
     while 1:
       string = incoming.read(8192)
       if len(string) > 0:
@@ -1489,12 +1609,12 @@ def main():
       m = re.match("Format: ([a-zA-Z0-9-]+) ", maybe_header_line)
       if m:
         format_level = m.group(1)
-        decoder = PadSessionDecoder(pad_sess, config, format_level)
+        decoder = SessionDecoder(pad_sess, format_level)
         continue
 
     if decoder is None:
       # If we saw no format header, it must be the old, original format.
-      decoder = PadSessionDecoder(pad_sess, config, "original")
+      decoder = SessionDecoder(pad_sess, "original")
 
     while 1:
       string = incoming.readline()
@@ -1505,7 +1625,7 @@ def main():
         try:
           result = decoder.decode(string)
         except (IOError, PadSession.InnerFormat,
-                PadSessionDecoder.DecodingError) as e:
+                SessionDecoder.DecodingError) as e:
           output.close()
           if output_name is not None:
             os.remove(output_name)
@@ -1520,22 +1640,17 @@ def main():
             output.close()
             if output_name is not None:
               os.remove(output_name)
-            raise PadSessionDecoder.DecodingError(
+            raise SessionDecoder.DecodingError(
               "unexpected input: '%s'" % string)
         if result:
           output.write(result)
       else:
         break
-    decoder.finalize()
+    decoder.finish()
     if not saw_end:
       sys.stderr.write("Error: malformed OneTime format: no end line.\n")
       sys.exit(1)
 
-  if (encrypting or decrypting) and not no_trace:
-    config.save()
-
-  if debug:
-    config.show_pad_records()
 
 if __name__ == '__main__':
   main()
