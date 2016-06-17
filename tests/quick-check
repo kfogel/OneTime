@@ -23,3 +23,5 @@ if ! cmp quick-check-tmp ${PLAINTEXT}; then
   diff -u quick-check-tmp ${PLAINTEXT}
   exit 1
 fi
+
+rm quick-check-tmp quick-check-tmp.onetime
