@@ -4,7 +4,7 @@
 # possible values, and see what results we get.  At least some of
 # those results should be message digest integrity errors.
 #
-# Suggested usage: 'probe.sh > probe.out 2>&1'
+# Suggested usage: './probe.sh > probe.out 2>&1'
 
 for posn in `python -c "for i in range(195,1050): print i"`; do
   cp input.onetime this-try.onetime
