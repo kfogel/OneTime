@@ -6,7 +6,7 @@
 #
 # Suggested usage: './probe.sh > probe.out 2>&1'
 
-for posn in `python -c "for i in range(195,1050): print i"`; do
+for posn in `python -c "for i in range(195,1046): print i"`; do
   cp input.onetime this-try.onetime
   for newval in `python -c "for i in range(0,256): print i"`; do
     ../zap this-try.onetime ${posn} ? ${newval}
