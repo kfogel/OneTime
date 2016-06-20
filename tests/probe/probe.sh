@@ -8,7 +8,7 @@
 
 for posn in `python -c "for i in range(195,1046): print i"`; do
   for newval in `python -c "for i in range(0,256): print i"`; do
-    rm this-try
+    rm -f this-try
     cp input.onetime this-try.onetime
     ../zap this-try.onetime ${posn} ? ${newval}
     echo ""
@@ -19,7 +19,14 @@ for posn in `python -c "for i in range(195,1046): print i"`; do
     # message will decrypt perfectly, which is fine.
     ../../onetime -n -d -p ../test-pad-1 this-try.onetime
     if [ -f this-try ]; then
-      echo "Successful decryption."
+      if grep -q "Hello, world" this-try; then
+        echo "Successful decryption (posn ${posn}, newval ${newval})."
+      elif [ -s this-try ]; then
+        echo "Non-empty but wrong plaintext: posn ${posn}, newval ${newval}"
+        cp this-try this-try-posn-${posn}-newval-${newval}
+      else
+        echo "Zero-sized plaintext file produced."
+      fi
     fi
   done
 done
