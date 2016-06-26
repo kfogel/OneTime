@@ -39,10 +39,10 @@
 # test who doesn't currently have a ~/.onetime directory will suddenly
 # have one afterwards, which would be bad behavior for a test suite.
 
-TEST_PAD_1_ID="f8cdde43117cbff08554666b4960b3febc9a355aef1735324defd513360fa201"
+TEST_PAD_1_ID="6d0031fd04e927feb893aad9478b9e7e213b56e7fc766fdb57f12d3a55fa36e4"
 TEST_PAD_1_V1_ID="6af6d0ac17081705cec30833da3cd436a400c429"
 
-TEST_PAD_2_ID="e7021cbf484f8cee4d05da03b0bdb865927de189a066df03def49fff14943235"
+TEST_PAD_2_ID="7613667562635a22e62c55aabbb22d7a39bc368a8d2263e611db5caa215cc4cf"
 TEST_PAD_2_V1_ID="de61f169bce003a1189b3e6ebb8ddfc0ef007ac2"
 
 # See start_new_test() and check_result() for what these do.
@@ -941,24 +941,31 @@ fi
 check_result
 
 ########################################################################
-start_new_test "tampering with head fuzz causes authentication error"
+start_new_test "tampering with head fuzz should have no effect"
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
-# Offset is 32, head fuzz length 395, for this one.  In the
-# base64-encoded ciphertext file, position 244 is 'F' (70). 
-../zap tmp-ciphertext-b-1 244 70 71
+# Offset is 32, head fuzz length 395, for this one.
+../zap tmp-ciphertext-b-1 244 ? 88
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
-    < tmp-ciphertext-b-1 2>err.out
-if ! grep -q "FuzzMismatch: expected fuzz does not match message fuzz" err.out
+    -o tmp-plaintext-b-1 < tmp-ciphertext-b-1 2>err.out
+if grep -q "FuzzMismatch" err.out
 then
   echo ""
-  echo "ERROR: did not see expected FuzzMismatch error"
+  echo "ERROR: saw unexpected FuzzMismatch error on tampered head fuzz"
   cat err.out
   PASSED="no"
 fi
 
-check_result
+if ! cmp ../test-plaintext-b tmp-plaintext-b-1
+then
+  echo ""
+  echo "ERROR: decryption failed when head fuzz tampered with"
+  cat tmp-plaintext-b-1
+  PASSED="no"
+fi
+
+exit 0
 
 ########################################################################
 start_new_test "tampering with ciphertext causes bzip decoder error"
@@ -1008,18 +1015,17 @@ fi
 check_result
 
 ########################################################################
-start_new_test "tampering with tail fuzz causes authentication error"
+start_new_test "tampering with tail fuzz should have no effect"
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
-# In the base64-encoded ciphertext file, position 17110 is 'B' (66).
-../zap tmp-ciphertext-b-1 17110 66 65
+../zap tmp-ciphertext-b-1 17110 ? 52
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     -o tmp-plaintext-b-1 < tmp-ciphertext-b-1 2>err.out
-if ! grep -q "FuzzMismatch: expected fuzz does not match message fuzz" err.out
+if grep -q "FuzzMismatch" err.out
 then
   echo ""
-  echo "ERROR: did not see expected FuzzMismatch error for tail fuzz"
+  echo "ERROR: saw unexpected FuzzMismatch error on tampered tail fuzz"
   cat err.out
   PASSED="no"
 fi
@@ -1075,13 +1081,13 @@ start_new_test "tampering with message digest causes authentication error"
 ../zap tmp-ciphertext-a-1 839 102 103
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     -o tmp-plaintext-a-1 < tmp-ciphertext-a-1 2>err.out
-if ! grep -q "FuzzMismatch: message digest mismatch:" err.out|| \
+if ! grep -q "DigestMismatch: message digest mismatch:" err.out|| \
    ! grep -q "  expected: a8a2f6ebe286697c527eb35a58b5539532e9b3ae3b64d4eb0a46fb657b41562c" err.out || \
    ! grep -q "     found: a8a2f6ebe286697c527eb35a58b5539532e9b3ae3b64d4e8fa46fb657b41562c" err.out
    # they differ here, in case you're curious  ----------------------->  ^^   
 then
   echo ""
-  echo "ERROR: did not see expected FuzzMismatch message digest error"
+  echo "ERROR: did not see expected DigestMismatch message digest error"
   cat err.out
   PASSED="no"
 fi

@@ -37,14 +37,14 @@
     note to 2.x beta testers</span>: Pad IDs changed
     <span style="text-decoration: underline;" >during</span> the
     development process for 2.0 too, so if you used interim 2.0 beta
-    versions, then you will probably need to fix your
+    versions, you may need to fix your
     ~/.onetime/pad-records file&nbsp;&mdash;&nbsp;otherwise there is a
     danger of pad range reuse!  For each of your pad files, run the
     command "<tt>onetime&nbsp;-p&nbsp;PAD_FILE&nbsp;--show-id</tt>"
-    with your older 2.0-beta version of onetime, save the outputs, and
-    then upgrade onetime to 2.0-beta10 or later and run the same
-    command for each pad.  Use the two output sets to manually update
-    the pad IDs in your ~/.onetime/pad-records file.</p></li>
+    with whatever 2.0-beta version of onetime you were using, save the
+    outputs, and then upgrade onetime to 2.0-beta12 or later and run
+    the same command for each pad.  Use the two output sets to
+    manually update the pad IDs in ~/.onetime/pad-records.</p></li>
 <li><p>Message authentication and integrity checking, based on an
     embedded SHA-256 digest in the ciphertext and on the message's
     position within the ciphertext being based on surrounding pad data.
