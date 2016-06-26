@@ -965,8 +965,6 @@ then
   PASSED="no"
 fi
 
-exit 0
-
 ########################################################################
 start_new_test "tampering with ciphertext causes bzip decoder error"
 ## Encrypt message
