@@ -950,7 +950,11 @@ must be used for all subsequent calls with that instance.
     fuzz has been consumed, the first element in that tuple will be 0.)"""
     try:
       # The max amount we can actually consume in this call.
+      sys.stderr.write("KFF: _consume_fuzz_bytes: num_bytes: %d, string: %d\n" % (num_bytes, len(string)))
+      sys.stderr.flush()
       consumable_len = min(len(string), num_bytes)
+      sys.stderr.write("KFF: _consume_fuzz_bytes consumable_len: %s\n" % consumable_len)
+      sys.stderr.flush()
       pad_data = self.padfile.read(consumable_len)
       self._length += consumable_len
       if hasher is not None:
@@ -958,9 +962,6 @@ must be used for all subsequent calls with that instance.
         for i in range(consumable_len):
           hash_input += chr(ord(string[i]) ^ ord(pad_data[i]))
         hasher.update(hash_input)
-        sys.stderr.write("KFF: _consume_fuzz (%d) head fuzz digest: %s\n"
-                         % (consumable_len, hasher.hexdigest()))
-        sys.stderr.flush()
       num_bytes_remaining = max(0, num_bytes - len(string))
       return [num_bytes_remaining, string[consumable_len:]]
     except EOFError:
@@ -1136,9 +1137,13 @@ when making head fuzz but not when making tail fuzz.)"""
     head_fuzz_length, head_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    sys.stderr.write("KFF: _mih: generated head_fuzz_length: %d\n" % head_fuzz_length)
+    sys.stderr.flush()
     self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    sys.stderr.write("KFF: _mih: head fuzz length: %d\n" % head_fuzz_length)
+    sys.stderr.flush()
     head_fuzz = self._make_fuzz(head_fuzz_length, self._head_fuzz_hash)
     result = chr(inner_header_format_version)       \
              + chr(fuzz_source_length_indicator)    \
@@ -1188,11 +1193,23 @@ when making head fuzz but not when making tail fuzz.)"""
           = self._get_fuzz_length_from_pad(
             self._default_fuzz_source_length, 
             self._default_fuzz_source_modulo)
+        sys.stderr.write("KFF: _hih: about to try to consume head_fuzz_length: %d\n" % head_fuzz_length)
+        sys.stderr.flush()
+        # TBD: Something is obviously wrong here.  We're capturing
+        # these return values but then never using them.  They should
+        # be passed to successive invocations, one would think.  This
+        # has something to do with why the head_fuzz digest is not
+        # being computed properly on decryption, but it is surely also
+        # a latent bug independently of that.
         num_bytes_remaining, head_fuzz_remaining \
           = self._consume_fuzz_bytes(
             head_fuzz_length, 
             string[2 + (self._default_fuzz_source_length * 2):],
             self._head_fuzz_hash)
+        sys.stderr.write("KFF: _hih head fuzz digest: %s\n" % self._head_fuzz_hash.hexdigest())
+        sys.stderr.write("KFF: _hih: num_bytes_remaining: %d\n" % num_bytes_remaining)
+        sys.stderr.write("KFF: _hih: head_fuzz_remaining: %d\n" % len(head_fuzz_remaining))
+        sys.stderr.flush()
         length_to_skip += (self._default_fuzz_source_length * 2) \
                           + head_fuzz_length
       else:
