@@ -764,6 +764,8 @@ must be used for all subsequent calls with that instance.
         else:
           num_bytes_to_consume_now = self._pad_remaining_to_skip
         self._pad_remaining_to_skip = new_pad_remaining
+        sys.stderr.write("KFF: convert: about to call _consume_fuzz_bytes (%d)\n" % num_bytes_to_consume_now)
+        sys.stderr.flush()
         bytes_unconsumed, string = self._consume_fuzz_bytes(
           num_bytes_to_consume_now, string)
         self._pad_remaining_to_skip += bytes_unconsumed
@@ -1193,7 +1195,7 @@ when making head fuzz but not when making tail fuzz.)"""
           = self._get_fuzz_length_from_pad(
             self._default_fuzz_source_length, 
             self._default_fuzz_source_modulo)
-        sys.stderr.write("KFF: _hih: about to try to consume head_fuzz_length: %d\n" % head_fuzz_length)
+        sys.stderr.write("KFF: _hih: about to call _consume_fuzz_bytes(%d head_fuzz_length):\n" % head_fuzz_length)
         sys.stderr.flush()
         # TBD: Something is obviously wrong here.  We're capturing
         # these return values but then never using them.  They should
@@ -1295,6 +1297,8 @@ when making head fuzz but not when making tail fuzz.)"""
         # is important for avoiding pad re-use -- that's the bug for
         # which a test was added in commit 9e8422f07.
         self._verify_digests(msg_hash)
+        sys.stderr.write("KFF: finish: about to call _consume_fuzz_bytes (%d _tail_fuzz_length)\n" % self._tail_fuzz_length)
+        sys.stderr.flush()
         bytes_remaining, str_remaining = self._consume_fuzz_bytes(
           self._tail_fuzz_length, 
           self._tail_buffer[(PadSession._digest_length * 2):])
