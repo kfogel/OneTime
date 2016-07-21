@@ -548,19 +548,19 @@ class RandomEnough:
   def __init__ (self, seed=None):
     """Initialize, optionally with integer SEED."""
     self._seed = seed
+    if self._seed is not None:
+      random.seed(self._seed)
   def rand_bytes(self, num):
     """Return NUM random bytes."""
     try:
-      raise NotImplementedError("just testing")
-      return os.urandom(num)
-    except NotImplementedError:
       # Would be nice to use a random.SystemRandom object here if one
       # is available, but the Python documentation says that class is
       # not supported on all systems, while not specifying what error
       # is raised if it's not supported.  (Maybe one is just supposed
       # to check directly for it in random.__dict__?)
-      if self._seed is not None:
-        random.seed(self._seed)
+      raise NotImplementedError("just testing")
+      return os.urandom(num)
+    except NotImplementedError:
       ret_data = bytearray(b'\x00' * num)
       for i in range(num):
         ret_data[i] = chr(random.randint(0, 255))
@@ -597,7 +597,7 @@ but it still needs to be a new object due to certain initializations)."""
     self._length = 0  # number of pad bytes used this time
     self._default_fuzz_source_length = 2   # See _get_fuzz_length_from_pad()
     self._default_fuzz_source_modulo = 512 # and see _make_inner_header().
-    self._randy = RandomEnough()
+    self._randy = RandomEnough(1729)
 
     # These are just caches for self.id(), which see.
     self._id = None
@@ -756,6 +756,9 @@ must be used for all subsequent calls with that instance.
           if pad_remaining > 0:
             self._pad_remaining_to_skip = pad_remaining
       if self._pad_remaining_to_skip > 0:
+        # TODO: Ahh, we're storing _pad_remaining_to_skip in self!
+        # TODO: These "pad_remaining_..." vars should be named
+        #       "fuzz_remaining_..." instead.
         new_pad_remaining = 0
         num_bytes_to_consume_now = None
         if self._pad_remaining_to_skip > len(string):
@@ -766,9 +769,12 @@ must be used for all subsequent calls with that instance.
         self._pad_remaining_to_skip = new_pad_remaining
         sys.stderr.write("KFF: convert: about to call _consume_fuzz_bytes (%d)\n" % num_bytes_to_consume_now)
         sys.stderr.flush()
-        bytes_unconsumed, string = self._consume_fuzz_bytes(
-          num_bytes_to_consume_now, string)
-        self._pad_remaining_to_skip += bytes_unconsumed
+        num_fuzz_bytes_remaining, string = self._consume_fuzz_bytes(
+          num_bytes_to_consume_now, string, self._head_fuzz_hash)
+        self._pad_remaining_to_skip += num_fuzz_bytes_remaining
+        if self._pad_remaining_to_skip == 0:
+          sys.stderr.write("KFF: convert: final head_fuzz digest: %s\n" % self._head_fuzz_hash.hexdigest())
+          sys.stderr.flush()
 
       # Once we've handled any inner headers, buffer for decrypting.
       if self._decrypting:
@@ -939,17 +945,26 @@ must be used for all subsequent calls with that instance.
     return [fuzz_skip_len % modulo, fuzz_length_source]
 
   def _consume_fuzz_bytes(self, num_bytes, string, hasher=None):
-    """Consume the next NUM_BYTES of fuzz from STRING.
+    """Consume as much of the next NUM_BYTES of fuzz from STRING as possible.
     STRING is a window of source material that starts with fuzz, but
     may continue on into non-fuzz.  If STRING is shorter than NUM_BYTES,
     consume as much as possible.
 
+    Return a tuple of [num_fuzz_bytes_remaining, unconsumed_string].  
+    If all the fuzz has been consumed, the first element will be 0, 
+    and the second element will be a string (though possibly of zero
+    length, if the fuzz ended exactly with the end of STRING).  If
+    there is still fuzz left to be consumed, but STRING wasn't long
+    enough for us to reach the remainder of the fuzz, then the first
+    element will be the amount of fuzz left -- that is, the amount of
+    fuzz that must still be consumed in future calls with new STRING
+    arguments -- and the second element will definitely be a string of
+    zero length, because we consumed all of STRING to get as much fuzz
+    as possible in this call.
+
     If HASHER is not None, it is a hashlib.sha256 object to be updated
     from the NUM_BYTES of pad data read.  (Typically, HASHER is passed
-    when consuming head fuzz but not when consuming tail fuzz.)
-
-    Return a tuple of [num_bytes_remaining, string_remaining].  (When all
-    fuzz has been consumed, the first element in that tuple will be 0.)"""
+    when consuming head fuzz but not when consuming tail fuzz.)"""
     try:
       # The max amount we can actually consume in this call.
       sys.stderr.write("KFF: _consume_fuzz_bytes: num_bytes: %d, string: %d\n" % (num_bytes, len(string)))
@@ -963,7 +978,20 @@ must be used for all subsequent calls with that instance.
         hash_input = ""
         for i in range(consumable_len):
           hash_input += chr(ord(string[i]) ^ ord(pad_data[i]))
+        if consumable_len == 51:
+          kff_tmp_hasher = hashlib.sha256()
+          kff_tmp_hasher.update(hash_input[:51])
+          sys.stderr.write("KFF: _consume_fuzz_bytes: tmp hash of up to 51 head fuzz bytes: %s\n" % kff_tmp_hasher.hexdigest())
+          sys.stderr.write("KFF: _consume_fuzz_bytes: FIRST 51 BYTES:\n   ")
+          sys.stderr.flush()
+          for b in hash_input[0:51]:
+            sys.stderr.write("%c" % b)
+            sys.stderr.flush()      
+          sys.stderr.write("\n")
+        sys.stderr.write("KFF: _consume_fuzz_bytes: updating hash with %d bytes\n" % len(hash_input))
         hasher.update(hash_input)
+        sys.stderr.write("KFF: _consume_fuzz_bytes: this head_fuzz digest: %s\n" % self._head_fuzz_hash.hexdigest())
+        sys.stderr.flush()
       num_bytes_remaining = max(0, num_bytes - len(string))
       return [num_bytes_remaining, string[consumable_len:]]
     except EOFError:
@@ -977,14 +1005,27 @@ when making head fuzz but not when making tail fuzz.)"""
     try:
       rnd_data = self._randy.rand_bytes(num_bytes)
       pad_data = self.padfile.read(num_bytes)
-      if hasher is not None:
-        hasher.update(pad_data)
-        sys.stderr.write("KFF: _make_fuzz: head fuzz digest: %s\n" % hasher.hexdigest())
-        sys.stderr.flush()
-      ret_data = bytearray(b'\x00' * num_bytes)
+      # ret_data = bytearray(b'\x00' * num_bytes)
+      ret_data = ''
       self._length += num_bytes
       for i in range(num_bytes):
-        ret_data[i] = chr(ord(rnd_data[i]) ^ ord(pad_data[i]))
+        ret_data = ret_data + chr(ord(rnd_data[i]) ^ ord(pad_data[i]))
+      # kff_out = open("/home/kfogel/src/onetime/kff-head-fuzz.out", "ab")
+      # kff_out.write(ret_data)
+      # kff_out.close()
+      if hasher is not None:
+        kff_tmp_hasher = hashlib.sha256()
+        kff_tmp_hasher.update(ret_data[:51])
+        sys.stderr.write("KFF: _make_fuzz: tmp hash of 51 head fuzz bytes: %s\n" % kff_tmp_hasher.hexdigest())
+        sys.stderr.flush()
+        sys.stderr.write("KFF: _make_fuzz: FIRST 51 BYTES: \n   ")
+        for b in ret_data[0:51]:
+          sys.stderr.write("%c" % b)
+          sys.stderr.flush()      
+        sys.stderr.write("\n")
+        hasher.update(ret_data)
+        sys.stderr.write("KFF: _make_fuzz: head fuzz (%d) digest: %s\n" % (num_bytes, hasher.hexdigest()))
+        sys.stderr.flush()
     except EOFError:
       raise PadSession.PadShort(
         "not enough pad available to supply fuzz data")
@@ -1195,22 +1236,21 @@ when making head fuzz but not when making tail fuzz.)"""
           = self._get_fuzz_length_from_pad(
             self._default_fuzz_source_length, 
             self._default_fuzz_source_modulo)
-        sys.stderr.write("KFF: _hih: about to call _consume_fuzz_bytes(%d head_fuzz_length):\n" % head_fuzz_length)
+        sys.stderr.write("KFF: _hih: about to call _consume_fuzz_bytes(head_fuzz_length == %d):\n" % head_fuzz_length)
         sys.stderr.flush()
-        # TBD: Something is obviously wrong here.  We're capturing
-        # these return values but then never using them.  They should
-        # be passed to successive invocations, one would think.  This
-        # has something to do with why the head_fuzz digest is not
-        # being computed properly on decryption, but it is surely also
-        # a latent bug independently of that.
-        num_bytes_remaining, head_fuzz_remaining \
+        # TODO: We're capturing these return values but then never
+        # using them, except for debugging.  That seems odd.  Check
+        # with later return of remaining amount to see if at least
+        # there's an assertion that could be checked.
+        sys.stderr.write("KFF: _hih: head fuzz digest before anything: %s\n" % self._head_fuzz_hash.hexdigest())
+        num_fuzz_bytes_remaining, unconsumed_string \
           = self._consume_fuzz_bytes(
             head_fuzz_length, 
             string[2 + (self._default_fuzz_source_length * 2):],
             self._head_fuzz_hash)
-        sys.stderr.write("KFF: _hih head fuzz digest: %s\n" % self._head_fuzz_hash.hexdigest())
-        sys.stderr.write("KFF: _hih: num_bytes_remaining: %d\n" % num_bytes_remaining)
-        sys.stderr.write("KFF: _hih: head_fuzz_remaining: %d\n" % len(head_fuzz_remaining))
+        sys.stderr.write("KFF: _hih: head fuzz digest after first call: %s\n" % self._head_fuzz_hash.hexdigest())
+        sys.stderr.write("KFF: _hih: num_fuzz_bytes_remaining after first call: %d\n" % num_fuzz_bytes_remaining)
+        sys.stderr.write("KFF: _hih: unconsumed_string after first call: %d\n" % len(unconsumed_string))
         sys.stderr.flush()
         length_to_skip += (self._default_fuzz_source_length * 2) \
                           + head_fuzz_length
@@ -1232,6 +1272,7 @@ when making head fuzz but not when making tail fuzz.)"""
       raise PadSession.InnerFormat("unknown inner format version \"%d\""
                             % inner_format_version)
     amount_left_to_skip = 0;
+    # TODO: Check above TODO against these calculations:
     if len(string) < length_to_skip:
       amount_left_to_skip = length_to_skip - len(string);
       return ["", amount_left_to_skip];
@@ -1299,10 +1340,10 @@ when making head fuzz but not when making tail fuzz.)"""
         self._verify_digests(msg_hash)
         sys.stderr.write("KFF: finish: about to call _consume_fuzz_bytes (%d _tail_fuzz_length)\n" % self._tail_fuzz_length)
         sys.stderr.flush()
-        bytes_remaining, str_remaining = self._consume_fuzz_bytes(
+        num_fuzz_bytes_remaining, unconsumed_string = self._consume_fuzz_bytes(
           self._tail_fuzz_length, 
           self._tail_buffer[(PadSession._digest_length * 2):])
-        if bytes_remaining != 0 or str_remaining != '':
+        if num_fuzz_bytes_remaining != 0 or unconsumed_string != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
       else:
         raise PadSession.OverPrepared(
