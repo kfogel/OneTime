@@ -1009,18 +1009,21 @@ when making head fuzz but not when making tail fuzz.)"""
       ret_data = ''
       self._length += num_bytes
       for i in range(num_bytes):
+        # TODO: The problem is that here hasher hashes rnd + pad,
+        # whereas when we consume fuzz, we hash rnd - pad, right?
         ret_data = ret_data + chr(ord(rnd_data[i]) ^ ord(pad_data[i]))
-      # kff_out = open("/home/kfogel/src/onetime/kff-head-fuzz.out", "ab")
-      # kff_out.write(ret_data)
-      # kff_out.close()
       if hasher is not None:
         kff_tmp_hasher = hashlib.sha256()
         kff_tmp_hasher.update(ret_data[:51])
         sys.stderr.write("KFF: _make_fuzz: tmp hash of 51 head fuzz bytes: %s\n" % kff_tmp_hasher.hexdigest())
         sys.stderr.flush()
-        sys.stderr.write("KFF: _make_fuzz: FIRST 51 BYTES: \n   ")
-        for b in ret_data[0:51]:
-          sys.stderr.write("%c" % b)
+        sys.stderr.write(
+          "KFF: _make_fuzz: FIRST 51 BYTES of ret_data(%d): \n   "
+          % len(ret_data))
+        i = 0 # KFF debugging
+        for b in ret_data[:51]:
+          sys.stderr.write("[%d]%c " % (i, b))
+          i += 1
           sys.stderr.flush()      
         sys.stderr.write("\n")
         hasher.update(ret_data)
