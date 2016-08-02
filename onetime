@@ -767,14 +767,9 @@ must be used for all subsequent calls with that instance.
         else:
           num_bytes_to_consume_now = self._pad_remaining_to_skip
         self._pad_remaining_to_skip = new_pad_remaining
-        sys.stderr.write("KFF: convert: about to call _consume_fuzz_bytes (%d)\n" % num_bytes_to_consume_now)
-        sys.stderr.flush()
         num_fuzz_bytes_remaining, string = self._consume_fuzz_bytes(
           num_bytes_to_consume_now, string, self._head_fuzz_hash)
         self._pad_remaining_to_skip += num_fuzz_bytes_remaining
-        if self._pad_remaining_to_skip == 0:
-          sys.stderr.write("KFF: convert: final head_fuzz digest: %s\n" % self._head_fuzz_hash.hexdigest())
-          sys.stderr.flush()
 
       # Once we've handled any inner headers, buffer for decrypting.
       if self._decrypting:
@@ -967,31 +962,14 @@ must be used for all subsequent calls with that instance.
     when consuming head fuzz but not when consuming tail fuzz.)"""
     try:
       # The max amount we can actually consume in this call.
-      sys.stderr.write("KFF: _consume_fuzz_bytes: num_bytes: %d, string: %d\n" % (num_bytes, len(string)))
-      sys.stderr.flush()
       consumable_len = min(len(string), num_bytes)
-      sys.stderr.write("KFF: _consume_fuzz_bytes consumable_len: %s\n" % consumable_len)
-      sys.stderr.flush()
       pad_data = self.padfile.read(consumable_len)
       self._length += consumable_len
       if hasher is not None:
         hash_input = ""
         for i in range(consumable_len):
           hash_input += chr(ord(string[i]) ^ ord(pad_data[i]))
-        if consumable_len == 51:
-          kff_tmp_hasher = hashlib.sha256()
-          kff_tmp_hasher.update(hash_input[:51])
-          sys.stderr.write("KFF: _consume_fuzz_bytes: tmp hash of up to 51 head fuzz bytes: %s\n" % kff_tmp_hasher.hexdigest())
-          sys.stderr.write("KFF: _consume_fuzz_bytes: FIRST 51 BYTES:\n   ")
-          sys.stderr.flush()
-          for b in hash_input[0:51]:
-            sys.stderr.write("%c" % b)
-            sys.stderr.flush()      
-          sys.stderr.write("\n")
-        sys.stderr.write("KFF: _consume_fuzz_bytes: updating hash with %d bytes\n" % len(hash_input))
         hasher.update(hash_input)
-        sys.stderr.write("KFF: _consume_fuzz_bytes: this head_fuzz digest: %s\n" % self._head_fuzz_hash.hexdigest())
-        sys.stderr.flush()
       num_bytes_remaining = max(0, num_bytes - len(string))
       return [num_bytes_remaining, string[consumable_len:]]
     except EOFError:
@@ -1013,28 +991,7 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
         # whereas when we consume fuzz, we hash rnd - pad, right?
         ret_data = ret_data + chr(ord(rnd_data[i]) ^ ord(pad_data[i]))
       if hasher is not None:
-        kff_tmp_hasher = hashlib.sha256()
-        sys.stderr.write("KFF: _make_fuzz: num_bytes:     %d\n" % num_bytes)
-        sys.stderr.write("KFF: _make_fuzz: len(pad_data): %d\n" % len(pad_data))
-        sys.stderr.write("KFF: _make_fuzz: len(rnd_data): %d\n" % len(rnd_data))
-        sys.stderr.write("KFF: _make_fuzz: len(ret_data): %d\n" % len(ret_data))
-        sys.stderr.write("\n")
-        sys.stderr.flush()
-        sys.stderr.write(
-          "KFF: _make_fuzz: FIRST 51 BYTES of rnd_data(%d): \n   "
-          % len(rnd_data))
-        i = 0 # KFF debugging
-        for b in rnd_data[0:51]:
-          sys.stderr.write("  [%d]\n  %c\n" % (i, b))
-          sys.stderr.flush()      
-          i += 1
-        sys.stderr.write("\n")
-        kff_tmp_hasher.update(rnd_data[:51])
-        sys.stderr.write("KFF: _make_fuzz: tmp hash of 51 head fuzz rnd_data bytes: %s\n" % kff_tmp_hasher.hexdigest())
-        sys.stderr.flush()
         hasher.update(rnd_data)
-        sys.stderr.write("KFF: _make_fuzz: head fuzz (%d) digest: %s\n" % (num_bytes, hasher.hexdigest()))
-        sys.stderr.flush()
     except EOFError:
       raise PadSession.PadShort(
         "not enough pad available to supply fuzz data")
@@ -1189,13 +1146,9 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
     head_fuzz_length, head_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    sys.stderr.write("KFF: _mih: generated head_fuzz_length: %d\n" % head_fuzz_length)
-    sys.stderr.flush()
     self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    sys.stderr.write("KFF: _mih: head fuzz length: %d\n" % head_fuzz_length)
-    sys.stderr.flush()
     head_fuzz = self._make_fuzz(head_fuzz_length, self._head_fuzz_hash)
     result = chr(inner_header_format_version)       \
              + chr(fuzz_source_length_indicator)    \
@@ -1245,22 +1198,15 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
           = self._get_fuzz_length_from_pad(
             self._default_fuzz_source_length, 
             self._default_fuzz_source_modulo)
-        sys.stderr.write("KFF: _hih: about to call _consume_fuzz_bytes(head_fuzz_length == %d):\n" % head_fuzz_length)
-        sys.stderr.flush()
         # TODO: We're capturing these return values but then never
         # using them, except for debugging.  That seems odd.  Check
         # with later return of remaining amount to see if at least
         # there's an assertion that could be checked.
-        sys.stderr.write("KFF: _hih: head fuzz digest before anything: %s\n" % self._head_fuzz_hash.hexdigest())
         num_fuzz_bytes_remaining, unconsumed_string \
           = self._consume_fuzz_bytes(
             head_fuzz_length, 
             string[2 + (self._default_fuzz_source_length * 2):],
             self._head_fuzz_hash)
-        sys.stderr.write("KFF: _hih: head fuzz digest after first call: %s\n" % self._head_fuzz_hash.hexdigest())
-        sys.stderr.write("KFF: _hih: num_fuzz_bytes_remaining after first call: %d\n" % num_fuzz_bytes_remaining)
-        sys.stderr.write("KFF: _hih: unconsumed_string after first call: %d\n" % len(unconsumed_string))
-        sys.stderr.flush()
         length_to_skip += (self._default_fuzz_source_length * 2) \
                           + head_fuzz_length
       else:
@@ -1302,32 +1248,15 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
       this_digest = this_hash.digest()
       pad_bytes = self.padfile.read(PadSession._digest_length)
       self._length += PadSession._digest_length
-      sys.stderr.write("KFF: PadSession._verify: posn after '%s': %d\n" 
-                       % (this_string, (self._offset + self._length)))
-      sys.stderr.flush()
       received_digest = ''
       if this_string == "message": # KFF: BUG FIX
         this_buffer = this_buffer[PadSession._digest_length:]
       for i in range(PadSession._digest_length):
         received_digest += chr(ord(this_buffer[i]) ^ ord(pad_bytes[i]))
-      sys.stderr.write("KFF: _verify: raw digest:\n")
-      sys.stderr.flush()
-      i = 0 # KFF debugging
-      for b in received_digest:
-        sys.stderr.write("  [%d]\n  %c\n" % (i, b))
-        sys.stderr.flush()      
-        i += 1
-      sys.stderr.write("KFF: _verify: %s digest: %s\n" 
-                       % (this_string, this_hash.hexdigest()))
-      sys.stderr.flush()
       if this_digest != received_digest:
         raise PadSession.DigestMismatch(
           "%s digest mismatch:\n  computed: %s\n  received: %s\n"
           % (this_string, this_hash.hexdigest(), received_digest.encode('hex')))
-      else: # KFF: this whole 'else' clause is for debugging only
-        sys.stderr.write("KFF: _verify: verified %s:\n  %s\n" 
-                         % (this_string, this_hash.hexdigest()))
-        sys.stderr.flush()
 
   def finish(self, msg_hash):
     """Close out this pad session.  If this PadSession is at an
@@ -1347,26 +1276,8 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
         raise PadSession.PadSessionUninitialized(
           "tail fuzz length never initialized")
       elif self._encrypting:
-        sys.stderr.write("KFF: PadSession.finish: posn before hashes: %d\n" 
-                         % (self._offset + self._length))
-        sys.stderr.flush()
         remainder  = self.convert(self._head_fuzz_hash.digest())
-        sys.stderr.write("KFF: PadSession.finish: msg raw digest:\n")
-        sys.stderr.flush()
-        i = 0 # KFF debugging
-        for b in msg_hash.digest():
-          sys.stderr.write("  [%d]\n  %c\n" % (i, b))
-          sys.stderr.flush()      
-          i += 1
         remainder += self.convert(msg_hash.digest())
-        sys.stderr.write("KFF: PadSession.finish: posn after hashes:  %d\n" 
-                         % (self._offset + self._length))
-        sys.stderr.flush()
-        sys.stderr.write("KFF: PadSession.finish: head_fuzz_hash: %s\n" 
-                         % self._head_fuzz_hash.hexdigest())
-        sys.stderr.write("KFF: PadSession.finish: msg_hash: %s\n" 
-                         % msg_hash.hexdigest())
-        sys.stderr.flush()
         remainder += self._make_fuzz(self._tail_fuzz_length)
       elif self._decrypting:
         # Decryption has already succeeded by the time we encounter
@@ -1382,18 +1293,7 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
         # of recording that last bit of pad usage on decryption, which
         # is important for avoiding pad re-use -- that's the bug for
         # which a test was added in commit 9e8422f07.
-        sys.stderr.write("KFF: PadSession.finish: posn before verification: %d\n" 
-                         % (self._offset + self._length))
-        sys.stderr.flush()
-        sys.stderr.write(
-          "KFF: finish: about to call _verify_digests.  msg_hash: %s\n"
-          % msg_hash.hexdigest())
         self._verify_digests(msg_hash)
-        sys.stderr.write("KFF: PadSession.finish: posn after verification: %d\n" 
-                         % (self._offset + self._length))
-        sys.stderr.flush()
-        sys.stderr.write("KFF: finish: about to call _consume_fuzz_bytes (%d _tail_fuzz_length)\n" % self._tail_fuzz_length)
-        sys.stderr.flush()
         num_fuzz_bytes_remaining, unconsumed_string = self._consume_fuzz_bytes(
           self._tail_fuzz_length, 
           self._tail_buffer[(PadSession._digest_length * 2):])
