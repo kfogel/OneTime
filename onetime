@@ -1242,17 +1242,17 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
     error showing the two digests in hexadecimal format."""
     for frame in ((self._head_fuzz_hash, "head fuzz"),
                   (msg_hash,             "message")):
-      this_buffer = self._tail_buffer
       this_hash   = frame[0]
       this_string = frame[1]
       this_digest = this_hash.digest()
       pad_bytes = self.padfile.read(PadSession._digest_length)
       self._length += PadSession._digest_length
       received_digest = ''
-      if this_string == "message": # KFF: BUG FIX
-        this_buffer = this_buffer[PadSession._digest_length:]
       for i in range(PadSession._digest_length):
-        received_digest += chr(ord(this_buffer[i]) ^ ord(pad_bytes[i]))
+        received_digest += chr(ord(self._tail_buffer[i]) ^ ord(pad_bytes[i]))
+      # Advance the tail buffer past the part we've just consumed.
+      self._tail_buffer = self._tail_buffer[PadSession._digest_length:]
+      # Finally, verify the digests.
       if this_digest != received_digest:
         raise PadSession.DigestMismatch(
           "%s digest mismatch:\n  computed: %s\n  received: %s\n"
@@ -1295,8 +1295,7 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
         # which a test was added in commit 9e8422f07.
         self._verify_digests(msg_hash)
         num_fuzz_bytes_remaining, unconsumed_string = self._consume_fuzz_bytes(
-          self._tail_fuzz_length, 
-          self._tail_buffer[(PadSession._digest_length * 2):])
+          self._tail_fuzz_length, self._tail_buffer)
         if num_fuzz_bytes_remaining != 0 or unconsumed_string != '':
           raise PadSession.FuzzMismatch("some source tail fuzz left over")
       else:
