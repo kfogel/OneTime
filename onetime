@@ -90,7 +90,9 @@ import random
 #
 #   FFHHTT******--------------------------------ZZZZZZZZMMMMMMMM*******
 #
-# This is what the different parts mean:
+# The precise number of same characters in a row is not significant
+# above, except as a rough guide to the relative lengths of the 
+# different sections.  This is what the different sections mean:
 #
 #   F  ==  a few format indicator bytes:
 #
@@ -112,30 +114,52 @@ import random
 #          the number of bytes of tail fuzz (the concluding
 #          set of asterisks) that will be used. 
 #
-#   *  ==  a random number of fuzz bytes (head or tail):
+#   *  ==  a random number of fuzz bytes (head fuzz or tail fuzz):
 # 
-#          A random number (derived from the pad -- see above) of raw
-#          bytes taken from the pad.  The ones at the front are called
-#          "head fuzz", and their presences means that an attacker
-#          cannot know exactly where in the encrypted text the message
-#          starts.  The ones at the end are "tail fuzz", and their
-#          presence means that an attacker cannot know where the message
-#          ends.  That is, the real message (and its digest, see below)
-#          sits somewhere along a slider surrounded by fuzz on each
-#          side, where the precise amount of fuzz on each side is known
-#          only to those with the pad.  This prevents a known-plaintext
-#          message substitution attack: because attackers cannot know
-#          where the message is, they cannot reliably replace a known
-#          plaintext with some other plaintext of the same length, even
-#          if they have channel control.
+#          A random number (derived from the pad -- see above) of
+#          runtime-generated random or pseudo-random bytes, XOR'd
+#          against the same number of pad bytes.
+#          
+#          When these encrypted bytes appear at the front, they are
+#          called "head fuzz", and because the number of bytes is
+#          based on pad data, they prevent an attacker from knowing
+#          exactly where in the encrypted text the message starts.
+#          When they appear at the end they are called "tail fuzz",
+#          and similarly, they mean that an attacker does not know
+#          exactly where the message ends.  
+#
+#          In other words, the real message (and its digest, described
+#          below) sits somewhere along a slider surrounded by fuzz on
+#          each side, and the precise amount of fuzz on each side is
+#          known only to those with the pad.  This prevents a
+#          known-plaintext message substitution attack: because
+#          attackers cannot know where the message is, they cannot
+#          reliably replace a known plaintext with some other
+#          plaintext of the same length, even with channel control.
+# 
+#          The reason the fuzz regions are random data XOR'd against
+#          pad, instead of just being plain pad data (which would have
+#          been theoretically sufficient) is to avoid exposing weak
+#          pads.  Even though it would be a bad mistake for a user to
+#          use a merely pseudo-random pad, instead of a truly random
+#          one, still at least OneTime should do its best to avoid
+#          exposing this mistake in an obvious way when it happens.
 # 
 #   -  ==  the actual encrypted plaintext
 # 
 #          Base64-encoded XOR'd bzipped plaintext.
 #
-#   Z  ==  32 bytes of pad digest
+#   Z  ==  32 bytes of head fuzz digest
 #
-#          A SHA256 hash, XOR'd with pad, of the head fuzz.
+#          A SHA256 hash, XOR'd with pad, of the head fuzz minus the
+#          pad bytes used to encrypt the head fuzz.  That is, this is
+#          a hash of the sequence of random bytes from *before* they
+#          were XOR'd against pad to produce the head fuzz.  (That
+#          way, the embedded digest is of data the attacker has no way
+#          of knowing with certainty, whereas if the SHA256 hash were
+#          of the encrypted bytes, then the attacker could possibly
+#          recover 32 bytes of pad and use that information to analyze
+#          whether or not the pad itself is weak.)
 #
 #   M  ==  32 bytes of message digest
 #
@@ -145,28 +169,27 @@ import random
 #   to save space, they are the raw hash digest.  However, any message
 #   integrity errors display the hash in hexadecimal.)
 #
-# On decryption, OneTime verifies the message digest, and verifies
-# that the head fuzz and tail fuzz are exactly as long as expected
-# If anything doesn't match, OneTime will raise an error -- though if
-# the error was detected only in the digest or in tail fuzz length,
-# then there may still have been a successful decryption first, with
-# plaintext output emitted.
+# On decryption, OneTime verifies both the head fuzz digest and the
+# message digest, and verifies that the head fuzz and tail fuzz are
+# exactly as long as expected.  If anything doesn't match, OneTime
+# will raise an error -- though if the error was detected only in the
+# digests or in the tail fuzz length, then there may still have been a
+# successful decryption first, with plaintext output emitted.
 # 
 # OneTime takes care never to expose even raw pad bytes that aren't
-# going to be used for encryption.  Although in theory the pad is
-# supposed to be completely random, and therefore exposing pad bytes
-# that aren't used for encryption should not reveal anything about the
-# other bytes that *are* used for encryption, in practice, if someone
-# is using a pad that is not perfectly random, we don't want OneTime
-# to make the situation any worse than it has to be.  Therefore, in
-# two places that could potentially expose such raw pad bytes, we
-# don't:
+# going to be used for encryption.  Although in theory the pad should
+# be completely random, and therefore an exposure of pad bytes that
+# aren't used for encryption should not reveal anything about other
+# bytes that *are* used for encryption, in practice, if someone is
+# using a pad that is not perfectly random, we don't want OneTime to
+# make that situation any worse than it has to be.  Therefore, in two
+# places that could potentially expose such raw pad bytes, we don't:
 #
 #   1) To calculate the pad ID (which is recorded in the file
 #      ~/.onetime/pad-records, which we have to assume could get
 #      exposed to an attacker), we use the hexadecimal digest of a
 #      SHA256 hash of some bytes from the front of the pad, instead of
-#      just using a hex digest of those bytes in raw form.
+#      just using a hex representation of those bytes in raw form.
 #
 #   2) When inserting head fuzz and tail fuzz into the encrypted
 #      message, we don't just use raw pad bytes, but rather XOR raw
@@ -978,9 +1001,9 @@ must be used for all subsequent calls with that instance.
       raise PadSession.PadShort("not enough pad available to match fuzz")
 
   def _make_fuzz(self, num_bytes, hasher=None):
-    """Return NUM_BYTES worth of fuzzed data, advancing the pad.
+    """Return NUM_BYTES worth of encrypted fuzz data, advancing the pad.
 If HASHER is not None, it is a hashlib.sha256 object to be updated
-from NUM_BYTES of random data produced by self._randy.  (Typically,
+from the NUM_BYTES of random fuzz data generated herein.  (Typically,
 HASHER is passed when making head fuzz but not when making tail fuzz.)"""
     try:
       rnd_data = self._randy.rand_bytes(num_bytes)
