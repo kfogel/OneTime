@@ -234,6 +234,8 @@ import random
 # other way around.  This is fixed in all the "internal" level
 # formats, and of course any further format details are now embedded
 # in the inner headers in the cipthertext, as described in class PadSession.
+# (And no, http://blog.appcanary.com/2016/encrypt-or-compress.html
+# does not contradict that compress-then-encrypt is right for OneTime.)
 Format_Level = "internal"
 
 
