@@ -693,7 +693,10 @@ but it still needs to be a new object due to certain initializations)."""
     pass
 
   class FuzzMismatch(Exception):
-    "Exception raised if the amount of head fuzz or tail fuzz is incorrect."
+    "Exception raised if the amount of tail fuzz is incorrect."
+    # In practice this error can never happen for head fuzz, because
+    # if the length of the head fuzz is wrong, its digest will not
+    # match either, and we'll catch the digest error first.
     pass
 
   class DigestMismatch(Exception):
