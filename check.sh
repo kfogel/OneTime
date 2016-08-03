@@ -90,9 +90,18 @@ check_result()
   unset THIS_XFAIL # Is this how to do local scope portably in shell?
 }
 
-# Because OneTime itself is sensitive to version control, we create
-# a fresh test directory every time.  For now, we're not testing the
-# version control functionality, just the encoding and decoding.
+# TODO: You'd think this function would be named 'reset_test_area' and
+# would just do something like this:
+# 
+#   cd ..
+#   rm -rf test-tmp
+#   mkdir test-tmp
+#   cd test-tmp
+# 
+# But apparently we've got some inter-test dependencies, because if
+# you try that, lots of tests fail.  None of this means the test suite
+# is invalid, of course: it's testing what we think it's testing, it's
+# just not designed as well as it could be, and that should be fixed.
 reset_config()
 {
    for name in dot-onetime v1-dot-onetime blank-dot-onetime; do
