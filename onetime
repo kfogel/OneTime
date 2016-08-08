@@ -88,7 +88,7 @@ import random
 # after the core data, there's some bookkeeping, all base64-encoded.
 # Here's a diagram, with index increasing from left to right:
 #
-#   FFHHTT******--------------------------------ZZZZZZZZMMMMMMMM*******
+#   FFHHTT******----------------------------------------DDDDDDDD*******
 #
 # The precise number of same characters in a row is not significant
 # above, except as a rough guide to the relative lengths of the 
@@ -149,32 +149,34 @@ import random
 # 
 #          Base64-encoded XOR'd bzipped plaintext.
 #
-#   Z  ==  32 bytes of head fuzz digest
+#   D  ==  32 bytes of digest
 #
-#          A SHA256 hash, XOR'd with pad, of the head fuzz minus the
-#          pad bytes used to encrypt the head fuzz.  That is, this is
-#          a hash of the sequence of random bytes from *before* they
-#          were XOR'd against pad to produce the head fuzz.  (That
-#          way, the embedded digest is of data the attacker has no way
-#          of knowing with certainty, whereas if the SHA256 hash were
-#          of the encrypted bytes, then the attacker could possibly
-#          recover 32 bytes of pad and use that information to analyze
-#          whether or not the pad itself is weak.)
+#          A SHA256 hash, XOR'd with pad, of the raw head fuzz (that
+#          is, the random bytes from *before* they were XOR'd with the
+#          pad to produce the final head fuzz) concatenated with the
+#          plaintext message. 
+#          
+#          The purpose of this digest make sure that we can verify
+#          message integrity without revealing anything about the pad
+#          (because we don't want an attacker to be able to analyze
+#          whether the pad itself might have any weaknesses).  With
+#          the combined digest, even in the case of a known plaintext
+#          an attacker has no plaintext substitution attack and no way
+#          to recover any of the raw pad bytes.
 #
 #   M  ==  32 bytes of message digest
 #
 #          A SHA256 hash, XOR'd with pad, of the original plaintext.
 #
-#   (Note that Z and M are not hexadecimal representations of the hash;
-#   to save space, they are the raw hash digest.  However, any message
-#   integrity errors display the hash in hexadecimal.)
+#   (Note that D is are not a hexadecimal representation of the hash;
+#   to save space, it is the raw hash digest.  However, any integrity
+#   errors display the hash in hexadecimal.)
 #
-# On decryption, OneTime verifies both the head fuzz digest and the
-# message digest, and verifies that the head fuzz and tail fuzz are
-# exactly as long as expected.  If anything doesn't match, OneTime
-# will raise an error -- though if the error was detected only in the
-# digests or in the tail fuzz length, then there may still have been a
-# successful decryption first, with plaintext output emitted.
+# On decryption, OneTime verifies both the digest and that the tail
+# fuzz is exactly as long as expected.  If anything doesn't match,
+# OneTime will raise an error -- though if the error was detected only
+# in the digest or in the tail fuzz length, then there may still have
+# been a successful decryption first, with plaintext output emitted.
 # 
 # OneTime takes care never to expose even raw pad bytes that aren't
 # going to be used for encryption.  Although in theory the pad should
@@ -637,11 +639,12 @@ but it still needs to be a new object due to certain initializations)."""
     # how much of the head_fuzz still needs to be used up.
     self._pad_remaining_to_skip = 0
 
-    # We compute a hash of the head fuzz and embed that hash into
-    # the encrypted text, as a way of authenticating just the pad
-    # independently of any plaintext (so that even a known-plaintext
-    # attack will still fail an overall message integrity test).
-    self._head_fuzz_hash = hashlib.sha256()
+    # We compute a hash of the plaintext head fuzz + plaintext message
+    # and embed that hash into the encrypted text, for authentication
+    # of the overall encrypted message.
+    self._session_hash = hashlib.sha256()
+    sys.stderr.write("KFF: session digest at init:\n  %s\n"
+                     % self._session_hash.hexdigest())
 
     # There are both head and tail fuzz, but we only need to remember
     # the tail fuzz length, because we learn that length at the start
@@ -651,7 +654,7 @@ but it still needs to be a new object due to certain initializations)."""
     self._tail_fuzz_length_source_bytes = None
 
     # This buffer always holds the latest input, and must always be at
-    # least as long as the tail digest + tail fuzz, so that we can
+    # least as long as the digest + tail fuzz, so that we can
     # refrain from decrypting them as part of the original plaintext.
     self._tail_buffer = ''
 
@@ -695,12 +698,12 @@ but it still needs to be a new object due to certain initializations)."""
   class FuzzMismatch(Exception):
     "Exception raised if the amount of tail fuzz is incorrect."
     # In practice this error can never happen for head fuzz, because
-    # if the length of the head fuzz is wrong, its digest will not
+    # if the length of the head fuzz is wrong, the digest will not
     # match either, and we'll catch the digest error first.
     pass
 
   class DigestMismatch(Exception):
-    "Exception raised if message digest check fails."
+    "Exception raised if a digest check fails."
     pass
 
   def prepare_for_encryption(self):
@@ -765,7 +768,11 @@ must be used for all subsequent calls with that instance.
           "pad session not yet prepared for either encrypting or decrypting")
       elif not self._begun:
         if self._encrypting:
+          sys.stderr.write("KFF: convert(): BEFORE call mih(), sd:\n  %s\n"
+                           % self._session_hash.hexdigest())
           inner_header_data = self._make_inner_header()
+          sys.stderr.write("KFF: convert(): after call mih(), sd:\n  %s\n"
+                           % self._session_hash.hexdigest())
           result += inner_header_data
         else: # self._decrypting is set
           # TODO (minor): It's possible string might be so short that
@@ -796,7 +803,7 @@ must be used for all subsequent calls with that instance.
           num_bytes_to_consume_now = self._pad_remaining_to_skip
         self._pad_remaining_to_skip = new_pad_remaining
         num_fuzz_bytes_remaining, string = self._consume_fuzz_bytes(
-          num_bytes_to_consume_now, string, self._head_fuzz_hash)
+          num_bytes_to_consume_now, string, is_head_fuzz=True) # fooo?
         self._pad_remaining_to_skip += num_fuzz_bytes_remaining
 
       # Once we've handled any inner headers, buffer for decrypting.
@@ -805,14 +812,14 @@ must be used for all subsequent calls with that instance.
         # Reserve exactly the tail length each time, so that on the
         # last iteration we can just check both parts of the tail
         # (the digest and the fuzz) without emitting new output.
-        if len(self._tail_buffer) < ((PadSession._digest_length * 2)
+        if len(self._tail_buffer) < (PadSession._digest_length
                                      + self._tail_fuzz_length):
           string = ''   # wait until we have more or are done
         else:
-          string = self._tail_buffer[:(0 - ((PadSession._digest_length * 2)
+          string = self._tail_buffer[:(0 - (PadSession._digest_length
                                             + self._tail_fuzz_length))]
           self._tail_buffer = self._tail_buffer[
-            (0 - ((PadSession._digest_length * 2) + self._tail_fuzz_length)):]
+            (0 - (PadSession._digest_length + self._tail_fuzz_length)):]
 
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
@@ -967,7 +974,7 @@ must be used for all subsequent calls with that instance.
       fuzz_skip_len *= ord(x)
     return [fuzz_skip_len % modulo, fuzz_length_source]
 
-  def _consume_fuzz_bytes(self, num_bytes, string, hasher=None):
+  def _consume_fuzz_bytes(self, num_bytes, string, is_head_fuzz=False):
     """Consume as much of the next NUM_BYTES of fuzz from STRING as possible.
     STRING is a window of source material that starts with fuzz, but
     may continue on into non-fuzz.  If STRING is shorter than NUM_BYTES,
@@ -985,29 +992,28 @@ must be used for all subsequent calls with that instance.
     zero length, because we consumed all of STRING to get as much fuzz
     as possible in this call.
 
-    If HASHER is not None, it is a hashlib.sha256 object to be updated
-    from the NUM_BYTES of pad data read.  (Typically, HASHER is passed
-    when consuming head fuzz but not when consuming tail fuzz.)"""
+    If IS_HEAD_FUZZ is true, update the session hash from the
+    NUM_BYTES of data read."""
     try:
       # The max amount we can actually consume in this call.
       consumable_len = min(len(string), num_bytes)
       pad_data = self.padfile.read(consumable_len)
       self._length += consumable_len
-      if hasher is not None:
+      if is_head_fuzz is not None:
         hash_input = ""
         for i in range(consumable_len):
           hash_input += chr(ord(string[i]) ^ ord(pad_data[i]))
-        hasher.update(hash_input)
+        sys.stderr.write("KFF: cfb(): about to call digest_gulp()\n")
+        self.digest_gulp(hash_input)
       num_bytes_remaining = max(0, num_bytes - len(string))
       return [num_bytes_remaining, string[consumable_len:]]
     except EOFError:
       raise PadSession.PadShort("not enough pad available to match fuzz")
 
-  def _make_fuzz(self, num_bytes, hasher=None):
+  def _make_fuzz(self, num_bytes, is_head_fuzz=False):
     """Return NUM_BYTES worth of encrypted fuzz data, advancing the pad.
-If HASHER is not None, it is a hashlib.sha256 object to be updated
-from the NUM_BYTES of random fuzz data generated herein.  (Typically,
-HASHER is passed when making head fuzz but not when making tail fuzz.)"""
+If IS_HEAD_FUZZ is true, then update the session hash with the NUM_BYTES
+f random fuzz data generated herein."""
     try:
       rnd_data = self._randy.rand_bytes(num_bytes)
       pad_data = self.padfile.read(num_bytes)
@@ -1018,8 +1024,17 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
         # TODO: The problem is that here hasher hashes rnd + pad,
         # whereas when we consume fuzz, we hash rnd - pad, right?
         ret_data = ret_data + chr(ord(rnd_data[i]) ^ ord(pad_data[i]))
-      if hasher is not None:
-        hasher.update(rnd_data)
+      if is_head_fuzz:
+        sys.stderr.write("KFF: session digest BEFORE rnd_data:\n  %s\n"
+                         % self._session_hash.hexdigest())
+        sys.stderr.write("KFF: mf(): about to call digest_gulp()\n")
+        self.digest_gulp(rnd_data)
+        # kff debug
+        sys.stderr.write("KFF: session digest AFTER rnd_data:\n  %s\n"
+                         % self._session_hash.hexdigest())
+        f = open("/home/kfogel/src/onetime/kff-rnd-data.out", "wb")
+        f.write(rnd_data)
+        f.close()
     except EOFError:
       raise PadSession.PadShort(
         "not enough pad available to supply fuzz data")
@@ -1177,7 +1192,7 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
     self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    head_fuzz = self._make_fuzz(head_fuzz_length, self._head_fuzz_hash)
+    head_fuzz = self._make_fuzz(head_fuzz_length, is_head_fuzz=True)
     result = chr(inner_header_format_version)       \
              + chr(fuzz_source_length_indicator)    \
              + head_fuzz_length_source_bytes        \
@@ -1234,7 +1249,7 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
           = self._consume_fuzz_bytes(
             head_fuzz_length, 
             string[2 + (self._default_fuzz_source_length * 2):],
-            self._head_fuzz_hash)
+            is_head_fuzz=True)
         length_to_skip += (self._default_fuzz_source_length * 2) \
                           + head_fuzz_length
       else:
@@ -1262,50 +1277,49 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
     else:
       return [string[length_to_skip:], 0]
 
-  def _verify_digests(self, msg_hash):
-    """Verify that the head fuzz digest and message digest embedded at
-    the current location match the expected head fuzz and MSG_HASH
-    digests, consuming PadSession._digest_length * 2 bytes of pad in
-    the process.  If any mismatch, raise a PadSession.DigestMismatch
-    error showing the two digests in hexadecimal format."""
-    for frame in ((self._head_fuzz_hash, "head fuzz"),
-                  (msg_hash,             "message")):
-      this_hash   = frame[0]
-      this_string = frame[1]
-      this_digest = this_hash.digest()
-      pad_bytes = self.padfile.read(PadSession._digest_length)
-      self._length += PadSession._digest_length
-      received_digest = ''
-      for i in range(PadSession._digest_length):
-        received_digest += chr(ord(self._tail_buffer[i]) ^ ord(pad_bytes[i]))
-      # Advance the tail buffer past the part we've just consumed.
-      self._tail_buffer = self._tail_buffer[PadSession._digest_length:]
-      # Finally, verify the digests.
-      if this_digest != received_digest:
-        raise PadSession.DigestMismatch(
-          "%s digest mismatch:\n  computed: %s\n  received: %s\n"
-          % (this_string, this_hash.hexdigest(), received_digest.encode('hex')))
+  def digest_gulp(self, string):
+    """Incorporate STRING into the running digest for this session."""
+    import traceback # KFF
+    sys.stderr.write("KFF: calling digest_gulp():\n")
+    self._session_hash.update(string)
 
-  def finish(self, msg_hash):
+  def _verify_digest(self):
+    """Verify that the head fuzz + message digest embedded at the current
+    location matches the expected digest in self._session_hash,
+    consuming PadSession._digest_length bytes of pad in the process.
+    If any mismatch, raise a PadSession.DigestMismatch error showing
+    the two digests in hexadecimal format."""
+    pad_bytes = self.padfile.read(PadSession._digest_length)
+    self._length += PadSession._digest_length
+    received_digest = ''
+    for i in range(PadSession._digest_length):
+      received_digest += chr(ord(self._tail_buffer[i]) ^ ord(pad_bytes[i]))
+    # Advance the tail buffer past the part we've just consumed.
+    self._tail_buffer = self._tail_buffer[PadSession._digest_length:]
+    # Finally, verify the digests.
+    if self._session_hash.digest() != received_digest:
+      raise PadSession.DigestMismatch(
+        "digest mismatch:\n  computed: %s\n  received: %s\n"
+        % (self._session_hash.hexdigest(), received_digest.encode('hex')))
+
+  def finish(self):
     """Close out this pad session.  If this PadSession is at an
     \"internal\" (i.e., post-1.x) format level, then: 
-    Emit or verify MSG_HASH.  If encrypting, return the pad-encrypted
-    digest of MSG_HASH and the tail fuzz, as a single string.  
 
-    If decrypting, verify that MSG_HASH matches the expected final
-    hash for the plaintext message, and raise a
-    PadSession.DigestMismatch error if they do not match.  (If they do
-    match, the return value is undefined and should be ignored.)
-    Raise a FuzzMismatch error if the amount of tail fuzz found
-    doesn't match the amount expected."""
+    If encrypting, return the pad-encrypted session digest, and the
+    tail fuzz, as a single string.
+
+    If decrypting, the return value is undefined and should be ignored,
+    but raise a PadSession.DigestMismatch error if the session digest
+    does not match the calculated digest, and raise PadSession.FuzzMismatch 
+    if the amount of tail fuzz found doesn't match the amount expected."""
     remainder = None
     if self._format_level == "internal":
       if self._tail_fuzz_length is None:
         raise PadSession.PadSessionUninitialized(
           "tail fuzz length never initialized")
       elif self._encrypting:
-        remainder  = self.convert(self._head_fuzz_hash.digest())
-        remainder += self.convert(msg_hash.digest())
+        remainder  = self.convert(self._session_hash.digest())
         remainder += self._make_fuzz(self._tail_fuzz_length)
       elif self._decrypting:
         # Decryption has already succeeded by the time we encounter
@@ -1313,15 +1327,14 @@ HASHER is passed when making head fuzz but not when making tail fuzz.)"""
         # the user know the message was tampered with.
         #
         # There are two ways the tail could fail to match: either a
-        # digest mismatch (i.e., an authentication failure) against
-        # the pad digest or message digest at the start of the tail,
-        # or a mismatch against the expected tail fuzz bytes.
+        # digest mismatch (i.e., an authentication failure), or a
+        # mismatch against the expected tail fuzz bytes.
         # 
         # Note that checking the tail has the important side effect
         # of recording that last bit of pad usage on decryption, which
         # is important for avoiding pad re-use -- that's the bug for
         # which a test was added in commit 9e8422f07.
-        self._verify_digests(msg_hash)
+        self._verify_digest()
         num_fuzz_bytes_remaining, unconsumed_string = self._consume_fuzz_bytes(
           self._tail_fuzz_length, self._tail_buffer)
         if num_fuzz_bytes_remaining != 0 or unconsumed_string != '':
@@ -1362,23 +1375,33 @@ class SessionEncoder:
     # bz2 unconditionally; the worst case is ok.
     self.compressor = bz2.BZ2Compressor()
     self.pad_sess.prepare_for_encryption()
-    # Keep a running hash of the plaintext as we encrypt.
-    self.msg_hash = hashlib.sha256()
-
+    sys.stderr.write("KFF: e.init(): session digest:\n  %s\n"
+                     % self.pad_sess._session_hash.hexdigest())
+    
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
     out = ''
-    self.msg_hash.update(string)
+    sys.stderr.write("KFF: encode(): entry, string len == %d\n" 
+                     % len(string))
     compressed_plaintext = self.compressor.compress(string)
+    sys.stderr.write("KFF: encode(): entry, compressed len == %d\n" 
+                     % len(compressed_plaintext))
     if len(compressed_plaintext) > 0:
       out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
+    # It's important to do the digest gulp after convert(), because
+    # the first call to convert() may set up head fuzz, which affects
+    # the digest.  This is kind of a lame ordering dependency, and it
+    # would be better to find a way to structure the code so that that
+    # ordering just happens naturally.
+    sys.stderr.write("KFF: encode(): about to call digest_gulp()\n")
+    self.pad_sess.digest_gulp(string)
     return out
 
   def finish(self):
     "Return last remaining bits of ciphertext, or None if none left."
     remainder = self.pad_sess.convert(self.compressor.flush())
-    remainder += self.pad_sess.finish(self.msg_hash)
+    remainder += self.pad_sess.finish()
     remainder = base64.encodestring(remainder)
     return remainder
 
@@ -1398,8 +1421,6 @@ class SessionDecoder:
     self.unused_data = ""
     self.format_level = format_level
     self.decompressor = bz2.BZ2Decompressor()
-    # We keep a running hash of the plaintext as we decrypt.
-    self.msg_hash = hashlib.sha256()
 
     if self.format_level != "original" and self.format_level != "internal":
       raise PadSession.FormatLevel(
@@ -1424,12 +1445,13 @@ class SessionDecoder:
       ret = self.decompressor.decompress(self.pad_sess.convert(
         base64.b64decode(string)))
     self.unused_data += self.decompressor.unused_data
-    self.msg_hash.update(ret)
+    sys.stderr.write("KFF: decode(): about to call digest_gulp()\n")
+    self.pad_sess.digest_gulp(ret)
     return ret
 
   def finish(self):
     """Finalize this session's pad usage."""
-    self.pad_sess.finish(self.msg_hash)
+    self.pad_sess.finish()
 
 
 def license(outfile=sys.stdout):
