@@ -253,9 +253,9 @@ start_new_test "decryption should not shrink pad usage"
 #     ==> pad-records says length reverted to 27340!
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-1.onetime ../test-plaintext-b
-if ! grep -q "<length>12555</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>12523</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length is not 12555 after encryption iteration 1."
+  echo "ERROR: Pad usage length is not 12523 after encryption iteration 1."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
@@ -282,7 +282,7 @@ fi
               -o tmp-plaintext-b-1 tmp-ciphertext-b-1.onetime
 if ! grep -q "<length>37873</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
-  if grep -q "<length>12555</length>" dot-onetime/pad-records; then
+  if grep -q "<length>12523</length>" dot-onetime/pad-records; then
     # Note that as long as everything is working, this case will not
     # be triggered in normal test suite runs even if the length that
     # *would* indicate the return of this bug has changed from 12523
@@ -324,14 +324,14 @@ cp -a dot-onetime d-dot-onetime  # separate decryption copy
 ../../onetime -C d-dot-onetime -d -p ../test-pad-1 \
               -o tmp-plaintext-b-1 tmp-ciphertext-b-1
 
-if ! grep -q "<length>12555</length>" e-dot-onetime/pad-records; then
+if ! grep -q "<length>12523</length>" e-dot-onetime/pad-records; then
   grep "<length>" e-dot-onetime/pad-records
   echo ""
-  echo "ERROR: expected pad usage length of 12555 for encryption"
+  echo "ERROR: expected pad usage length of 12523 for encryption"
   PASSED="no"
 fi
 
-if ! grep -q "<length>12555</length>" d-dot-onetime/pad-records; then
+if ! grep -q "<length>12523</length>" d-dot-onetime/pad-records; then
   if grep -q "<length>12265</length>" d-dot-onetime/pad-records; then
     # Note that as long as everything is working, this case will not
     # be triggered in normal test suite runs even if the length that
@@ -345,7 +345,7 @@ if ! grep -q "<length>12555</length>" d-dot-onetime/pad-records; then
   else
     grep "<length>" d-dot-onetime/pad-records
     echo ""
-    echo "ERROR: pad usage length is not 12555 after decryption, for some new reason"
+    echo "ERROR: pad usage length is not 12523 after decryption, for some new reason"
   fi
   PASSED="no"
 fi
@@ -954,16 +954,8 @@ start_new_test "tampered head fuzz is detected, but decryption succeeds"
 # This is actually a questionable "feature", really more an artifact
 # of where the head fuzz digest is located in the stream than of
 # deliberate UX design.  Do we really want decryption to succeed if
-# the head fuzz digest failed?
-# 
-# There are two possible routes we could go: 1) Put the head fuzz
-# digest *before* the encrypted text, so that if there's a head fuzz
-# digest mismatch, decryption stops with an error and there's no
-# plaintext output, or 2) Put *one* combined digest (of head fuzz and
-# plaintext) after the encrypted text, in which case we would
-# effectively have salt, but (as now) wouldn't be able to error until
-# after decryption is finished and we've already emitted plaintext
-# output.
+# the head fuzz digest failed?  But to do otherwise, we'd need to put
+# a head fuzz digest before the message text section.
 
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \

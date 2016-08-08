@@ -643,8 +643,6 @@ but it still needs to be a new object due to certain initializations)."""
     # and embed that hash into the encrypted text, for authentication
     # of the overall encrypted message.
     self._session_hash = hashlib.sha256()
-    sys.stderr.write("KFF: session digest at init:\n  %s\n"
-                     % self._session_hash.hexdigest())
 
     # There are both head and tail fuzz, but we only need to remember
     # the tail fuzz length, because we learn that length at the start
@@ -768,11 +766,7 @@ must be used for all subsequent calls with that instance.
           "pad session not yet prepared for either encrypting or decrypting")
       elif not self._begun:
         if self._encrypting:
-          sys.stderr.write("KFF: convert(): BEFORE call mih(), sd:\n  %s\n"
-                           % self._session_hash.hexdigest())
           inner_header_data = self._make_inner_header()
-          sys.stderr.write("KFF: convert(): after call mih(), sd:\n  %s\n"
-                           % self._session_hash.hexdigest())
           result += inner_header_data
         else: # self._decrypting is set
           # TODO (minor): It's possible string might be so short that
@@ -1003,7 +997,6 @@ must be used for all subsequent calls with that instance.
         hash_input = ""
         for i in range(consumable_len):
           hash_input += chr(ord(string[i]) ^ ord(pad_data[i]))
-        sys.stderr.write("KFF: cfb(): about to call digest_gulp()\n")
         self.digest_gulp(hash_input)
       num_bytes_remaining = max(0, num_bytes - len(string))
       return [num_bytes_remaining, string[consumable_len:]]
@@ -1025,16 +1018,7 @@ f random fuzz data generated herein."""
         # whereas when we consume fuzz, we hash rnd - pad, right?
         ret_data = ret_data + chr(ord(rnd_data[i]) ^ ord(pad_data[i]))
       if is_head_fuzz:
-        sys.stderr.write("KFF: session digest BEFORE rnd_data:\n  %s\n"
-                         % self._session_hash.hexdigest())
-        sys.stderr.write("KFF: mf(): about to call digest_gulp()\n")
         self.digest_gulp(rnd_data)
-        # kff debug
-        sys.stderr.write("KFF: session digest AFTER rnd_data:\n  %s\n"
-                         % self._session_hash.hexdigest())
-        f = open("/home/kfogel/src/onetime/kff-rnd-data.out", "wb")
-        f.write(rnd_data)
-        f.close()
     except EOFError:
       raise PadSession.PadShort(
         "not enough pad available to supply fuzz data")
@@ -1279,8 +1263,6 @@ f random fuzz data generated herein."""
 
   def digest_gulp(self, string):
     """Incorporate STRING into the running digest for this session."""
-    import traceback # KFF
-    sys.stderr.write("KFF: calling digest_gulp():\n")
     self._session_hash.update(string)
 
   def _verify_digest(self):
@@ -1375,26 +1357,24 @@ class SessionEncoder:
     # bz2 unconditionally; the worst case is ok.
     self.compressor = bz2.BZ2Compressor()
     self.pad_sess.prepare_for_encryption()
-    sys.stderr.write("KFF: e.init(): session digest:\n  %s\n"
-                     % self.pad_sess._session_hash.hexdigest())
     
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
     out = ''
-    sys.stderr.write("KFF: encode(): entry, string len == %d\n" 
-                     % len(string))
     compressed_plaintext = self.compressor.compress(string)
-    sys.stderr.write("KFF: encode(): entry, compressed len == %d\n" 
-                     % len(compressed_plaintext))
-    if len(compressed_plaintext) > 0:
-      out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
-    # It's important to do the digest gulp after convert(), because
-    # the first call to convert() may set up head fuzz, which affects
-    # the digest.  This is kind of a lame ordering dependency, and it
-    # would be better to find a way to structure the code so that that
+    # Even when there's no compressed data to convert, we still call
+    # convert() unconditionally, because on the first call it performs
+    # some initializations for the pad session -- such as initializing
+    # the head fuzz and digest -- and subsequent calls are no-ops if
+    # there's nothing to convert.  This is also why it's important to
+    # do the digest gulp after the call to convert(): since the first
+    # call to convert() sets up head fuzz, that affects the digest.
+    # 
+    # These are kind of lame ordering dependencies, and it would be
+    # better to find a way to structure the code so that that proper
     # ordering just happens naturally.
-    sys.stderr.write("KFF: encode(): about to call digest_gulp()\n")
+    out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
     self.pad_sess.digest_gulp(string)
     return out
 
@@ -1444,9 +1424,8 @@ class SessionDecoder:
     else: # must be format level "internal"
       ret = self.decompressor.decompress(self.pad_sess.convert(
         base64.b64decode(string)))
+      self.pad_sess.digest_gulp(ret)
     self.unused_data += self.decompressor.unused_data
-    sys.stderr.write("KFF: decode(): about to call digest_gulp()\n")
-    self.pad_sess.digest_gulp(ret)
     return ret
 
   def finish(self):
