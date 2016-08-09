@@ -1357,25 +1357,52 @@ class SessionEncoder:
     # bz2 unconditionally; the worst case is ok.
     self.compressor = bz2.BZ2Compressor()
     self.pad_sess.prepare_for_encryption()
+
+    # Flag indicating whether or not self.pad_sess.convert() has been
+    # called for the first time yet.
+    #
+    # TBD: This is a totally lame boundary violation, and it would be
+    # better to structure the code in such a way that this dependency
+    # is handled more naturally.  Here's the situation:
+    #
+    # The first call to convert() in self.encode() performs some
+    # initializations for the pad session -- initializing the head
+    # fuzz and digest -- while subsequent calls are no-ops if there's
+    # nothing to convert.  But digest_gulp() should only be called
+    # after those initializations, since they affect the digest.
+    #
+    # We *could* call convert() unconditionally, even if there is no
+    # compressed plaintext to convert yet, since, except for the
+    # initializations, that would be a no-op.  But that can lead to
+    # an ugly extra newline in the base64 encoding, like so (trimmed):
+    #
+    #   [...]
+    #   FPdpeW1dOtl9cbZDkNmK2hd5Y7S8UMJVNWzc2r/zwMyzWy9cxsIvbJyRcgm
+    #   bssb/2Mrfl4tMr0OeAQRu5ZlBI99O5b6p931c/sHks032xgFfMu13eep/1S
+    #   3uc=
+    #   p4WTBmiXVjp1pTZY/A2cUBosg2KsBHH8bvb/LAjAnW9csJb3uUpboD/DQOl
+    #   Eh/lUVJHa5a1yVtWHPN7CIY/H4hbJ6C4S4B6ir5gt5V3WX+Id847QnS5T9B
+    #   [...]
+    #
+    # So we don't want to call convert() unless there's actually
+    # compressed plaintext to convert, and therefore we need to know
+    # whether or not convert() has been called for the first time, so
+    # we can decide whether to call digest_gulp() -- of course, once
+    # we start calling digest_gulp(), we always call it thereafter.
+    self._started_encoding = False
     
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
     out = ''
     compressed_plaintext = self.compressor.compress(string)
-    # Even when there's no compressed data to convert, we still call
-    # convert() unconditionally, because on the first call it performs
-    # some initializations for the pad session -- such as initializing
-    # the head fuzz and digest -- and subsequent calls are no-ops if
-    # there's nothing to convert.  This is also why it's important to
-    # do the digest gulp after the call to convert(): since the first
-    # call to convert() sets up head fuzz, that affects the digest.
-    # 
-    # These are kind of lame ordering dependencies, and it would be
-    # better to find a way to structure the code so that that proper
-    # ordering just happens naturally.
-    out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
-    self.pad_sess.digest_gulp(string)
+    if compressed_plaintext:
+      self._started_encoding = True
+      out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
+    if self._started_encoding is True:
+      sys.stderr.write("KFF: digesting '%s'\n" % string)
+      sys.stderr.flush()
+      self.pad_sess.digest_gulp(string)
     return out
 
   def finish(self):

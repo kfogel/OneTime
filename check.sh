@@ -262,25 +262,25 @@ fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-2.onetime ../test-plaintext-b
-if ! grep -q "<length>25250</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>25322</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length is not 25250 after encryption iteration 2."
+  echo "ERROR: Pad usage length is not 25322 after encryption iteration 2."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
 
 ../../onetime -C dot-onetime -e -p ../test-pad-1 \
               -o tmp-ciphertext-b-3.onetime ../test-plaintext-b
-if ! grep -q "<length>37873</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>37603</length>" dot-onetime/pad-records; then
   echo ""
-  echo "ERROR: Pad usage length is not 37873 after encryption iteration 3."
+  echo "ERROR: Pad usage length is not 37603 after encryption iteration 3."
   cat dot-onetime/pad-records
   PASSED="no"
 fi
 
 ../../onetime -C dot-onetime -d -p ../test-pad-1 \
               -o tmp-plaintext-b-1 tmp-ciphertext-b-1.onetime
-if ! grep -q "<length>37873</length>" dot-onetime/pad-records; then
+if ! grep -q "<length>37603</length>" dot-onetime/pad-records; then
   cat dot-onetime/pad-records
   if grep -q "<length>12523</length>" dot-onetime/pad-records; then
     # Note that as long as everything is working, this case will not
@@ -294,7 +294,7 @@ if ! grep -q "<length>37873</length>" dot-onetime/pad-records; then
     echo "ERROR: 'Decryption wrongly shrinks pad usage' bug is back."
   else
     echo ""
-    echo "ERROR: Pad usage length is not 37873 after decryption 1, but don't know why."
+    echo "ERROR: Pad usage length is not 37603 after decryption 1, but don't know why."
   fi
   PASSED="no"
 fi
@@ -646,11 +646,11 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>695</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>663</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
   cat v1-dot-onetime/pad-records
-  echo "ERROR: decoding v2 input affected length 695 in pad-records"
+  echo "ERROR: decoding v2 input affected length 663 in pad-records"
   PASSED="no"
 fi
 
@@ -716,10 +716,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>695</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>663</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to use length 695 in pad-records"
+  echo "ERROR: decoding v2 input failed to use length 663 in pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -792,10 +792,10 @@ then
   PASSED="no"
 fi
 
-if ! grep -q "<length>663</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>631</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: decoding v2 input failed to add length 663 to pad-records"
+  echo "ERROR: decoding v2 input failed to add length 631 to pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
 fi
@@ -914,18 +914,18 @@ then
 fi
 
 # Expect the new length on the 7th line, in second range of first entry.
-if ! grep -q "<length>12659</length></used>" v1-dot-onetime/pad-records
+if ! grep -q "<length>12627</length></used>" v1-dot-onetime/pad-records
 then
   echo ""
-  echo "ERROR: failed to insert new length 12659 into pad-records"
+  echo "ERROR: failed to insert new length 12627 into pad-records"
   cat v1-dot-onetime/pad-records
   PASSED="no"
-elif grep -q "<length>12659</length></used>" v1-dot-onetime/pad-records && \
-     [ `grep -n "<length>12659</length></used>" v1-dot-onetime/pad-records \
+elif grep -q "<length>12627</length></used>" v1-dot-onetime/pad-records && \
+     [ `grep -n "<length>12627</length></used>" v1-dot-onetime/pad-records \
         | cut -d ":" -f 1` -ne 7 ]
 then
   echo ""
-  echo "ERROR: encoding mis-inserted new length 12659 into pad-records"
+  echo "ERROR: encoding mis-inserted new length 12627 into pad-records"
   PASSED="no"
 fi
 check_result
@@ -955,18 +955,17 @@ start_new_test "tampered head fuzz is detected, but decryption succeeds"
 # of where the head fuzz digest is located in the stream than of
 # deliberate UX design.  Do we really want decryption to succeed if
 # the head fuzz digest failed?  But to do otherwise, we'd need to put
-# a head fuzz digest before the message text section.
+# the digest before the message text section.
 
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
-# Offset is 32, head fuzz length 395, for this one.
 ../zap tmp-ciphertext-b-1 284 ? 71
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     -o tmp-plaintext-b-1 < tmp-ciphertext-b-1 2>err.out
-if ! grep -q "DigestMismatch: head fuzz digest mismatch:" err.out|| \
-   ! grep -q "  computed: 782aa03fc2ec062d81ad43d392142876a790a7d448304e261b963d80ff2a886f" err.out || \
-   ! grep -q "  received: 729d6052c00f1a58708776259540513feabd02923988c4ab5567c474da024ab2" err.out
+if ! grep -q "DigestMismatch: digest mismatch:" err.out || \
+   ! grep -q "  computed: f32282de54b10886e47213fb91c6b1a9b78dff3d9b409bf9ee4b2fea9ae07518" err.out || \
+   ! grep -q "  received: 53cfb2de0a865b245621d4efb8d46aefa0020b5bbd38a637000dd221046547c6" err.out
 then
   echo ""
   echo "ERROR: did not see expected DigestMismatch error from tampered head fuzz"
@@ -988,10 +987,12 @@ check_result
 ########################################################################
 start_new_test "tampering with ciphertext causes bzip decoder error"
 ## Encrypt message
+# exit 1
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
 # In the base64-encoded ciphertext file, position 8531 is 'h' (104). 
 ../zap tmp-ciphertext-b-1 8531 104 103
+# exit 1
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     < tmp-ciphertext-b-1 2>err.out
 if ! grep -q "IOError: invalid data stream" err.out
