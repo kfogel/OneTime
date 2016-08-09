@@ -1400,6 +1400,13 @@ class SessionEncoder:
       self._started_encoding = True
       out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
     if self._started_encoding is True:
+      # TODO: Ooooooh, wait, the problem is that, in the test case, we
+      # *never* get here -- all the conversion happens in finish().
+      # The solution is to do the digest preparation in the initial
+      # call to self.pad_sess.prepare_for_encryption(), and just have
+      # the head fuzz ready for the first call to convert() to prepend
+      # to whatever it's converting.  The bookkeeping for that can all
+      # be handled inside the pad session.
       sys.stderr.write("KFF: digesting '%s'\n" % string)
       sys.stderr.flush()
       self.pad_sess.digest_gulp(string)
