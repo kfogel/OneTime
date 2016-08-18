@@ -1096,17 +1096,17 @@ start_new_test "tampering with message digest causes authentication error"
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-a-1 < ../test-plaintext-a 2>err.out
-# In the base64-encoded ciphertext file, position 867 is 'v' (118).
-../zap tmp-ciphertext-a-1 867 118 98 # tweaking to 'b' just for kicks
+# In the base64-encoded ciphertext file, position 822 is 'y' (121).
+../zap tmp-ciphertext-a-1 822 121 122 # tweaking to 'z'
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     -o tmp-plaintext-a-1 < tmp-ciphertext-a-1 2>err.out
-if ! grep -q "DigestMismatch: message digest mismatch:" err.out|| \
-   ! grep -q "  computed: a8a2f6ebe286697c527eb35a58b5539532e9b3ae3b64d4eb0a46fb657b41562c" err.out || \
-   ! grep -q "  received: a8a2f6ebe286697c527eb35a5bf5539532e9b3ae3b64d4eb0a46fb657b41562c" err.out
-   # they differ here, in case you're curious ---> ^^   
+if ! grep -q "DigestMismatch: digest mismatch:" err.out|| \
+   ! grep -q "  computed: 30c7cd65d97fc08519c5f87b3b44fa5c099840372e6caeddf3a6e225015fcc6f" err.out || \
+   ! grep -q "  received: 30c7cd65d97fc08519c5f87f3b44fa5c099840372e6caeddf3a6e225015fcc6f" err.out
+   # here is where they differ ----------------> ^   
 then
   echo ""
-  echo "ERROR: did not see expected DigestMismatch message digest error"
+  echo "ERROR: did not see expected DigestMismatch error (30c7cd...)"
   cat err.out
   PASSED="no"
 fi
@@ -1114,29 +1114,29 @@ fi
 if ! cmp ../test-plaintext-a tmp-plaintext-a-1
 then
   echo ""
-  echo "ERROR: decryption failed when message digest tampered with"
+  echo "ERROR: decryption failed when digest tampered with"
   cat tmp-plaintext-a-1
+  echo ""
   PASSED="no"
 fi
 
 check_result
 
 ########################################################################
-start_new_test "tampering with head fuzz digest causes authentication error"
+start_new_test "tampering with head fuzz causes authentication error"
 ## Encrypt message
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-a-1 < ../test-plaintext-a 2>err.out
-# In the base64-encoded ciphertext file, position 839 is 'a' (97).
-../zap tmp-ciphertext-a-1 839 97 98
+# In the base64-encoded ciphertext file, position 215 is 'L' (76).
+../zap tmp-ciphertext-a-1 215 76 77
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     -o tmp-plaintext-a-1 < tmp-ciphertext-a-1 2>err.out
-if ! grep -q "DigestMismatch: head fuzz digest mismatch:" err.out|| \
-   ! grep -q "  computed: 729d6052c00f1a58708776259540513feabd02923988c4ab5567c474da024ab2" err.out || \
-   ! grep -q "  received: 729d6052c00f1a58708776259540513feabd02923988c4ab4567c474da024ab2" err.out
-   # they differ here, in case you're curious  -------------------------> ^
+if ! grep -q "DigestMismatch: digest mismatch:" err.out|| \
+   ! grep -q "  computed: ff7e678fa279de4cf73f04e25ec3e98b26716e332666f650bbaa372ac8b1b8d7" err.out || \
+   ! grep -q "  received: 30c7cd65d97fc08519c5f87b3b44fa5c099840372e6caeddf3a6e225015fcc6f" err.out
 then
   echo ""
-  echo "ERROR: did not see expected DigestMismatch head fuzz digest error"
+  echo "ERROR: did not see expected DigestMismatch error (ff7e678 vs 30c7cd6)"
   cat err.out
   PASSED="no"
 fi
@@ -1144,8 +1144,9 @@ fi
 if ! cmp ../test-plaintext-a tmp-plaintext-a-1
 then
   echo ""
-  echo "ERROR: decryption failed when head fuzz digest tampered with"
+  echo "ERROR: decryption failed when head fuzz tampered with"
   cat tmp-plaintext-a-1
+  echo ""
   PASSED="no"
 fi
 
