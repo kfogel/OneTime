@@ -651,6 +651,12 @@ but it still needs to be a new object due to certain initializations)."""
     self._tail_fuzz_length = None
     self._tail_fuzz_length_source_bytes = None
 
+    # This buffer holds all encrypted head fuzz bytes that have not
+    # yet been emitted by convert().  That is, when this buffer is not
+    # empty, then it is what convert() needs to emit *before* it emits
+    # anything else -- the first part of the output of the first call.
+    self._head_buffer = ''
+
     # This buffer always holds the latest input, and must always be at
     # least as long as the digest + tail fuzz, so that we can
     # refrain from decrypting them as part of the original plaintext.
@@ -712,6 +718,7 @@ but it still needs to be a new object due to certain initializations)."""
     if self._decrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both encryption and decryption")
+    self._head_buffer = self._make_inner_header()
     self._encrypting = True
 
   def prepare_for_decryption(self):
@@ -765,10 +772,7 @@ must be used for all subsequent calls with that instance.
         raise PadSession.PadSessionUninitialized(
           "pad session not yet prepared for either encrypting or decrypting")
       elif not self._begun:
-        if self._encrypting:
-          inner_header_data = self._make_inner_header()
-          result += inner_header_data
-        else: # self._decrypting is set
+        if self._decrypting:
           # TODO (minor): It's possible string might be so short that
           # it doesn't even contain enough information to know the fuzz
           # length yet.  The solution is easy: if we haven't yet begun,
@@ -784,6 +788,7 @@ must be used for all subsequent calls with that instance.
               "Got both a result string and a pad remainder")
           if pad_remaining > 0:
             self._pad_remaining_to_skip = pad_remaining
+
       if self._pad_remaining_to_skip > 0:
         # TODO: Ahh, we're storing _pad_remaining_to_skip in self!
         # TODO: These "pad_remaining_..." vars should be named
@@ -797,7 +802,7 @@ must be used for all subsequent calls with that instance.
           num_bytes_to_consume_now = self._pad_remaining_to_skip
         self._pad_remaining_to_skip = new_pad_remaining
         num_fuzz_bytes_remaining, string = self._consume_fuzz_bytes(
-          num_bytes_to_consume_now, string, is_head_fuzz=True) # fooo?
+          num_bytes_to_consume_now, string, is_head_fuzz=True)
         self._pad_remaining_to_skip += num_fuzz_bytes_remaining
 
       # Once we've handled any inner headers, buffer for decrypting.
@@ -824,8 +829,10 @@ must be used for all subsequent calls with that instance.
       result += chr(ord(string[i]) ^ ord(pad_str[i]))
     self._length += string_len
     self._begun = True
+    if self._head_buffer:
+      result = self._head_buffer + result
+      self._head_buffer = ''
     return result
-
 
   def _get_id(self):
     """Get the ID for this session's underlying pad.
@@ -993,7 +1000,7 @@ must be used for all subsequent calls with that instance.
       consumable_len = min(len(string), num_bytes)
       pad_data = self.padfile.read(consumable_len)
       self._length += consumable_len
-      if is_head_fuzz is not None:
+      if is_head_fuzz:
         hash_input = ""
         for i in range(consumable_len):
           hash_input += chr(ord(string[i]) ^ ord(pad_data[i]))
@@ -1006,7 +1013,7 @@ must be used for all subsequent calls with that instance.
   def _make_fuzz(self, num_bytes, is_head_fuzz=False):
     """Return NUM_BYTES worth of encrypted fuzz data, advancing the pad.
 If IS_HEAD_FUZZ is true, then update the session hash with the NUM_BYTES
-f random fuzz data generated herein."""
+of random fuzz data generated herein."""
     try:
       rnd_data = self._randy.rand_bytes(num_bytes)
       pad_data = self.padfile.read(num_bytes)
@@ -1014,8 +1021,6 @@ f random fuzz data generated herein."""
       ret_data = ''
       self._length += num_bytes
       for i in range(num_bytes):
-        # TODO: The problem is that here hasher hashes rnd + pad,
-        # whereas when we consume fuzz, we hash rnd - pad, right?
         ret_data = ret_data + chr(ord(rnd_data[i]) ^ ord(pad_data[i]))
       if is_head_fuzz:
         self.digest_gulp(rnd_data)
@@ -1358,58 +1363,14 @@ class SessionEncoder:
     self.compressor = bz2.BZ2Compressor()
     self.pad_sess.prepare_for_encryption()
 
-    # Flag indicating whether or not self.pad_sess.convert() has been
-    # called for the first time yet.
-    #
-    # TBD: This is a totally lame boundary violation, and it would be
-    # better to structure the code in such a way that this dependency
-    # is handled more naturally.  Here's the situation:
-    #
-    # The first call to convert() in self.encode() performs some
-    # initializations for the pad session -- initializing the head
-    # fuzz and digest -- while subsequent calls are no-ops if there's
-    # nothing to convert.  But digest_gulp() should only be called
-    # after those initializations, since they affect the digest.
-    #
-    # We *could* call convert() unconditionally, even if there is no
-    # compressed plaintext to convert yet, since, except for the
-    # initializations, that would be a no-op.  But that can lead to
-    # an ugly extra newline in the base64 encoding, like so (trimmed):
-    #
-    #   [...]
-    #   FPdpeW1dOtl9cbZDkNmK2hd5Y7S8UMJVNWzc2r/zwMyzWy9cxsIvbJyRcgm
-    #   bssb/2Mrfl4tMr0OeAQRu5ZlBI99O5b6p931c/sHks032xgFfMu13eep/1S
-    #   3uc=
-    #   p4WTBmiXVjp1pTZY/A2cUBosg2KsBHH8bvb/LAjAnW9csJb3uUpboD/DQOl
-    #   Eh/lUVJHa5a1yVtWHPN7CIY/H4hbJ6C4S4B6ir5gt5V3WX+Id847QnS5T9B
-    #   [...]
-    #
-    # So we don't want to call convert() unless there's actually
-    # compressed plaintext to convert, and therefore we need to know
-    # whether or not convert() has been called for the first time, so
-    # we can decide whether to call digest_gulp() -- of course, once
-    # we start calling digest_gulp(), we always call it thereafter.
-    self._started_encoding = False
-    
   def encode(self, string):
     """Return onetime-encoded data for STRING, or the empty string if none.
     Consume pad as needed."""
     out = ''
     compressed_plaintext = self.compressor.compress(string)
     if compressed_plaintext:
-      self._started_encoding = True
       out = base64.encodestring(self.pad_sess.convert(compressed_plaintext))
-    if self._started_encoding is True:
-      # TODO: Ooooooh, wait, the problem is that, in the test case, we
-      # *never* get here -- all the conversion happens in finish().
-      # The solution is to do the digest preparation in the initial
-      # call to self.pad_sess.prepare_for_encryption(), and just have
-      # the head fuzz ready for the first call to convert() to prepend
-      # to whatever it's converting.  The bookkeeping for that can all
-      # be handled inside the pad session.
-      sys.stderr.write("KFF: digesting '%s'\n" % string)
-      sys.stderr.flush()
-      self.pad_sess.digest_gulp(string)
+    self.pad_sess.digest_gulp(string)
     return out
 
   def finish(self):
