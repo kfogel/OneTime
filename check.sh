@@ -958,7 +958,8 @@ start_new_test "tampered head fuzz is detected, but decryption succeeds"
 # the digest before the message text section.
 
 ## Encrypt message
-../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+../../onetime --test-mode \
+         --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
 ../zap tmp-ciphertext-b-1 284 ? 71
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
@@ -1094,7 +1095,8 @@ check_result
 ########################################################################
 start_new_test "tampering with message digest causes authentication error"
 ## Encrypt message
-../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+../../onetime --test-mode \
+         --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-a-1 < ../test-plaintext-a 2>err.out
 # In the base64-encoded ciphertext file, position 822 is 'y' (121).
 ../zap tmp-ciphertext-a-1 822 121 122 # tweaking to 'z'
@@ -1125,7 +1127,8 @@ check_result
 ########################################################################
 start_new_test "tampering with head fuzz causes authentication error"
 ## Encrypt message
-../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
+../../onetime --test-mode \
+         --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-a-1 < ../test-plaintext-a 2>err.out
 # In the base64-encoded ciphertext file, position 215 is 'L' (76).
 ../zap tmp-ciphertext-a-1 215 76 77

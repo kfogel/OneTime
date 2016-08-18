@@ -571,20 +571,27 @@ class RandomEnough:
   truly random, then that's tragic, but this class at least helps
   compensate for that in a couple of places where raw pad bytes might
   otherwise be exposed; for that case, the more randomness this class
-  can supply, the better, but it's all a "best effort" kind of thing."""
-  def __init__ (self, seed=None):
+  can supply, the better, but it's all a "best effort" kind of thing.
+
+  If TEST_MODE, then use pseudo-random numbers with a defined seed, 
+  so that the same stream of random numbers is always produced."""
+  def __init__ (self, test_mode=False):
     """Initialize, optionally with integer SEED."""
-    self._seed = seed
-    if self._seed is not None:
-      random.seed(self._seed)
+    if test_mode:
+      random.seed(1729)
   def rand_bytes(self, num):
     """Return NUM random bytes."""
     try:
-      # Would be nice to use a random.SystemRandom object here if one
-      # is available, but the Python documentation says that class is
-      # not supported on all systems, while not specifying what error
-      # is raised if it's not supported.  (Maybe one is just supposed
-      # to check directly for it in random.__dict__?)
+      # TODO: Right now we offer pseudo-random bytes based on whatever
+      # random seed Python is using (unless test_mode, in which case
+      # the seed is predefined).  Even though the random bytes
+      # produced here are not essential to the security of OneTime's
+      # output, still it would be best if they were as random as we
+      # could make them.  We could use a random.SystemRandom object
+      # here if one is available, but the Python documentation says
+      # that class is not supported on all systems, while not saying
+      # what error is raised if it's not supported.  (Maybe one is
+      # just supposed to check directly for it in random.__dict__?)
       raise NotImplementedError("just testing")
       return os.urandom(num)
     except NotImplementedError:
@@ -609,12 +616,15 @@ but it still needs to be a new object due to certain initializations)."""
   # is itself encrypted with the pad and included in the ciphertext.
   _digest_length = 32
 
-  def __init__(self, pad_path, config_area=None, no_trace=False):
+  def __init__(self, pad_path, config_area=None, 
+               no_trace=False, test_mode=False):
     """Make a new pad session, with padfile PAD_PATH.
     The pad session cannot be used for encrypting or decrypting until
     set_offset() is called.  If CONFIG_AREA is not None, it is the
-    directory containing the pad-records file.  If NO_TRACE is not
-    False, then don't make any changes in the configuration area."""
+    directory containing the pad-records file.  If NO_TRACE, then
+    don't make any changes in the configuration area.  If TEST_MODE,
+    then use pseudo-random numbers with a defined seed, so that output
+    is always the same when the input is the same."""
     self.pad_path = pad_path
     self.config = Configuration(self, config_area)
     self._no_trace = no_trace
@@ -624,7 +634,7 @@ but it still needs to be a new object due to certain initializations)."""
     self._length = 0  # number of pad bytes used this time
     self._default_fuzz_source_length = 2   # See _get_fuzz_length_from_pad()
     self._default_fuzz_source_modulo = 512 # and see _make_inner_header().
-    self._randy = RandomEnough(1729)
+    self._randy = RandomEnough(test_mode)
 
     # These are just caches for self.id(), which see.
     self._id = None
@@ -1542,7 +1552,7 @@ def main():
   output_name = None
   offset      = None
   config_area = None
-  debug       = False
+  test_mode   = False
   error_exit  = False
   show_pad_id = False
   no_trace    = False
@@ -1557,7 +1567,7 @@ def main():
                                  "config=",
                                  "show-id",
                                  "no-trace",
-                                 "debug",
+                                 "test-mode",
                                  "intro", "help", "pad-help",
                                  "version", "license"])
   except getopt.GetoptError:
@@ -1601,6 +1611,13 @@ def main():
       show_pad_id = True
     elif opt == '--no-trace' or opt == '-n':
       no_trace = True
+    elif opt == '--test-mode':
+      # This option is not advertized and should never be used in
+      # production.  It's just for running with predictable outputs
+      # (by using pseudo-random numbers with a defined seed, instead
+      # of striving for as much true randomness as we can muster), so
+      # that the test suite can know what to expect.
+      test_mode = True
     else:
       sys.stderr.write("Error: unrecognized option: '%s'\n" % opt)
       error_exit = True
@@ -1660,7 +1677,7 @@ def main():
     usage(sys.stderr)
     sys.exit(1)
 
-  pad_sess = PadSession(pad_file, config_area, no_trace)
+  pad_sess = PadSession(pad_file, config_area, no_trace, test_mode)
 
   if show_pad_id:
     print pad_sess.id()
