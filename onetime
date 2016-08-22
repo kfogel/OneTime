@@ -783,6 +783,18 @@ must be used for all subsequent calls with that instance.
           "pad session not yet prepared for either encrypting or decrypting")
       elif not self._begun:
         if self._decrypting:
+          # In the decryption case, the only way we receive any head
+          # fuzz material is during the initial call(s) to convert().
+          # So here we check for that and make sure to consume all the
+          # head fuzz before continuing on to regular decryption.  In
+          # theory, this could involve multiple calls to convert,
+          # although in practice it always seems to get done during
+          # the first call.
+          # 
+          # (The complement of this code, in the encryption case, is
+          # located in self._prepare_for_encryption(), where it
+          # prepares self._head_buffer for the first convert() call.)
+          # 
           # TODO (minor): It's possible string might be so short that
           # it doesn't even contain enough information to know the fuzz
           # length yet.  The solution is easy: if we haven't yet begun,
@@ -840,6 +852,18 @@ must be used for all subsequent calls with that instance.
     self._length += string_len
     self._begun = True
     if self._head_buffer:
+      # In the encryption case, we generated the head fuzz entirely
+      # internally during the preparation stage, and just buffered it
+      # for prepending during the first call to convert().  So if
+      # we're here, then it must be the first call to convert() when
+      # encrypting, and it's time to use and empty that buffer.
+      #
+      # (The decryption case is not quite symmetrical.  We can't
+      # consume the head fuzz during the preparation stage, because at
+      # that point we haven't received any of the input yet -- the
+      # only route for receiving input is via calls to convert().  So
+      # the complement of this code, in the decryption case, is the
+      # handling of head fuzz before the self._begun flag is set.)
       result = self._head_buffer + result
       self._head_buffer = ''
     return result
