@@ -1102,7 +1102,7 @@ start_new_test "tampering with message digest causes authentication error"
 ../zap tmp-ciphertext-a-1 822 121 122 # tweaking to 'z'
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     -o tmp-plaintext-a-1 < tmp-ciphertext-a-1 2>err.out
-if ! grep -q "DigestMismatch: digest mismatch:" err.out|| \
+if ! grep -q "DigestMismatch: digest mismatch:" err.out || \
    ! grep -q "  computed: 30c7cd65d97fc08519c5f87b3b44fa5c099840372e6caeddf3a6e225015fcc6f" err.out || \
    ! grep -q "  received: 30c7cd65d97fc08519c5f87f3b44fa5c099840372e6caeddf3a6e225015fcc6f" err.out
    # here is where they differ ----------------> ^   
@@ -1134,7 +1134,7 @@ start_new_test "tampering with head fuzz causes authentication error"
 ../zap tmp-ciphertext-a-1 215 76 77
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     -o tmp-plaintext-a-1 < tmp-ciphertext-a-1 2>err.out
-if ! grep -q "DigestMismatch: digest mismatch:" err.out|| \
+if ! grep -q "DigestMismatch: digest mismatch:" err.out || \
    ! grep -q "  computed: ff7e678fa279de4cf73f04e25ec3e98b26716e332666f650bbaa372ac8b1b8d7" err.out || \
    ! grep -q "  received: 30c7cd65d97fc08519c5f87b3b44fa5c099840372e6caeddf3a6e225015fcc6f" err.out
 then
