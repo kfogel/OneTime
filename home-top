@@ -15,7 +15,7 @@
 <h2><span class="title" 
     >OneTime &nbsp;&mdash;&nbsp; Encryption with One-Time Pads</span></h2>
 
-<h4><p class="notice" >Update (2016-06-25): OneTime 2.0 is currently in
+<h4><p class="notice" >Update (2016-08-21): OneTime 2.0 is currently in
 beta testing.  The latest version is <a href="onetime-2XVERSION"
 >2XVERSION</a>&nbsp;&mdash;&nbsp;please give it a try and
 <a href="https://github.com/kfogel/OneTime/issues/new" >report</a>

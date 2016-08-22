@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__version__ = "2.0-beta12"
+__version__ = "2.0-beta13"
 
 __doc__ = """\
 OneTime: an open source encryption program that uses the one-time pad method.
