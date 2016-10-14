@@ -164,10 +164,6 @@ import random
 #          an attacker has no plaintext substitution attack and no way
 #          to recover any of the raw pad bytes.
 #
-#   M  ==  32 bytes of message digest
-#
-#          A SHA256 hash, XOR'd with pad, of the original plaintext.
-#
 #   (Note that D is are not a hexadecimal representation of the hash;
 #   to save space, it is the raw hash digest.  However, any integrity
 #   errors display the hash in hexadecimal.)
