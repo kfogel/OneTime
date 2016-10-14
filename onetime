@@ -566,15 +566,29 @@ class Configuration:
 
 class RandomEnough:
   """Class for providing random bytes that are XOR'd against pad.
-  If the pad is truly random (which it's supposed to be), then the
-  randomness produced by this class is irrelevant.  If the pad is not
-  truly random, then that's tragic, but this class at least helps
-  compensate for that in a couple of places where raw pad bytes might
-  otherwise be exposed; for that case, the more randomness this class
-  can supply, the better, but it's all a "best effort" kind of thing.
+
+          ***                  NOTE:                   ***
+          *** DON'T USE THIS FOR ENCRYPTING PLAINTEXT. ***
+          *** THAT IS NOT WHAT IT IS FOR.  JUST DON'T. ***
+  
+  There are a couple of places (the head fuzz and tail fuzz) where raw
+  pad bytes would otherwise be exposed in the encrypted message,
+  except that they're not exposed because they're XOR'd with bytes
+  coming from this class.  That's all this class is for.
+
+  If the pad is truly random, as it should be, then the randomness
+  produced by this class is irrelevant.  If the pad is not truly
+  random, then that's tragic, but this class at least helps disguise
+  that bact a bit.  Still, it's just a "best effort" kind of thing.
+
+  In any case, these bytes are *never* to be used as a fallback
+  replacement for missing pad data, obviously.  They're just about
+  making the fuzz fuzzier; they have nothing to do with real data.
 
   If TEST_MODE, then use pseudo-random numbers with a defined seed, 
-  so that the same stream of random numbers is always produced."""
+  so that the same stream of random numbers is always produced.
+
+  """
   def __init__ (self, test_mode=False):
     """Initialize, optionally with integer SEED."""
     if test_mode:
