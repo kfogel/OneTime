@@ -1130,48 +1130,31 @@ of random fuzz data generated herein."""
     #
     # You may be wondering, why do we have fuzz at all?
     #
-    # There's a known-plaintext message authentication attack whereby
-    # if the attacker knows the exact plaintext sent, and can actively
-    # intercept messages, she could substitute some other plaintext
-    # for it (since the relevant pad data could be derived).
-    #
     # By prepending and appending random amounts of data (the head
     # fuzz and tail fuzz), we make it impossible for the attacker to
-    # know exactly *where* the real encrypted text starts and ends,
-    # which means she can't derive the relevant part of the pad, so
-    # she can't substitute another plaintext.
+    # know exactly where the real encrypted text starts and ends or
+    # how long the encrypted text is.
     #
-    # Okay, but why not instead use a few bytes of pad data as a key
-    # by which to encrypt the plaintext input with some standard block
-    # cipher and then encrypt the result of *that* against the pad?
-    # Wouldn't that protect against a known-plaintext attack better?
+    # This means she can't derive the relevant part of the pad, so she
+    # can't substitute another plaintext, even if she knows the
+    # original plaintext; and if she doesn't know the original
+    # plaintext, she has no way to derive the length of the plaintext
+    # from the encrypted text.
     #
-    # True, but the problem with doing full symmetric encryption
-    # "underneath" the pad is that there isn't any library for that in
-    # the standard Python distribution.  Using only stuff available in
-    # core Python is a design goal, to make distribution easier.
-    # Also, adding a pad-keyed block-cipher would make the code more
-    # complex and thus maintenance and debugging harder; simplicity
-    # and inspectability are important goals for OneTime.
+    # The fuzz isn't the only thing preventing substitution, because
+    # encrypted messages are also authenticated with checksums made
+    # from both pad data and plaintext data.  But this way an attacker
+    # has only a "1 / fuzz_length" chance of even guessing where in
+    # the message the compressed plaintext *is*, regardless of whether
+    # she has a known plaintext -- the tail fuzz distance means she
+    # can't just count backwards from the end of the ciphertext.
     #
-    # Padding by "random" distances -- that is, distances known only
-    # to those with the pad -- is portable and simple.  It also
-    # disguises the length of the compressed plaintext a bit.  (We
-    # can't afford to disguise it by very much, because we don't want
-    # to use up a lot of pad on fuzz; pad isn't cheap.)
-    #
+    # We can't afford to disguise the position or length by very much,
+    # because pad isn't cheap and we don't want to use it up on fuzz.
     # Hence, self._default_fuzz_source_modulo is currently 512.  We
     # will read two bytes two determine the head fuzz distance (i.e.,
-    # the head fuzz distance will be 0 <= N <= 511), and read the
-    # next two bytes to determine the tail fuzz distance (ditto).
-    #
-    # Now the attacker can't reliably substitute some other plaintext
-    # for the original: she'd have only a 1-in-512 chance of guessing
-    # the right distance for the head fuzz.  Even if she knows the
-    # exact plaintext, she doesn't know where in the ciphertext the
-    # compressed plaintext starts -- and the tail fuzz distance means
-    # she can't just count backwards from the end of the ciphertext.
-    # Thus a plaintext-substitution attack is prevented.
+    # the head fuzz distance will be 0 <= N <= 511), and read the next
+    # two bytes to determine the tail fuzz distance (ditto).
     #
     # It's tempting to set a higher modulus than 512, but given the
     # rate at which I at least can generate new pad data, that feels
@@ -1183,28 +1166,14 @@ of random fuzz data generated herein."""
     # (There's no particular reason the modulus has to be a power of
     # two, either, other than good taste.)
     #
-    # These precautions greatly reduce the effectiveness of the
-    # known-plaintext message authentication attack.  Still, even now
-    # if you were to send the same message to, say, 1024 people who are
-    # all using the same pad, and that exact plaintext were known to
-    # the attacker, and the attacker were to have active intercept
-    # capability with the recipients, then for some small number of
-    # those recipients, the attacker could substitute some other
-    # forged message in place of your original plaintext.  But the
-    # attacker wouldn't know which subsitutions were successful, and
-    # the rest of the recipients would receive an obviously garbage
-    # message.  Given the number of prerequisites there, and the
-    # unavoidable & easily detectable failure mode for the attacker,
-    # this does not seem like a serious weakness to me, but comments
-    # always welcome of course.
-    #
     # Remember that the 512 should not be thought of as a key length.
     # The number of possibilities here is 1-in-512, not 1-in-(2^512).
     #
     # A possible improvement would be to fuzz by bits instead of
     # bytes, so we get 8 times the variability for the amount of pad
     # used up.  But fuzzing by bits would complicate the code, since
-    # all the seeking and I/O is natively aligned on 8-bit boundaries.
+    # all the seeking and I/O is natively aligned on 8-bit boundaries,
+    # and inspectable simplicity is one of OneTime's goals.
     head_fuzz_length, head_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
