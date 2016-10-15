@@ -537,6 +537,8 @@ class Configuration:
     # Set the next offset accordingly.
     next_offset = self._get_next_offset(
       self.pad_records[self._pad_session.id()]["used"])
+    sys.stderr.write("KFF: setting offset in registration\n")
+    sys.stderr.flush()
     self._pad_session.set_offset(next_offset)
 
   def record_consumed(self, allow_reconsumption):
@@ -622,9 +624,17 @@ but it still needs to be a new object due to certain initializations)."""
   # Length of the front stretch of pad used for the ID.
   _id_source_length = 32
 
-  # The plaintext is authenticated with a SHA256 hash digest that
-  # is itself encrypted with the pad and included in the ciphertext.
+  # The plaintext is authenticated with a SHA256 hash digest
+  # (computed in self._session_hash) that is itself encrypted with the
+  # pad and included in the ciphertext.  This is the length of that
+  # digest.  Note it is the length of the raw digest, not the length
+  # of a hexadecimal representation of the digest.
   _digest_length = 32
+
+  # A stretch of pad bytes, starting at self._offset, are included in
+  # the source material for the digest computed in self._session_hash.
+  # This is how many bytes to use.
+  _digest_source_length = 32
 
   def __init__(self, pad_path, config_area=None, 
                no_trace=False, test_mode=False):
@@ -662,7 +672,11 @@ but it still needs to be a new object due to certain initializations)."""
     # We compute a hash of the plaintext head fuzz + plaintext message
     # and embed that hash into the encrypted text, for authentication
     # of the overall encrypted message.
-    self._session_hash = hashlib.sha256()
+    #
+    # Instead of initializing it here, we initialize it in the first
+    # call to self.convert(), so that any attempt to use the session
+    # hash before it's initialized will raise an error.
+    self._session_hash = None
 
     # There are both head and tail fuzz, but we only need to remember
     # the tail fuzz length, because we learn that length at the start
@@ -730,6 +744,41 @@ but it still needs to be a new object due to certain initializations)."""
     "Exception raised if a digest check fails."
     pass
 
+  # TODO: This isn't working yet, because:
+  #
+  #   $ make quickcheck
+  #   Encrypting...
+  #   KFF: setting offset in registration
+  #   Done.
+  #   
+  #   Decrypting...
+  #   KFF: setting offset in registration
+  #   KFF: m is not false
+  #   Traceback (most recent call last):
+  #     File "../onetime", line 1852, in <module>
+  #       main()
+  #     File "../onetime", line 1828, in main
+  #       raise e
+  #   __main__.InnerFormat: unknown inner format version "64"
+  #   Done.
+  #
+  # Putting it in set_offset() isn't right, because the offset can be
+  # set and reset multiple times before any action starts.  Need to
+  # review code flow and find the right place to perform hash init.
+  def _prepare(self):
+    """Perform common preparation for both encryption and decryption.
+    Namely: initialize the session hash with some raw pad bytes."""
+    if self._offset + self._digest_source_length >= self.pad_size:
+      raise PadSession.PadShort(
+        "digest initialization failed because pad too short")
+    digest_source_bytes = self.padfile.read(self._digest_source_length)
+    self._length += self._digest_source_length
+    if self._session_hash is not None:
+      raise PadSession.OverPrepared(
+        "pad session hash was prematurely initialized")
+    self._session_hash = hashlib.sha256()
+    self.digest_gulp(digest_source_bytes)
+
   def prepare_for_encryption(self):
     """Mark this PadSession as encrypting.  This or prepare_for_decryption()
     must be called exactly once, before any conversion happens."""
@@ -738,6 +787,7 @@ but it still needs to be a new object due to certain initializations)."""
     if self._decrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both encryption and decryption")
+    self._prepare()
     self._head_buffer = self._make_inner_header()
     self._encrypting = True
 
@@ -749,6 +799,7 @@ but it still needs to be a new object due to certain initializations)."""
     if self._encrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both decryption and encryption")
+    self._prepare()
     self._decrypting = True
 
   def set_offset(self, offset):
@@ -1688,6 +1739,8 @@ def main():
     sys.exit(0)
 
   if offset is not None:
+    sys.stderr.write("KFF: offset is not None\n")
+    sys.stderr.flush()
     pad_sess.set_offset(offset)
     offset = None  # junk it; we'll rely on pad_sess for offset from now on
 
@@ -1766,6 +1819,8 @@ def main():
         # config.register() takes care of that.  But in practice, most
         # plaintexts will have already used more than that anyway, so
         # that safeguard is probably redundant here.)
+        sys.stderr.write("KFF: m is not false\n")
+        sys.stderr.flush()
         pad_sess.set_offset(int(m.group(1)))
         continue
       m = re.match("Format: ([a-zA-Z0-9-]+) ", maybe_header_line)
