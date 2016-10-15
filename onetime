@@ -88,12 +88,19 @@ import random
 # after the core data, there's some bookkeeping, all base64-encoded.
 # Here's a diagram, with index increasing from left to right:
 #
-#   FFHHTT******----------------------------------------DDDDDDDD*******
+#   RRRRFFHHTT******-------------------------------------DDDD*******
 #
 # The precise number of same characters in a row is not significant
 # above, except as a rough guide to the relative lengths of the 
 # different sections.  This is what the different sections mean:
 #
+#   R  ==  some bytes of raw pad input for the session hash
+# 
+#          These bytes are among the data fed to the session hash, so
+#          that the final message digest authenticates the pad as well
+#          as the plaintext.  (The actual number of bytes used is
+#          PadSession._digest_source_length.)
+# 
 #   F  ==  a few format indicator bytes:
 #
 #          These tell OneTime what version of its internal format it
@@ -145,26 +152,26 @@ import random
 #          one, still at least OneTime should do its best to avoid
 #          exposing this mistake in an obvious way when it happens.
 # 
-#   -  ==  the actual encrypted plaintext
+#   -  ==  encrypted plaintext
 # 
 #          Base64-encoded XOR'd bzipped plaintext.
 #
 #   D  ==  32 bytes of digest
 #
-#          A SHA256 hash, XOR'd with pad, of the raw head fuzz (that
-#          is, the random bytes from *before* they were XOR'd with the
-#          pad to produce the final head fuzz) concatenated with the
-#          plaintext message. 
+#          A SHA256 digest, XOR'd with pad, of: the raw pad session
+#          hash input bytes, plus the raw head fuzz (that is, the
+#          random bytes from *before* they were XOR'd with the pad to
+#          produce the final head fuzz), plus the plaintext message. 
 #          
-#          The purpose of this digest make sure that we can verify
-#          message integrity without revealing anything about the pad
-#          (because we don't want an attacker to be able to analyze
-#          whether the pad itself might have any weaknesses).  With
-#          the combined digest, even in the case of a known plaintext
-#          an attacker has no plaintext substitution attack and no way
-#          to recover any of the raw pad bytes.
+#          The purpose of this digest verify message integrity without
+#          revealing anything about the pad (because we don't want an
+#          attacker to be able to analyze whether the pad itself might
+#          have any weaknesses).  Using a combined digest means that
+#          even in the case of a known plaintext there is no plaintext
+#          substitution attack and no way to recover any of the raw
+#          pad bytes.
 #
-#   (Note that D is are not a hexadecimal representation of the hash;
+#   (Note that this is not a hexadecimal representation of the hash;
 #   to save space, it is the raw hash digest.  However, any integrity
 #   errors display the hash in hexadecimal.)
 #
@@ -622,9 +629,17 @@ but it still needs to be a new object due to certain initializations)."""
   # Length of the front stretch of pad used for the ID.
   _id_source_length = 32
 
-  # The plaintext is authenticated with a SHA256 hash digest that
-  # is itself encrypted with the pad and included in the ciphertext.
+  # The plaintext is authenticated with a SHA256 hash digest
+  # (computed in self._session_hash) that is itself encrypted with the
+  # pad and included in the ciphertext.  This is the length of that
+  # digest.  Note it is the length of the raw digest, not the length
+  # of a hexadecimal representation of the digest.
   _digest_length = 32
+
+  # A stretch of pad bytes, starting at self._offset, are included in
+  # the source material for the digest computed in self._session_hash.
+  # This is how many bytes to use.
+  _digest_source_length = 32
 
   def __init__(self, pad_path, config_area=None, 
                no_trace=False, test_mode=False):
@@ -662,7 +677,11 @@ but it still needs to be a new object due to certain initializations)."""
     # We compute a hash of the plaintext head fuzz + plaintext message
     # and embed that hash into the encrypted text, for authentication
     # of the overall encrypted message.
-    self._session_hash = hashlib.sha256()
+    #
+    # Instead of initializing it here, we initialize it in the first
+    # call to self.convert(), so that any attempt to use the session
+    # hash before it's initialized will raise an error.
+    self._session_hash = None
 
     # There are both head and tail fuzz, but we only need to remember
     # the tail fuzz length, because we learn that length at the start
@@ -730,6 +749,19 @@ but it still needs to be a new object due to certain initializations)."""
     "Exception raised if a digest check fails."
     pass
 
+  def _initialize_digest(self):
+    """Initialize the session hash with some raw pad bytes."""
+    if self._offset + self._digest_source_length >= self.pad_size:
+      raise PadSession.PadShort(
+        "digest initialization failed because pad too short")
+    digest_source_bytes = self.padfile.read(self._digest_source_length)
+    self._length += self._digest_source_length
+    if self._session_hash is not None:
+      raise PadSession.OverPrepared(
+        "pad session hash was prematurely initialized")
+    self._session_hash = hashlib.sha256()
+    self.digest_gulp(digest_source_bytes)
+
   def prepare_for_encryption(self):
     """Mark this PadSession as encrypting.  This or prepare_for_decryption()
     must be called exactly once, before any conversion happens."""
@@ -738,6 +770,7 @@ but it still needs to be a new object due to certain initializations)."""
     if self._decrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both encryption and decryption")
+    self._initialize_digest()
     self._head_buffer = self._make_inner_header()
     self._encrypting = True
 
@@ -749,6 +782,16 @@ but it still needs to be a new object due to certain initializations)."""
     if self._encrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both decryption and encryption")
+    # The fact that we don't call self._initialize_digest() nor
+    # self._handle_inner_header() here is an ugly asymmetry
+    # w.r.t. self.prepare_for_encryption().  The reason for it is that
+    # the decryption code flow is complicated by the need to handle
+    # remainder input, in a way that encryption is not.  Notice how
+    # self._initialize_digest() and self._handle_inner_header() are
+    # called together in self.convert().  Those two calls really
+    # should be chained together in one routine, and this would be the
+    # routine for it to happen in.  Maybe some day someone will be
+    # motivated enough to clean this up.
     self._decrypting = True
 
   def set_offset(self, offset):
@@ -802,10 +845,6 @@ must be used for all subsequent calls with that instance.
           # although in practice it always seems to get done during
           # the first call.
           # 
-          # (The complement of this code, in the encryption case, is
-          # located in self._prepare_for_encryption(), where it
-          # prepares self._head_buffer for the first convert() call.)
-          # 
           # TODO (minor): It's possible string might be so short that
           # it doesn't even contain enough information to know the fuzz
           # length yet.  The solution is easy: if we haven't yet begun,
@@ -815,6 +854,18 @@ must be used for all subsequent calls with that instance.
           # This is not an urgent problem, as in practice no I/O system
           # is likely to deliver string in chunks so small.  So, saving
           # it to solve later.
+
+          # The complement of these calls to self._initialize_digest()
+          # and self._handle_inner_header(string) is located, in
+          # the encryption case, in self._prepare_for_encryption(),
+          # which also prepares self._head_buffer for the first call
+          # to convert().  However, the decryption case is complicated
+          # by the need to return remainder information, in a way that
+          # the encryption case is not.  This asymmetry is reflected
+          # in the code, unfortunately; ideally, these calls would be
+          # chained together in self.prepare_for_decryption().  It
+          # would be nice to clean this up some day.
+          self._initialize_digest()
           string, pad_remaining = self._handle_inner_header(string)
           if string != "" and pad_remaining != 0:
             raise PadSession.InnerFormat(
