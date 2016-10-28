@@ -88,12 +88,19 @@ import random
 # after the core data, there's some bookkeeping, all base64-encoded.
 # Here's a diagram, with index increasing from left to right:
 #
-#   FFHHTT******----------------------------------------DDDDDDDD*******
+#   RRRRFFHHTT******-------------------------------------DDDD*******
 #
 # The precise number of same characters in a row is not significant
 # above, except as a rough guide to the relative lengths of the 
 # different sections.  This is what the different sections mean:
 #
+#   R  ==  some bytes of raw pad input for the session hash
+# 
+#          These bytes are among the data fed to the session hash, so
+#          that the final message digest authenticates the pad as well
+#          as the plaintext.  (The actual number of bytes used is
+#          PadSession._digest_source_length.)
+# 
 #   F  ==  a few format indicator bytes:
 #
 #          These tell OneTime what version of its internal format it
@@ -145,26 +152,26 @@ import random
 #          one, still at least OneTime should do its best to avoid
 #          exposing this mistake in an obvious way when it happens.
 # 
-#   -  ==  the actual encrypted plaintext
+#   -  ==  encrypted plaintext
 # 
 #          Base64-encoded XOR'd bzipped plaintext.
 #
 #   D  ==  32 bytes of digest
 #
-#          A SHA256 hash, XOR'd with pad, of the raw head fuzz (that
-#          is, the random bytes from *before* they were XOR'd with the
-#          pad to produce the final head fuzz) concatenated with the
-#          plaintext message. 
+#          A SHA256 digest, XOR'd with pad, of: the raw pad session
+#          hash input bytes, plus the raw head fuzz (that is, the
+#          random bytes from *before* they were XOR'd with the pad to
+#          produce the final head fuzz), plus the plaintext message. 
 #          
-#          The purpose of this digest make sure that we can verify
-#          message integrity without revealing anything about the pad
-#          (because we don't want an attacker to be able to analyze
-#          whether the pad itself might have any weaknesses).  With
-#          the combined digest, even in the case of a known plaintext
-#          an attacker has no plaintext substitution attack and no way
-#          to recover any of the raw pad bytes.
+#          The purpose of this digest verify message integrity without
+#          revealing anything about the pad (because we don't want an
+#          attacker to be able to analyze whether the pad itself might
+#          have any weaknesses).  Using a combined digest means that
+#          even in the case of a known plaintext there is no plaintext
+#          substitution attack and no way to recover any of the raw
+#          pad bytes.
 #
-#   (Note that D is are not a hexadecimal representation of the hash;
+#   (Note that this is not a hexadecimal representation of the hash;
 #   to save space, it is the raw hash digest.  However, any integrity
 #   errors display the hash in hexadecimal.)
 #
@@ -537,8 +544,6 @@ class Configuration:
     # Set the next offset accordingly.
     next_offset = self._get_next_offset(
       self.pad_records[self._pad_session.id()]["used"])
-    sys.stderr.write("KFF: setting offset in registration\n")
-    sys.stderr.flush()
     self._pad_session.set_offset(next_offset)
 
   def record_consumed(self, allow_reconsumption):
@@ -744,30 +749,8 @@ but it still needs to be a new object due to certain initializations)."""
     "Exception raised if a digest check fails."
     pass
 
-  # TODO: This isn't working yet, because:
-  #
-  #   $ make quickcheck
-  #   Encrypting...
-  #   KFF: setting offset in registration
-  #   Done.
-  #   
-  #   Decrypting...
-  #   KFF: setting offset in registration
-  #   KFF: m is not false
-  #   Traceback (most recent call last):
-  #     File "../onetime", line 1852, in <module>
-  #       main()
-  #     File "../onetime", line 1828, in main
-  #       raise e
-  #   __main__.InnerFormat: unknown inner format version "64"
-  #   Done.
-  #
-  # Putting it in set_offset() isn't right, because the offset can be
-  # set and reset multiple times before any action starts.  Need to
-  # review code flow and find the right place to perform hash init.
-  def _prepare(self):
-    """Perform common preparation for both encryption and decryption.
-    Namely: initialize the session hash with some raw pad bytes."""
+  def _initialize_digest(self):
+    """Initialize the session hash with some raw pad bytes."""
     if self._offset + self._digest_source_length >= self.pad_size:
       raise PadSession.PadShort(
         "digest initialization failed because pad too short")
@@ -787,7 +770,7 @@ but it still needs to be a new object due to certain initializations)."""
     if self._decrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both encryption and decryption")
-    self._prepare()
+    self._initialize_digest()
     self._head_buffer = self._make_inner_header()
     self._encrypting = True
 
@@ -799,7 +782,9 @@ but it still needs to be a new object due to certain initializations)."""
     if self._encrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both decryption and encryption")
-    self._prepare()
+    # TODO: The fact that we don't call self._handle_inner_header()
+    # here is an asymmetry w.r.t. self.prepare_for_encryption().
+    # This should be fixed.
     self._decrypting = True
 
   def set_offset(self, offset):
@@ -866,6 +851,7 @@ must be used for all subsequent calls with that instance.
           # This is not an urgent problem, as in practice no I/O system
           # is likely to deliver string in chunks so small.  So, saving
           # it to solve later.
+          self._initialize_digest()
           string, pad_remaining = self._handle_inner_header(string)
           if string != "" and pad_remaining != 0:
             raise PadSession.InnerFormat(
@@ -1739,8 +1725,6 @@ def main():
     sys.exit(0)
 
   if offset is not None:
-    sys.stderr.write("KFF: offset is not None\n")
-    sys.stderr.flush()
     pad_sess.set_offset(offset)
     offset = None  # junk it; we'll rely on pad_sess for offset from now on
 
@@ -1819,8 +1803,6 @@ def main():
         # config.register() takes care of that.  But in practice, most
         # plaintexts will have already used more than that anyway, so
         # that safeguard is probably redundant here.)
-        sys.stderr.write("KFF: m is not false\n")
-        sys.stderr.flush()
         pad_sess.set_offset(int(m.group(1)))
         continue
       m = re.match("Format: ([a-zA-Z0-9-]+) ", maybe_header_line)
