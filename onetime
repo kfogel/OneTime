@@ -866,22 +866,22 @@ must be used for all subsequent calls with that instance.
           # chained together in self.prepare_for_decryption().  It
           # would be nice to clean this up some day.
           self._initialize_digest()
-          string, pad_remaining = self._handle_inner_header(string)
-          if string != "" and pad_remaining != 0:
+          string, fuzz_remaining = self._handle_inner_header(string)
+          if string != "" and fuzz_remaining != 0:
             raise PadSession.InnerFormat(
               "Got both a result string and a pad remainder")
-          if pad_remaining > 0:
-            self._fuzz_remaining_to_consume = pad_remaining
+          if fuzz_remaining > 0:
+            self._fuzz_remaining_to_consume = fuzz_remaining
 
       if self._fuzz_remaining_to_consume > 0:
-        new_pad_remaining = 0
+        new_fuzz_remaining = 0
         num_bytes_to_consume_now = None
         if self._fuzz_remaining_to_consume > len(string):
-          new_pad_remaining = self._fuzz_remaining_to_consume - len(string)
+          new_fuzz_remaining = self._fuzz_remaining_to_consume - len(string)
           num_bytes_to_consume_now = len(string)
         else:
           num_bytes_to_consume_now = self._fuzz_remaining_to_consume
-        self._fuzz_remaining_to_consume = new_pad_remaining
+        self._fuzz_remaining_to_consume = new_fuzz_remaining
         num_fuzz_bytes_remaining, string = self._consume_fuzz_bytes(
           num_bytes_to_consume_now, string, is_head_fuzz=True)
         self._fuzz_remaining_to_consume += num_fuzz_bytes_remaining
