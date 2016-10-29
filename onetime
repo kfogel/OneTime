@@ -88,19 +88,12 @@ import random
 # after the core data, there's some bookkeeping, all base64-encoded.
 # Here's a diagram, with index increasing from left to right:
 #
-#   RRRRFFHHTT******-------------------------------------DDDD*******
+#   FFHHTTRRRR******-------------------------------------DDDD*******
 #
 # The precise number of same characters in a row is not significant
 # above, except as a rough guide to the relative lengths of the 
 # different sections.  This is what the different sections mean:
 #
-#   R  ==  some bytes of raw pad input for the session hash
-# 
-#          These bytes are among the data fed to the session hash, so
-#          that the final message digest authenticates the pad as well
-#          as the plaintext.  (The actual number of bytes used is
-#          PadSession._digest_source_length.)
-# 
 #   F  ==  a few format indicator bytes:
 #
 #          These tell OneTime what version of its internal format it
@@ -121,6 +114,13 @@ import random
 #          the number of bytes of tail fuzz (the concluding
 #          set of asterisks) that will be used. 
 #
+#   R  ==  some bytes of raw pad input for the session hash
+# 
+#          These bytes are among the data fed to the session hash, so
+#          that the final message digest authenticates the pad as well
+#          as the plaintext.  (The actual number of bytes used is
+#          PadSession._digest_source_length.)
+# 
 #   *  ==  a random number of fuzz bytes (head fuzz or tail fuzz):
 # 
 #          A random number (derived from the pad -- see above) of
@@ -640,9 +640,8 @@ but it still needs to be a new object due to certain initializations)."""
   # of a hexadecimal representation of the digest.
   _digest_length = 32
 
-  # A stretch of pad bytes, starting at self._offset, are included in
-  # the source material for the digest computed in self._session_hash.
-  # This is how many bytes to use.
+  # Number of contiguous raw pad bytes to use as the source
+  # material for the digest computed in self._session_hash.
   _digest_source_length = 32
 
   def __init__(self, pad_path, config_area=None, 
@@ -680,11 +679,7 @@ but it still needs to be a new object due to certain initializations)."""
 
     # We compute a hash of the plaintext head fuzz + plaintext message
     # and embed that hash into the encrypted text, for authentication
-    # of the overall encrypted message.
-    #
-    # Instead of initializing it here, we initialize it in the first
-    # call to self.convert(), so that any attempt to use the session
-    # hash before it's initialized will raise an error.
+    # of the overall encrypted message.  See self._initialize_hash().
     self._session_hash = None
 
     # There are both head and tail fuzz, but we only need to remember
@@ -774,7 +769,6 @@ but it still needs to be a new object due to certain initializations)."""
     if self._decrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both encryption and decryption")
-    self._initialize_hash()
     self._head_buffer = self._make_inner_header()
     self._encrypting = True
 
@@ -786,16 +780,12 @@ but it still needs to be a new object due to certain initializations)."""
     if self._encrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both decryption and encryption")
-    # The fact that we don't call self._initialize_hash() nor
-    # self._handle_inner_header() here is an ugly asymmetry
-    # w.r.t. self.prepare_for_encryption().  The reason for it is that
-    # the decryption code flow is complicated by the need to handle
-    # remainder input, in a way that encryption is not.  Notice how
-    # self._initialize_hash() and self._handle_inner_header() are
-    # called together in self.convert().  Those two calls really
-    # should be chained together in one routine, and this would be the
-    # routine for it to happen in.  Maybe some day someone will be
-    # motivated enough to clean this up.
+    # The fact that we don't call self._handle_inner_header() here is
+    # an unfortunate asymmetry w.r.t. self.prepare_for_encryption().
+    # The reason for it is that the decryption code flow is
+    # complicated by the need to handle remainder input, in a way that
+    # encryption is not.  This is why self._handle_inner_header() has
+    # to be called from self.convert().
     self._decrypting = True
 
   def set_offset(self, offset):
@@ -859,17 +849,13 @@ must be used for all subsequent calls with that instance.
           # is likely to deliver string in chunks so small.  So, saving
           # it to solve later.
 
-          # The complement of these calls to self._initialize_hash()
-          # and self._handle_inner_header(string) is located, in
-          # the encryption case, in self._prepare_for_encryption(),
-          # which also prepares self._head_buffer for the first call
-          # to convert().  However, the decryption case is complicated
-          # by the need to return remainder information, in a way that
-          # the encryption case is not.  This asymmetry is reflected
-          # in the code, unfortunately; ideally, these calls would be
-          # chained together in self.prepare_for_decryption().  It
-          # would be nice to clean this up some day.
-          self._initialize_hash()
+          # The complement of this call to self._handle_inner_header()
+          # is located in self._prepare_for_encryption() in the
+          # encryption case, which also prepares self._head_buffer for
+          # the first call to convert().  However, the decryption case
+          # is complicated by the need to return remainder
+          # information, in a way that the encryption case is not.
+          # This asymmetry is reflected in the code.
           string, fuzz_remaining = self._handle_inner_header(string)
           if string != "" and fuzz_remaining != 0:
             raise PadSession.InnerFormat(
@@ -1245,6 +1231,7 @@ of random fuzz data generated herein."""
     self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
+    self._initialize_hash()
     head_fuzz = self._make_fuzz(head_fuzz_length, is_head_fuzz=True)
     result = chr(inner_header_format_version)       \
              + chr(fuzz_source_length_indicator)    \
@@ -1294,6 +1281,7 @@ of random fuzz data generated herein."""
           = self._get_fuzz_length_from_pad(
             self._default_fuzz_source_length, 
             self._default_fuzz_source_modulo)
+        self._initialize_hash()
         # TODO: We're capturing these return values but then never
         # using them, except for debugging.  That seems odd.  Check
         # with later return of remaining amount to see if at least
