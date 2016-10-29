@@ -1282,15 +1282,77 @@ of random fuzz data generated herein."""
             self._default_fuzz_source_length, 
             self._default_fuzz_source_modulo)
         self._initialize_hash()
-        # TODO: We're capturing these return values but then never
-        # using them, except for debugging.  That seems odd.  Check
-        # with later return of remaining amount to see if at least
-        # there's an assertion that could be checked.
+
         num_fuzz_bytes_remaining, unconsumed_string \
           = self._consume_fuzz_bytes(
             head_fuzz_length, 
             string[2 + (self._default_fuzz_source_length * 2):],
             is_head_fuzz=True)
+        # TODO: We're capturing these return values above but then
+        # never using them, except for debugging.  That seems odd.
+        # Check with later return of remaining amount to see if at
+        # least there's an assertion that could be checked.
+        #
+        # If you print them out by putting this code here...
+        #
+        #   sys.stderr.write("DBG: nfzzbr %d, uncnsm_str %d\n" 
+        #                    % (num_fuzz_bytes_remaining, len(unconsumed_string)))
+        #   sys.stderr.flush()
+        #
+        # ...and then run 'make check', it shows that the unconsumed
+        # string is always zero while num_fuzz_bytes_remaining varies:
+        #
+        #   DBG: nfzzbr 344, uncnsm_str 0
+        #   PASS: basic encryption, decryption
+        #   DBG: nfzzbr 344, uncnsm_str 0
+        #   PASS: encryption, decryption of large plaintext
+        #   DBG: nfzzbr 39, uncnsm_str 0
+        #   DBG: nfzzbr 409, uncnsm_str 0
+        #   DBG: nfzzbr 157, uncnsm_str 0
+        #   DBG: nfzzbr 14, uncnsm_str 0
+        #   DBG: nfzzbr 297, uncnsm_str 0
+        #   PASS: option parsing
+        #   PASS: failed decryption should give an error and create no output
+        #   DBG: nfzzbr 54, uncnsm_str 0
+        #   PASS: decryption should not shrink pad usage
+        #   DBG: nfzzbr 54, uncnsm_str 0
+        #   PASS: decryption should record same pad usage as encryption
+        #   DBG: nfzzbr 54, uncnsm_str 0
+        #   DBG: nfzzbr 54, uncnsm_str 0
+        #   DBG: nfzzbr 155, uncnsm_str 0
+        #   DBG: nfzzbr 39, uncnsm_str 0
+        #   DBG: nfzzbr 39, uncnsm_str 0
+        #   DBG: nfzzbr 409, uncnsm_str 0
+        #   PASS: test reconsumption via repeated encoding and decoding
+        #   PASS: make sure '--show-id' shows everything it should
+        #   PASS: same plaintext should encrypt smaller with v2+ than with v1
+        #   PASS: decode v1 msg, where v1 entry has range already used
+        #   PASS: decode v1 msg, where v1 entry has range not already used
+        #   DBG: nfzzbr 344, uncnsm_str 0
+        #   PASS: decode v2 msg, where v1 entry has range already used
+        #   DBG: nfzzbr 344, uncnsm_str 0
+        #   PASS: decode v2 msg, where v1 entry range needs stretching
+        #   DBG: nfzzbr 344, uncnsm_str 0
+        #   PASS: decode v2 msg, where v1 entry needs new range
+        #   PASS: decode v1 msg, where no entry in pad-records at all
+        #   PASS: encode msg, where v1 pad entry has some range already used
+        #   PASS: decode msg, erroring because garbage after base64 data
+        #   PASS: tampered head fuzz is detected, but decryption succeeds
+        #   PASS: tampering with ciphertext causes bzip decoder error
+        #   DBG: nfzzbr 344, uncnsm_str 0
+        #   PASS: basic encryption/decryption with all-nulls plaintext
+        #   PASS: tampering with tail fuzz should have no effect
+        #   PASS: basic encryption/decryption with zero-length tail fuzz
+        #   PASS: tampering with message digest causes authentication error
+        #   PASS: tampering with head fuzz causes authentication error
+        #
+        # It seems clear there's a latent bug here.  We are counting
+        # on there always being enough head fuzz to carry over into
+        # upcoming methods that will consume more input.  If there
+        # happened to be small enough head fuzz to make this not be
+        # the case, then suddenly things might break.  This is dumb.
+        # It's also testable, with the right hand-constructed pad.
+
         fuzz_length += (self._default_fuzz_source_length * 2) \
                           + head_fuzz_length
       else:
