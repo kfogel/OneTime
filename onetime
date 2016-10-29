@@ -753,7 +753,7 @@ but it still needs to be a new object due to certain initializations)."""
     "Exception raised if a digest check fails."
     pass
 
-  def _initialize_digest(self):
+  def _initialize_hash(self):
     """Initialize the session hash with some raw pad bytes."""
     if self._offset + self._digest_source_length >= self.pad_size:
       raise PadSession.PadShort(
@@ -774,7 +774,7 @@ but it still needs to be a new object due to certain initializations)."""
     if self._decrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both encryption and decryption")
-    self._initialize_digest()
+    self._initialize_hash()
     self._head_buffer = self._make_inner_header()
     self._encrypting = True
 
@@ -786,12 +786,12 @@ but it still needs to be a new object due to certain initializations)."""
     if self._encrypting:
       raise PadSession.OverPrepared(
         "cannot prepare for both decryption and encryption")
-    # The fact that we don't call self._initialize_digest() nor
+    # The fact that we don't call self._initialize_hash() nor
     # self._handle_inner_header() here is an ugly asymmetry
     # w.r.t. self.prepare_for_encryption().  The reason for it is that
     # the decryption code flow is complicated by the need to handle
     # remainder input, in a way that encryption is not.  Notice how
-    # self._initialize_digest() and self._handle_inner_header() are
+    # self._initialize_hash() and self._handle_inner_header() are
     # called together in self.convert().  Those two calls really
     # should be chained together in one routine, and this would be the
     # routine for it to happen in.  Maybe some day someone will be
@@ -859,7 +859,7 @@ must be used for all subsequent calls with that instance.
           # is likely to deliver string in chunks so small.  So, saving
           # it to solve later.
 
-          # The complement of these calls to self._initialize_digest()
+          # The complement of these calls to self._initialize_hash()
           # and self._handle_inner_header(string) is located, in
           # the encryption case, in self._prepare_for_encryption(),
           # which also prepares self._head_buffer for the first call
@@ -869,7 +869,7 @@ must be used for all subsequent calls with that instance.
           # in the code, unfortunately; ideally, these calls would be
           # chained together in self.prepare_for_decryption().  It
           # would be nice to clean this up some day.
-          self._initialize_digest()
+          self._initialize_hash()
           string, fuzz_remaining = self._handle_inner_header(string)
           if string != "" and fuzz_remaining != 0:
             raise PadSession.InnerFormat(
