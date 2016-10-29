@@ -988,12 +988,10 @@ check_result
 ########################################################################
 start_new_test "tampering with ciphertext causes bzip decoder error"
 ## Encrypt message
-# exit 1
 ../../onetime --config=blank-dot-onetime -e -p ../test-pad-1  \
          -o tmp-ciphertext-b-1 < ../test-plaintext-b 2>err.out
 # In the base64-encoded ciphertext file, position 8563 is 'd' (100).
 ../zap tmp-ciphertext-b-1 8563 100 101
-# exit 1
 ../../onetime --config=blank-dot-onetime -d -p ../test-pad-1 \
     < tmp-ciphertext-b-1 2>err.out
 if ! grep -q "IOError: invalid data stream" err.out
