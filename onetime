@@ -88,7 +88,7 @@ import random
 # after the core data, there's some bookkeeping, all base64-encoded.
 # Here's a diagram, with index increasing from left to right:
 #
-#   FFHHTTRRRR******-------------------------------------DDDD*******
+#   FFHHIIRRRR******iiiiii-------------------------------------DDDD
 #
 # The precise number of same characters in a row is not significant
 # above, except as a rough guide to the relative lengths of the 
@@ -108,11 +108,12 @@ import random
 #          the number of bytes of head fuzz (the first 
 #          set of asterisks) that will be used.
 #
-#   T  ==  a few tail fuzz source length bytes:
+#   I  ==  a few inner fuzz source length bytes:
 # 
 #          A few more bytes of raw pad data, used to calculate
-#          the number of bytes of tail fuzz (the concluding
-#          set of asterisks) that will be used. 
+#          the number of bytes of inner fuzz (fuzz that is included
+#          *inside* the compressed section, right before the
+#          plaintext) that will be used. 
 #
 #   R  ==  some bytes of raw pad input for the session hash
 # 
@@ -121,7 +122,7 @@ import random
 #          as the plaintext.  (The actual number of bytes used is
 #          PadSession._digest_source_length.)
 # 
-#   *  ==  a random number of fuzz bytes (head fuzz or tail fuzz):
+#   *  ==  a random number of head fuzz bytes
 # 
 #          A random number (derived from the pad -- see above) of
 #          runtime-generated random or pseudo-random bytes, XOR'd
@@ -131,9 +132,10 @@ import random
 #          called "head fuzz", and because the number of bytes is
 #          based on pad data, they prevent an attacker from knowing
 #          exactly where in the encrypted text the message starts.
-#          When they appear at the end they are called "tail fuzz",
-#          and similarly, they mean that an attacker does not know
-#          exactly where the message ends.  
+#          When they appear inside the compressed data they are called
+#          "inner fuzz", and similarly, prevent an attacker from
+#          knowing exactly how long the encrypted message is *even* in
+#          the case of a known plaintext.
 #
 #          In other words, the real message (and its digest, described
 #          below) sits somewhere along a slider surrounded by fuzz on
@@ -152,6 +154,9 @@ import random
 #          one, still at least OneTime should do its best to avoid
 #          exposing this mistake in an obvious way when it happens.
 # 
+#   i  ==  A random number of inner fuzz bytes, within the 
+#          compressed section that also contains the plaintext.
+#
 #   -  ==  encrypted plaintext
 # 
 #          Base64-encoded XOR'd bzipped plaintext.
@@ -161,7 +166,8 @@ import random
 #          A SHA256 digest, XOR'd with pad, of: the raw pad session
 #          hash input bytes, plus the raw head fuzz (that is, the
 #          random bytes from *before* they were XOR'd with the pad to
-#          produce the final head fuzz), plus the plaintext message. 
+#          produce the final head fuzz), plus the inner fuzz, plus the
+#          plaintext message.
 #          
 #          The purpose of this digest verify message integrity without
 #          revealing anything about the pad (because we don't want an
@@ -175,11 +181,8 @@ import random
 #   to save space, it is the raw hash digest.  However, any integrity
 #   errors display the hash in hexadecimal.)
 #
-# On decryption, OneTime verifies both the digest and that the tail
-# fuzz is exactly as long as expected.  If anything doesn't match,
-# OneTime will raise an error -- though if the error was detected only
-# in the digest or in the tail fuzz length, then there may still have
-# been a successful decryption first, with plaintext output emitted.
+# On decryption, OneTime verifies the digest, and raises an error if
+# it doesn't match.
 # 
 # OneTime takes care never to expose even raw pad bytes that aren't
 # going to be used for encryption.  Although in theory the pad should
@@ -196,12 +199,11 @@ import random
 #      SHA256 hash of some bytes from the front of the pad, instead of
 #      just using a hex representation of those bytes in raw form.
 #
-#   2) When inserting head fuzz and tail fuzz into the encrypted
-#      message, we don't just use raw pad bytes, but rather XOR raw
-#      pad bytes against run-time-generated random bytes, so that the
-#      fuzz regions reveal as little as possible about the pad and
-#      are, ideally, in no way distinguishable on inspection from the
-#      encrypted data between them.
+#   2) When inserting head fuzz into the encrypted message, we don't
+#      just use raw pad bytes, but rather XOR raw pad bytes against
+#      run-time-generated random bytes, so that the fuzz region
+#      reveals as little as possible about the pad and is, ideally, in
+#      no way distinguishable on inspection from the encrypted data.
 # 
 # As for the code, the design is pretty much what you'd expect:
 # 
@@ -578,10 +580,9 @@ class RandomEnough:
           ***                                            ***
           **************************************************
   
-  There are a couple of places (the head fuzz and tail fuzz) where raw
-  pad bytes would otherwise be exposed in the encrypted message,
-  except that they're not exposed because they're XOR'd with bytes
-  coming from this class.  That's all this class is for.
+  In the head fuzz, where raw pad bytes would otherwise be exposed in
+  the encrypted message, they're not exposed because they're XOR'd
+  with bytes coming from this class.  That's all this class is for.
 
   If the pad is truly random, as it should be, then the randomness
   produced by this class is irrelevant.  If the pad is not truly
@@ -682,23 +683,14 @@ but it still needs to be a new object due to certain initializations)."""
     # of the overall encrypted message.  See self._initialize_hash().
     self._session_hash = None
 
-    # There are both head and tail fuzz, but we only need to remember
-    # the tail fuzz length, because we learn that length at the start
-    # of processing but wait till the end to emit or consume it --
-    # whereas head fuzz we emit/consume as soon as we know its length.
-    self._tail_fuzz_length = None
-    self._tail_fuzz_length_source_bytes = None
+    self._inner_fuzz_length = None
+    self._inner_fuzz_length_source_bytes = None
 
     # This buffer holds all encrypted head fuzz bytes that have not
     # yet been emitted by convert().  That is, when this buffer is not
     # empty, then it is what convert() needs to emit *before* it emits
     # anything else -- the first part of the output of the first call.
     self._head_buffer = ''
-
-    # This buffer always holds the latest input, and must always be at
-    # least as long as the digest + tail fuzz, so that we can
-    # refrain from decrypting them as part of the original plaintext.
-    self._tail_buffer = ''
 
     # Most of what a pad session does is the same for encrypting and
     # decrypting -- after all, the conversion step is symmetrical (XOR).
@@ -735,13 +727,6 @@ but it still needs to be a new object due to certain initializations)."""
 
   class InnerFormat(Exception):
     "Exception raised if something is wrong with the inner format."
-    pass
-
-  class FuzzMismatch(Exception):
-    "Exception raised if the amount of tail fuzz is incorrect."
-    # In practice this error can never happen for head fuzz, because
-    # if the length of the head fuzz is wrong, the digest will not
-    # match either, and we'll catch the digest error first.
     pass
 
   class DigestMismatch(Exception):
@@ -801,11 +786,8 @@ else return the empty string.  Note STRING may be empty on intermediate
 calls simply because a compressor has not yet had enough incoming data to
 work with, not necessarily because input is ended yet.
 
-If FORMAT_LEVEL is "original", then don't handle the head and tail 
-used by the later format levels.  Otherwise, do handle the head and
-tail: for the head, consume over the fuzz and include it in the
-overall message digest; for the tail, just remember its length so we
-can consume it later.
+If FORMAT_LEVEL is "original", don't handle the head fuzz and digest
+computation used by later format levels; otherwise, do handle them.
 
 It is an error to call this multiple times with different FORMAT_LEVEL
 values, for a given PadSession instance.  Whatever you pass the first time
@@ -875,21 +857,6 @@ must be used for all subsequent calls with that instance.
         num_fuzz_bytes_remaining, string = self._consume_fuzz_bytes(
           num_bytes_to_consume_now, string, is_head_fuzz=True)
         self._fuzz_remaining_to_consume += num_fuzz_bytes_remaining
-
-      # Once we've handled any inner headers, buffer for decrypting.
-      if self._decrypting:
-        self._tail_buffer += string
-        # Reserve exactly the tail length each time, so that on the
-        # last iteration we can just check both parts of the tail
-        # (the digest and the fuzz) without emitting new output.
-        if len(self._tail_buffer) < (PadSession._digest_length
-                                     + self._tail_fuzz_length):
-          string = ''   # wait until we have more or are done
-        else:
-          string = self._tail_buffer[:(0 - (PadSession._digest_length
-                                            + self._tail_fuzz_length))]
-          self._tail_buffer = self._tail_buffer[
-            (0 - (PadSession._digest_length + self._tail_fuzz_length)):]
 
     string_len = len(string)
     pad_str = self.padfile.read(string_len)
@@ -991,13 +958,15 @@ must be used for all subsequent calls with that instance.
     # What's going on here?  What is "fuzz"?
     #
     # "Fuzz" is some random data that pads the plaintext+digest on
-    # either side; the fuzz in front is "head fuzz" and the fuzz at
-    # the end is "tail fuzz".  Fuzz consists of a random length of
-    # random bytes -- the length is computed from pad, the bytes
-    # themselves are generated randomly at run time), and XOR'd
-    # against pad -- such the position of the plaintext+digest is not
-    # known even to an attacker who can see the pad-records file.
-    #
+    # either side; the fuzz in front is "head fuzz" and the fuzz in
+    # the compressed portion is "inner fuzz".  Fuzz consists of a
+    # random length of random bytes -- the length is computed from
+    # pad, the bytes themselves are generated randomly at run time),
+    # and XOR'd against pad -- such the start position of the true
+    # plaintext is not known even to an attacker who knows the
+    # plaintext (or knows its compressed length) or who can see
+    # the pad-records file.
+    # 
     # That is, because the length of the fuzz is based on data in the
     # pad, and a corresponding amount of pad is consumed, the position
     # of the fuzz is known only to those who have the pad, and the
@@ -1007,8 +976,7 @@ must be used for all subsequent calls with that instance.
     # OneTime tries to mitigate the situation as much as it can and
     # not leak any information about raw pad data).
     #
-    # For both head fuzz and the tail fuzz, the fuzz length may be
-    # determined in two ways:
+    # Fuzz length could be determined in one of two ways:
     #
     #   1) Read NUM_BYTES from the current location in the pad, and
     #      use those bytes to calculate (in some deterministic way)
@@ -1181,10 +1149,9 @@ of random fuzz data generated herein."""
     #
     # You may be wondering, why do we have fuzz at all?
     #
-    # By prepending and appending random amounts of data (the head
-    # fuzz and tail fuzz), we make it impossible for the attacker to
-    # know exactly where the real encrypted text starts and ends or
-    # how long the encrypted text is.
+    # By including head fuzz and inner fuzz, we make it impossible for
+    # the attacker to know exactly where the real encrypted text
+    # starts and ends or how long the encrypted text is.
     #
     # This means she can't derive the relevant part of the pad, so she
     # can't substitute another plaintext, even if she knows the
@@ -1193,12 +1160,12 @@ of random fuzz data generated herein."""
     # from the encrypted text.
     #
     # The fuzz isn't the only thing preventing substitution, because
-    # encrypted messages are also authenticated with checksums made
+    # encrypted messages are also authenticated with a checksum made
     # from both pad data and plaintext data.  But this way an attacker
     # has only a "1 / fuzz_length" chance of even guessing where in
     # the message the compressed plaintext *is*, regardless of whether
-    # she has a known plaintext -- the tail fuzz distance means she
-    # can't just count backwards from the end of the ciphertext.
+    # she has a known plaintext -- the inner fuzz means she can't just
+    # count backwards from the end of the ciphertext.
     #
     # We can't afford to disguise the position or length by very much,
     # because pad isn't cheap and we don't want to use it up on fuzz.
@@ -1228,15 +1195,15 @@ of random fuzz data generated herein."""
     head_fuzz_length, head_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
-    self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
+    self._inner_fuzz_length, self._inner_fuzz_length_source_bytes \
       = self._get_fuzz_length_from_pad(
         self._default_fuzz_source_length, self._default_fuzz_source_modulo)
     self._initialize_hash()
     head_fuzz = self._make_fuzz(head_fuzz_length, is_head_fuzz=True)
-    result = chr(inner_header_format_version)       \
-             + chr(fuzz_source_length_indicator)    \
-             + head_fuzz_length_source_bytes        \
-             + self._tail_fuzz_length_source_bytes  \
+    result = chr(inner_header_format_version)        \
+             + chr(fuzz_source_length_indicator)     \
+             + head_fuzz_length_source_bytes         \
+             + self._inner_fuzz_length_source_bytes  \
              + head_fuzz
     return result
 
@@ -1277,7 +1244,7 @@ of random fuzz data generated herein."""
           = self._get_fuzz_length_from_pad(
             self._default_fuzz_source_length, 
             self._default_fuzz_source_modulo)
-        self._tail_fuzz_length, self._tail_fuzz_length_source_bytes \
+        self._inner_fuzz_length, self._inner_fuzz_length_source_bytes \
           = self._get_fuzz_length_from_pad(
             self._default_fuzz_source_length, 
             self._default_fuzz_source_modulo)
@@ -1385,14 +1352,15 @@ of random fuzz data generated herein."""
     self._session_hash.update(string)
 
   def _verify_digest(self):
-    """Verify that the head fuzz + message digest embedded at the current
-    location matches the expected digest in self._session_hash,
-    consuming PadSession._digest_length bytes of pad in the process.
+    """Verify that the digest embedded at the current location matches
+    the expected digest in self._session_hash, consuming
+    PadSession._digest_length bytes of pad in the process.
     If any mismatch, raise a PadSession.DigestMismatch error showing
     the two digests in hexadecimal format."""
     pad_bytes = self.padfile.read(PadSession._digest_length)
     self._length += PadSession._digest_length
     received_digest = ''
+    # TODO(tail-to-inner): Obviously this code will have to change.
     for i in range(PadSession._digest_length):
       received_digest += chr(ord(self._tail_buffer[i]) ^ ord(pad_bytes[i]))
     # Advance the tail buffer past the part we've just consumed.
@@ -1407,39 +1375,25 @@ of random fuzz data generated herein."""
     """Close out this pad session.  If this PadSession is at an
     \"internal\" (i.e., post-1.x) format level, then: 
 
-    If encrypting, return the pad-encrypted session digest, and the
-    tail fuzz, as a single string.
+    If encrypting, return the pad-encrypted session digest as a string.
 
     If decrypting, the return value is undefined and should be ignored,
     but raise a PadSession.DigestMismatch error if the session digest
-    does not match the calculated digest, and raise PadSession.FuzzMismatch 
-    if the amount of tail fuzz found doesn't match the amount expected."""
+    does not match the calculated digest."""
     remainder = None
     if self._format_level == "internal":
-      if self._tail_fuzz_length is None:
-        raise PadSession.PadSessionUninitialized(
-          "tail fuzz length never initialized")
-      elif self._encrypting:
+      if self._encrypting:
         remainder  = self.convert(self._session_hash.digest())
-        remainder += self._make_fuzz(self._tail_fuzz_length)
       elif self._decrypting:
-        # Decryption has already succeeded by the time we encounter
-        # the tail, but if the tail doesn't match, we should still let
-        # the user know the message was tampered with.
-        #
-        # There are two ways the tail could fail to match: either a
-        # digest mismatch (i.e., an authentication failure), or a
-        # mismatch against the expected tail fuzz bytes.
+        # Decryption has already succeeded by this time, but we should
+        # still let the user know if the digest doesn't match; it
+        # might mean the message was tampered with.
         # 
-        # Note that checking the tail has the important side effect
+        # Note that checking the digest has the important side effect
         # of recording that last bit of pad usage on decryption, which
         # is important for avoiding pad re-use -- that's the bug for
         # which a test was added in commit 9e8422f07.
         self._verify_digest()
-        num_fuzz_bytes_remaining, unconsumed_string = self._consume_fuzz_bytes(
-          self._tail_fuzz_length, self._tail_buffer)
-        if num_fuzz_bytes_remaining != 0 or unconsumed_string != '':
-          raise PadSession.FuzzMismatch("some source tail fuzz left over")
       else:
         raise PadSession.OverPrepared(
           "pad session out of whack: both encrypting and decrypting")
