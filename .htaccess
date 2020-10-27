@@ -1,9 +1,0 @@
-DirectoryIndex home
-
-<FilesMatch "^(home|get|why|dev|changes)$">
-  ForceType 'text/html; charset=UTF-8'
-</FilesMatch>
-
-<FilesMatch "^check\.sh$">
-  ForceType 'text/plain; charset=UTF-8'
-</FilesMatch>
